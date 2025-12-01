@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TicketPlatFormServer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fdc93f9ddd4186920836d89bcc161f74184d1d4b")]
 [assembly: System.Reflection.AssemblyProductAttribute("TicketPlatFormServer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TicketPlatFormServer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

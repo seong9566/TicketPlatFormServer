@@ -1,0 +1,6 @@
+
+// DB 스캐폴딩
+dotnet ef dbcontext scaffold "Server=localhost;Port=3306;Database=TicketPlatFormDB;User=root;Password=stecdev1234!;" Pomelo.EntityFrameworkCore.MySql --output-dir DBModel --context-dir Repository --context TicketContext --force
+
+// NuGet 패키지 일괄 설치
+dotnet restore
