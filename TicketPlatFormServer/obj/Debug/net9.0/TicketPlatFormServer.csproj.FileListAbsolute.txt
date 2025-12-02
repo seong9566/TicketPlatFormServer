@@ -270,3 +270,8 @@
 /Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/tr/Microsoft.CodeAnalysis.Scripting.resources.dll
 /Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/zh-Hans/Microsoft.CodeAnalysis.Scripting.resources.dll
 /Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/zh-Hant/Microsoft.CodeAnalysis.Scripting.resources.dll
+/Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/Microsoft.OpenApi.dll
+/Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/Swashbuckle.AspNetCore.Swagger.dll
+/Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/Swashbuckle.AspNetCore.SwaggerGen.dll
+/Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/bin/Debug/net9.0/Swashbuckle.AspNetCore.SwaggerUI.dll
+/Users/stecdev/Desktop/workspace/dotnet_server/TicketPlatFormServer/TicketPlatFormServer/obj/Debug/net9.0/TicketPlatFormServer.MvcApplicationPartsAssemblyInfo.cs

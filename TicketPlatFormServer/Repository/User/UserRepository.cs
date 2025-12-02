@@ -16,7 +16,7 @@ public class UserRepository :IUserRepository
     
     public async Task<User?> GetByEmail(string email)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.Equals(email) && x.IsDeleted == false)!;
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email ==email && x.IsDeleted == false)!;
         return user;
     }
 
@@ -26,4 +26,4 @@ public class UserRepository :IUserRepository
         await _db.SaveChangesAsync();
         return user;
     }
-}
+} 

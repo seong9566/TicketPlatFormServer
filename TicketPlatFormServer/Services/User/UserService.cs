@@ -1,3 +1,5 @@
+using System.Net;
+using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Enum;
 
@@ -22,20 +24,20 @@ public class UserService : IUserService
         {
             // 추후 BaseResponseModel로 변경 할 것.
             // code,message,data
-            throw new Exception("이미 가입된 계정입니다.");
+            throw new AppException(message:"이미 가입된 계정입니다.",statusCode: HttpStatusCode.AlreadyReported);
         }
         
         // 2. 가입 유형 검증
         var validProvider = System.Enum.GetValues<UserRegisterProviderEnum>();
-        if (!validProvider.Contains(dto.Provider))
+        if (!System.Enum.TryParse<UserRegisterProviderEnum>(dto.Provider, true, out var providerEnum))
         {
-            throw new Exception("허용 되지 않은 가입 유형입니다.");
+            throw new AppException(message: "허용되지 않은 가입 유형 입니다.", statusCode: HttpStatusCode.BadRequest);
         }
         
         // 3. 비밀번호 암호화
-        string passwordHash = dto.Provider == UserRegisterProviderEnum.Email
+        string passwordHash = (dto.Provider == nameof(UserRegisterProviderEnum.Email)
             ? BCrypt.Net.BCrypt.HashPassword(dto.Password)
-            : null;
+            : null)!;
         
         // 4. Dto -> Entity 
         var reqEntity = new DBModel.User
@@ -43,8 +45,8 @@ public class UserService : IUserService
             Email = dto.Email,
             Phone = dto.Phone,
             PasswordHash = passwordHash,
-            Role = dto.Role.ToString(),
-            Provider = dto.Provider.ToString()
+            Role = dto.Role.ToUpper(),
+            Provider = dto.Provider
         };
 
         // 5. DB에 저장 
@@ -52,11 +54,12 @@ public class UserService : IUserService
         
         // Entity -> Dto 
         return new RegisterUserRespDto
-        {
+        { 
             Email = saved.Email,
             Phone = saved.Phone ?? "",
-            Role = System.Enum.Parse<UserRoleEnum>(saved.Role),
-            Provider = System.Enum.Parse<UserRegisterProviderEnum>(saved.Provider)
+            // ignoreCase : 대소문자 무시 
+            Role = System.Enum.Parse<UserRoleEnum>(saved.Role, ignoreCase: true),
+            Provider = System.Enum.Parse<UserRegisterProviderEnum>(saved.Provider, ignoreCase: true)
         };
     }
 }

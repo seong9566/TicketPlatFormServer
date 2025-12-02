@@ -15,9 +15,9 @@ public class RegisterUserReqDto
     
     public string? Phone { get; set; }
 
-    public UserRoleEnum Role { get; set; } = UserRoleEnum.User;
+    public string Role { get; set; } = "User";
     
     [Required]
-    public UserRegisterProviderEnum Provider { get; set; } = UserRegisterProviderEnum.Email;
+    public string Provider { get; set; } = "Email";
 
 }

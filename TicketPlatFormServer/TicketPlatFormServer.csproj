@@ -17,7 +17,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Common\" />
       <Folder Include="Controllers\" />
       <Folder Include="DBModel\" />
     </ItemGroup>
@@ -33,6 +32,7 @@
       <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.11" />
       <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="9.0.0" />
       <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="10.0.1" />
     </ItemGroup>
 
 </Project>

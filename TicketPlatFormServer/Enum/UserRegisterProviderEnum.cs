@@ -6,6 +6,8 @@ namespace TicketPlatFormServer.Enum;
 /// OAuth : Google,KaKao,Apple
 /// </summary>
 public enum UserRegisterProviderEnum
+// 닷넷 Enum 클래스 Value 출력 문법
+// Enum.GetValues(typeof(<Value>))
 {
     Email,
     Google,
