@@ -15,6 +15,8 @@ public partial class Event
     /// </summary>
     public long CategoryId { get; set; }
 
+    public long? ArtistId { get; set; }
+
     /// <summary>
     /// 공연/이벤트 제목
     /// </summary>
@@ -48,6 +50,8 @@ public partial class Event
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+
+    public virtual Artist? Artist { get; set; }
 
     public virtual TicketCategory Category { get; set; } = null!;
 

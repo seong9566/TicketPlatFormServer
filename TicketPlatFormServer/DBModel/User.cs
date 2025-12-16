@@ -49,6 +49,8 @@ public partial class User
 
     public virtual ICollection<AdminAction> AdminActions { get; set; } = new List<AdminAction>();
 
+    public virtual ICollection<ArtistFollower> ArtistFollowers { get; set; } = new List<ArtistFollower>();
+
     public virtual ICollection<BankAccount> BankAccounts { get; set; } = new List<BankAccount>();
 
     public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();

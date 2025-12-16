@@ -18,6 +18,8 @@ public partial class TicketCategory
 
     public int SortOrder { get; set; }
 
+    public virtual ICollection<Artist> Artists { get; set; } = new List<Artist>();
+
     public virtual ICollection<Event> Events { get; set; } = new List<Event>();
 
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();

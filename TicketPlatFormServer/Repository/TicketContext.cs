@@ -23,6 +23,10 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<AdminTargetType> AdminTargetTypes { get; set; }
 
+    public virtual DbSet<Artist> Artists { get; set; }
+
+    public virtual DbSet<ArtistFollower> ArtistFollowers { get; set; }
+
     public virtual DbSet<AuthProvider> AuthProviders { get; set; }
 
     public virtual DbSet<AuthRole> AuthRoles { get; set; }
@@ -220,6 +224,81 @@ public partial class TicketContext : DbContext
                 .HasComment("한글 표시명")
                 .HasColumnName("name_ko");
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+        });
+
+        modelBuilder.Entity<Artist>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("artists");
+
+            entity.HasIndex(e => e.IsActive, "idx_artists_active");
+
+            entity.HasIndex(e => e.CategoryId, "idx_artists_category");
+
+            entity.HasIndex(e => e.Name, "idx_artists_name");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.Description)
+                .HasColumnType("text")
+                .HasColumnName("description");
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValueSql("'1'")
+                .HasColumnName("is_active");
+            entity.Property(e => e.Name)
+                .HasMaxLength(100)
+                .HasColumnName("name");
+            entity.Property(e => e.ProfileImageUrl)
+                .HasMaxLength(500)
+                .HasColumnName("profile_image_url");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+            entity.Property(e => e.UpdatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Category).WithMany(p => p.Artists)
+                .HasForeignKey(d => d.CategoryId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("artists_ibfk_1");
+        });
+
+        modelBuilder.Entity<ArtistFollower>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("artist_followers");
+
+            entity.HasIndex(e => e.ArtistId, "idx_artist_followers_artist");
+
+            entity.HasIndex(e => e.UserId, "idx_artist_followers_user");
+
+            entity.HasIndex(e => new { e.ArtistId, e.UserId }, "uk_artist_user").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ArtistId).HasColumnName("artist_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.Artist).WithMany(p => p.ArtistFollowers)
+                .HasForeignKey(d => d.ArtistId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("artist_followers_ibfk_1");
+
+            entity.HasOne(d => d.User).WithMany(p => p.ArtistFollowers)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("artist_followers_ibfk_2");
         });
 
         modelBuilder.Entity<AuthProvider>(entity =>
@@ -696,11 +775,14 @@ public partial class TicketContext : DbContext
 
             entity.HasIndex(e => e.CreatedByAdminId, "fk_events_admin");
 
+            entity.HasIndex(e => e.ArtistId, "idx_events_artist");
+
             entity.HasIndex(e => new { e.CategoryId, e.IsActive, e.SortOrder }, "idx_events_category_active_sort");
 
             entity.HasIndex(e => e.Title, "idx_events_title");
 
             entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.ArtistId).HasColumnName("artist_id");
             entity.Property(e => e.CategoryId)
                 .HasComment("카테고리 FK")
                 .HasColumnName("category_id");
@@ -735,6 +817,10 @@ public partial class TicketContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp")
                 .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Artist).WithMany(p => p.Events)
+                .HasForeignKey(d => d.ArtistId)
+                .HasConstraintName("fk_events_artist");
 
             entity.HasOne(d => d.Category).WithMany(p => p.Events)
                 .HasForeignKey(d => d.CategoryId)
