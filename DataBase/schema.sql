@@ -299,10 +299,45 @@ CREATE INDEX idx_bank_verified ON bank_account (user_id, verified);
 -- 3. 이벤트/공연 관련 테이블 (Event Tables)
 -- ============================================
 
+-- 아티스트 정보 (가수/밴드/팀 등)
+CREATE TABLE artists (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    category_id      BIGINT                               NOT NULL COMMENT '카테고리 FK (concert, sports 등)',
+    name             VARCHAR(100)                         NOT NULL COMMENT '아티스트명',
+    profile_image_url VARCHAR(500)                        NULL COMMENT '프로필 이미지 URL',
+    description      TEXT                                 NULL COMMENT '아티스트 소개',
+    is_active        TINYINT(1) DEFAULT 1                 NOT NULL COMMENT '활성 여부',
+    sort_order       INT        DEFAULT 0                 NOT NULL COMMENT '정렬 순서',
+    created_at       TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL,
+    updated_at       TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
+    
+    CONSTRAINT fk_artists_category FOREIGN KEY (category_id) REFERENCES ticket_category (id)
+) COMMENT '아티스트 정보 테이블';
+
+CREATE INDEX idx_artists_category ON artists (category_id);
+CREATE INDEX idx_artists_name ON artists (name);
+CREATE INDEX idx_artists_active ON artists (is_active);
+
+-- 아티스트 팔로우 정보
+CREATE TABLE artist_followers (
+    id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+    artist_id  BIGINT                               NOT NULL COMMENT '아티스트 FK',
+    user_id    BIGINT                               NOT NULL COMMENT '사용자 FK',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  NULL,
+    
+    CONSTRAINT fk_artist_followers_artist FOREIGN KEY (artist_id) REFERENCES artists (id),
+    CONSTRAINT fk_artist_followers_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT uq_artist_followers_artist_user UNIQUE (artist_id, user_id)
+) COMMENT '아티스트 팔로우 테이블';
+
+CREATE INDEX idx_artist_followers_artist ON artist_followers (artist_id);
+CREATE INDEX idx_artist_followers_user ON artist_followers (user_id);
+
 -- 이벤트/공연 정보
 CREATE TABLE events (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     category_id         BIGINT                               NOT NULL COMMENT '카테고리 FK',
+    artist_id           BIGINT                               NULL COMMENT '아티스트 FK',
     title               VARCHAR(255)                         NOT NULL COMMENT '공연/이벤트 제목',
     description         TEXT                                 NULL COMMENT '설명',
     poster_image_url    VARCHAR(500)                         NULL COMMENT '포스터 이미지 URL',
@@ -313,11 +348,13 @@ CREATE TABLE events (
     updated_at          TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     
     CONSTRAINT fk_events_category FOREIGN KEY (category_id) REFERENCES ticket_category (id),
+    CONSTRAINT fk_events_artist FOREIGN KEY (artist_id) REFERENCES artists (id),
     CONSTRAINT fk_events_admin FOREIGN KEY (created_by_admin_id) REFERENCES users (id)
 ) COMMENT '이벤트/공연 정보 테이블';
 
 CREATE INDEX idx_events_category_active_sort ON events (category_id, is_active, sort_order);
 CREATE INDEX idx_events_title ON events (title);
+CREATE INDEX idx_events_artist ON events (artist_id);
 
 -- 이벤트 회차/세션 정보
 CREATE TABLE event_sessions (

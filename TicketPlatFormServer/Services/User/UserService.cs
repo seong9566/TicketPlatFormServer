@@ -27,14 +27,17 @@ public class UserService : IUserService
         }
         
         // 2. 가입 유형 검증 및 Provider 조회
+        // dto.Provider값을 대소문자 구분 없이(ignoreCase) 비교후, 찾아진다면 해당 값을 providerEnum에 담도록.
         if (!System.Enum.TryParse<UserRegisterProviderEnum>(dto.Provider, true, out var providerEnum))
         {
             throw new AppException(message: "허용되지 않은 가입 유형 입니다.", statusCode: HttpStatusCode.BadRequest);
         }
         
         // Provider Code를 소문자로 변환
+        // 2번 검증 시 true가 되었다면 providerEnum에 해당 값이 담긴다. ex) email,kakao 등등 
         string providerCode = providerEnum.ToString().ToLower();
         
+        // provider 값이 정말 있는지 테이블 조회 
         var provider = await _repo.GetProviderByCode(providerCode);
         if (provider == null)
         {
@@ -43,7 +46,8 @@ public class UserService : IUserService
         
         // 3. Role 조회
         
-        string roleCode = dto.Role.ToUpper(); 
+        string roleCode = dto.Role.ToLower(); 
+        // role 값이 정말 값이 있는지 테이블 조회
         var role = await _repo.GetRoleByCode(roleCode);
         if (role == null)
         {
