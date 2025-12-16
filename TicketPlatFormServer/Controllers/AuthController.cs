@@ -35,7 +35,24 @@ namespace TicketPlatFormServer.Controllers
             return Ok(resp);
 
         }
-       
+
+        /// <summary>
+        /// 로그인
+        /// </summary>
+        /// <param name="dto">이메일과 비밀번호</param>
+        /// <returns>로그인된 사용자 정보</returns>
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginUserReqDto dto)
+        {
+            var result = await _userService.LoginUser(dto);
+            ApiResponse<LoginUserRespDto> resp = new ApiResponse<LoginUserRespDto>(
+                message: "로그인 성공",
+                data: result,
+                statusCode: 200
+            );
+
+            return Ok(resp);
+        }
 
     }
 }

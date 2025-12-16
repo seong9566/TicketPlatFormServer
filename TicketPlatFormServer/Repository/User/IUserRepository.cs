@@ -22,4 +22,24 @@ public interface IUserRepository
     /// DB에서 가져온 객체가 되어야함.
     /// <param name="user"></param>
     Task<User> Sign(User user);
+
+    /// <summary>
+    /// 마지막 로그인 시간 업데이트
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    Task UpdateLastLoginAt(long userId);
+
+    /// <summary>
+    /// Provider Code로 Provider 조회
+    /// </summary>
+    /// <param name="code">Provider Code</param>
+    /// <returns></returns>
+    Task<AuthProvider?> GetProviderByCode(string code);
+
+    /// <summary>
+    /// Role Code로 Role 조회
+    /// </summary>
+    /// <param name="code">Role Code</param>
+    /// <returns></returns>
+    Task<AuthRole?> GetRoleByCode(string code);
 }

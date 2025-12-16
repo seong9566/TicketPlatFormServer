@@ -15,9 +15,9 @@ public class RegisterUserReqDto
     
     public string? Phone { get; set; }
 
-    public string Role { get; set; } = "User";
+    public string Role { get; set; } = "user";
     
     [Required]
-    public string Provider { get; set; } = "Email";
+    public string Provider { get; set; } = "email";
 
 }

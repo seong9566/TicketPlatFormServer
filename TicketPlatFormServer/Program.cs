@@ -36,7 +36,11 @@ if (app.Environment.IsDevelopment())
 {
     // 개발환경일 경우에만 스웨거 실행
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c => {
+        // 스웨거를 기본 경로로 
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TicketPlatForm API V1");
+        c.RoutePrefix = "swagger";
+    });
 }
 else
 {
@@ -46,7 +50,7 @@ else
 }
 
 
-
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 
 app.UseHttpsRedirection();
 app.UseRouting();
