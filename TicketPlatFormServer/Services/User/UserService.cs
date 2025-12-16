@@ -14,23 +14,6 @@ public class UserService : IUserService
     {
         _repo = repo;
     }
-
-    /// <summary>
-    /// Provider Code를 Enum 이름으로 변환
-    /// DB의 소문자 code (email, google, kakao, apple)를 Enum 이름으로 변환
-    /// </summary>
-    private string ConvertProviderCodeToEnumName(string code)
-    {
-        return code.ToLower() switch
-        {
-            "email" => "Email",
-            "google" => "Google",
-            "kakao" => "KaKao", // Enum의 정확한 이름
-            "apple" => "Apple",
-            _ => code
-        };
-    }
-    
     public async Task<RegisterUserRespDto> RegisterUser(RegisterUserReqDto dto)
     {
         // 1. 중복 이메일 체크 
@@ -49,8 +32,7 @@ public class UserService : IUserService
             throw new AppException(message: "허용되지 않은 가입 유형 입니다.", statusCode: HttpStatusCode.BadRequest);
         }
         
-        // Provider Code를 소문자로 변환 (DB에 소문자로 저장됨: email, google, kakao, apple)
-        // Enum의 "KaKao"는 ToLower()로 "kakao"가 됨
+        // Provider Code를 소문자로 변환
         string providerCode = providerEnum.ToString().ToLower();
         
         var provider = await _repo.GetProviderByCode(providerCode);
