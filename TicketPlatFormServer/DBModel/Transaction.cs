@@ -62,8 +62,6 @@ public partial class Transaction
     /// </summary>
     public DateTime? DeletedAt { get; set; }
 
-    public virtual User Buyer { get; set; } = null!;
-
     public virtual ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
 
     public virtual TransactionConfirmedBy? ConfirmedBy { get; set; }
@@ -75,8 +73,6 @@ public partial class Transaction
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
 
     public virtual ICollection<Refund> Refunds { get; set; } = new List<Refund>();
-
-    public virtual User Seller { get; set; } = null!;
 
     public virtual ICollection<Settlement> Settlements { get; set; } = new List<Settlement>();
 

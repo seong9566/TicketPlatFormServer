@@ -1,4 +1,5 @@
 
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.DBModel;
 using TicketPlatFormServer.Repository;
@@ -6,11 +7,13 @@ using TicketPlatFormServer.Repository;
 public class UserRepository :IUserRepository
 {
     private readonly TicketContext _db;
+    private readonly IDbConnection _dapper;
 
-    public UserRepository(TicketContext db)
+    public UserRepository(TicketContext db, IDbConnection dapper)
     {
         // Context 의존성 주입
         _db = db;
+        _dapper = dapper;
 
     }
     
@@ -44,7 +47,7 @@ public class UserRepository :IUserRepository
     /// 마지막 로그인 시간 업데이트
     /// </summary>
     /// <param name="userId"></param>
-    public async Task UpdateLastLoginAt(long userId)
+    public async Task UpdateLastLoginAt(int userId)
     {
         var user = await _db.Users.FindAsync(userId);
         if (user != null)

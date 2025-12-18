@@ -5,9 +5,9 @@ namespace TicketPlatFormServer.DBModel;
 
 public partial class Artist
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
 
-    public long CategoryId { get; set; }
+    public int CategoryId { get; set; }
 
     public string Name { get; set; } = null!;
 

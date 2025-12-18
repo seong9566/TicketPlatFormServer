@@ -8,22 +8,13 @@ namespace TicketPlatFormServer.DBModel;
 /// </summary>
 public partial class Ticket
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
 
-    /// <summary>
-    /// 판매자 FK
-    /// </summary>
-    public long SellerId { get; set; }
+    public int SellerId { get; set; }
 
-    /// <summary>
-    /// 이벤트 세션 FK
-    /// </summary>
-    public long? EventSessionId { get; set; }
+    public int? EventSessionId { get; set; }
 
-    /// <summary>
-    /// 카테고리 FK
-    /// </summary>
-    public long CategoryId { get; set; }
+    public int CategoryId { get; set; }
 
     /// <summary>
     /// 티켓 제목
@@ -51,11 +42,6 @@ public partial class Ticket
     public int RemainingQuantity { get; set; }
 
     /// <summary>
-    /// 연석 여부
-    /// </summary>
-    public bool? IsContinuous { get; set; }
-
-    /// <summary>
     /// 판매가
     /// </summary>
     public int Price { get; set; }
@@ -70,10 +56,7 @@ public partial class Ticket
     /// </summary>
     public string? Description { get; set; }
 
-    /// <summary>
-    /// 상태 FK
-    /// </summary>
-    public long StatusId { get; set; }
+    public int StatusId { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
@@ -84,19 +67,14 @@ public partial class Ticket
     /// </summary>
     public DateTime? DeletedAt { get; set; }
 
-    public virtual TicketCategory Category { get; set; } = null!;
+    /// <summary>
+    /// 좌석 특징 키워드 (JSON 배열)
+    /// </summary>
+    public string? SeatFeatures { get; set; }
 
-    public virtual ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
+    public virtual TicketCategory Category { get; set; } = null!;
 
     public virtual EventSession? EventSession { get; set; }
 
-    public virtual User Seller { get; set; } = null!;
-
     public virtual TicketStatus Status { get; set; } = null!;
-
-    public virtual ICollection<TicketImage> TicketImages { get; set; } = new List<TicketImage>();
-
-    public virtual ICollection<TicketPriceHistory> TicketPriceHistories { get; set; } = new List<TicketPriceHistory>();
-
-    public virtual ICollection<TransactionItem> TransactionItems { get; set; } = new List<TransactionItem>();
 }

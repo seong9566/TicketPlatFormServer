@@ -50,7 +50,7 @@ public class UserService : IUserService
         // role 값이 정말 값이 있는지 테이블 조회
         var role = await _repo.GetRoleByCode(roleCode);
         if (role == null)
-        {
+        { 
             throw new AppException(message: "허용되지 않은 역할 입니다.", statusCode: HttpStatusCode.BadRequest);
         }
         
@@ -113,7 +113,7 @@ public class UserService : IUserService
             {
                 throw new AppException(message: "이메일 또는 비밀번호가 올바르지 않습니다.", statusCode: HttpStatusCode.Unauthorized);
             }
-        }
+        } 
         else
         {
             // 소셜 로그인은 비밀번호 검증 불필요

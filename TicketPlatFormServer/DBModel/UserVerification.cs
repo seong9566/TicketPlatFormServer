@@ -39,6 +39,4 @@ public partial class UserVerification
     /// 인증 완료 시각
     /// </summary>
     public DateTime? VerifiedAt { get; set; }
-
-    public virtual User User { get; set; } = null!;
 }

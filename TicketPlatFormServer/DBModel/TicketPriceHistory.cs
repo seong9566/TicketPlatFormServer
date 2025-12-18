@@ -33,8 +33,4 @@ public partial class TicketPriceHistory
     public long? ChangedBy { get; set; }
 
     public DateTime? ChangedAt { get; set; }
-
-    public virtual User? ChangedByNavigation { get; set; }
-
-    public virtual Ticket Ticket { get; set; } = null!;
 }

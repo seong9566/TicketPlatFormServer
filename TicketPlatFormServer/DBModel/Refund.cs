@@ -53,8 +53,6 @@ public partial class Refund
 
     public virtual RefundReason Reason { get; set; } = null!;
 
-    public virtual User RequestedByNavigation { get; set; } = null!;
-
     public virtual RefundStatus Status { get; set; } = null!;
 
     public virtual Transaction Transaction { get; set; } = null!;

@@ -8,7 +8,7 @@ namespace TicketPlatFormServer.DBModel;
 /// </summary>
 public partial class UserProfile
 {
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     /// <summary>
     /// 닉네임
@@ -26,14 +26,12 @@ public partial class UserProfile
     public string? Bio { get; set; }
 
     /// <summary>
-    /// 구매자 평점
+    /// 매너 온도 (36.5~99.9)
     /// </summary>
-    public float? BuyerRating { get; set; }
+    public float? MannerTemperature { get; set; }
 
     /// <summary>
-    /// 구매 거래 횟수
+    /// 총 거래 횟수
     /// </summary>
-    public int? BuyerTradeCount { get; set; }
-
-    public virtual User User { get; set; } = null!;
+    public int? TotalTradeCount { get; set; }
 }

@@ -15,6 +15,4 @@ public partial class TicketImage
     public string ImageUrl { get; set; } = null!;
 
     public DateTime? CreatedAt { get; set; }
-
-    public virtual Ticket Ticket { get; set; } = null!;
 }

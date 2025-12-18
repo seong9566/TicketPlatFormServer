@@ -37,7 +37,5 @@ public partial class TransactionItem
 
     public DateTime? CreatedAt { get; set; }
 
-    public virtual Ticket Ticket { get; set; } = null!;
-
     public virtual Transaction Transaction { get; set; } = null!;
 }

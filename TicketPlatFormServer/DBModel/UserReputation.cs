@@ -44,9 +44,5 @@ public partial class UserReputation
 
     public virtual ReputationRatingType RatingType { get; set; } = null!;
 
-    public virtual User Reviewer { get; set; } = null!;
-
     public virtual Transaction Transaction { get; set; } = null!;
-
-    public virtual User User { get; set; } = null!;
 }

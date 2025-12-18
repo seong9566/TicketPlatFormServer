@@ -58,6 +58,4 @@ public partial class TicketVerification
     public virtual TicketVerificationMethod Method { get; set; } = null!;
 
     public virtual Transaction Transaction { get; set; } = null!;
-
-    public virtual User? VerifiedByNavigation { get; set; }
 }

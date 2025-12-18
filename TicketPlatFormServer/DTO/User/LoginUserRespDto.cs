@@ -5,7 +5,7 @@ namespace TicketPlatFormServer.DTO;
 /// </summary>
 public class LoginUserRespDto
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
     public string Email { get; set; }
     public string? Phone { get; set; }
     /// <summary>

@@ -55,6 +55,8 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<EventSession> EventSessions { get; set; }
 
+    public virtual DbSet<FavoriteType> FavoriteTypes { get; set; }
+
     public virtual DbSet<Notification> Notifications { get; set; }
 
     public virtual DbSet<NotificationPlatform> NotificationPlatforms { get; set; }
@@ -106,6 +108,8 @@ public partial class TicketContext : DbContext
     public virtual DbSet<TransactionStatus> TransactionStatuses { get; set; }
 
     public virtual DbSet<User> Users { get; set; }
+
+    public virtual DbSet<UserFavorite> UserFavorites { get; set; }
 
     public virtual DbSet<UserProfile> UserProfiles { get; set; }
 
@@ -161,11 +165,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.ActionTypeId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_admin_actions_action_type");
-
-            entity.HasOne(d => d.Admin).WithMany(p => p.AdminActions)
-                .HasForeignKey(d => d.AdminId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_admin_actions_admin");
 
             entity.HasOne(d => d.TargetType).WithMany(p => p.AdminActions)
                 .HasForeignKey(d => d.TargetTypeId)
@@ -294,11 +293,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.ArtistId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("artist_followers_ibfk_1");
-
-            entity.HasOne(d => d.User).WithMany(p => p.ArtistFollowers)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("artist_followers_ibfk_2");
         });
 
         modelBuilder.Entity<AuthProvider>(entity =>
@@ -381,11 +375,6 @@ public partial class TicketContext : DbContext
                 .HasDefaultValueSql("'0'")
                 .HasComment("계좌 인증 여부")
                 .HasColumnName("verified");
-
-            entity.HasOne(d => d.User).WithMany(p => p.BankAccounts)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_bank_account_user");
         });
 
         modelBuilder.Entity<ChatMessage>(entity =>
@@ -426,11 +415,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.RoomId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_chat_messages_room");
-
-            entity.HasOne(d => d.Sender).WithMany(p => p.ChatMessages)
-                .HasForeignKey(d => d.SenderId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_chat_messages_sender");
         });
 
         modelBuilder.Entity<ChatRoom>(entity =>
@@ -500,25 +484,10 @@ public partial class TicketContext : DbContext
                 .HasComment("판매자 읽지 않은 수")
                 .HasColumnName("unread_count_seller");
 
-            entity.HasOne(d => d.Buyer).WithMany(p => p.ChatRoomBuyers)
-                .HasForeignKey(d => d.BuyerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_chat_rooms_buyer");
-
-            entity.HasOne(d => d.Seller).WithMany(p => p.ChatRoomSellers)
-                .HasForeignKey(d => d.SellerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_chat_rooms_seller");
-
             entity.HasOne(d => d.Status).WithMany(p => p.ChatRooms)
                 .HasForeignKey(d => d.StatusId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_chat_rooms_status");
-
-            entity.HasOne(d => d.Ticket).WithMany(p => p.ChatRooms)
-                .HasForeignKey(d => d.TicketId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_chat_rooms_ticket");
 
             entity.HasOne(d => d.Transaction).WithMany(p => p.ChatRooms)
                 .HasForeignKey(d => d.TransactionId)
@@ -586,11 +555,6 @@ public partial class TicketContext : DbContext
                 .HasDefaultValueSql("'4'")
                 .HasComment("분쟁 유형 FK")
                 .HasColumnName("type_id");
-
-            entity.HasOne(d => d.Claimant).WithMany(p => p.Disputes)
-                .HasForeignKey(d => d.ClaimantId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_disputes_claimant");
 
             entity.HasOne(d => d.Status).WithMany(p => p.Disputes)
                 .HasForeignKey(d => d.StatusId)
@@ -783,16 +747,12 @@ public partial class TicketContext : DbContext
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.ArtistId).HasColumnName("artist_id");
-            entity.Property(e => e.CategoryId)
-                .HasComment("카테고리 FK")
-                .HasColumnName("category_id");
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp")
                 .HasColumnName("created_at");
-            entity.Property(e => e.CreatedByAdminId)
-                .HasComment("등록 관리자 FK")
-                .HasColumnName("created_by_admin_id");
+            entity.Property(e => e.CreatedByAdminId).HasColumnName("created_by_admin_id");
             entity.Property(e => e.Description)
                 .HasComment("설명")
                 .HasColumnType("text")
@@ -826,10 +786,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.CategoryId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_events_category");
-
-            entity.HasOne(d => d.CreatedByAdmin).WithMany(p => p.Events)
-                .HasForeignKey(d => d.CreatedByAdminId)
-                .HasConstraintName("fk_events_admin");
         });
 
         modelBuilder.Entity<EventSession>(entity =>
@@ -851,9 +807,7 @@ public partial class TicketContext : DbContext
                 .HasComment("종료 일시")
                 .HasColumnType("datetime")
                 .HasColumnName("end_at");
-            entity.Property(e => e.EventId)
-                .HasComment("이벤트 FK")
-                .HasColumnName("event_id");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValueSql("'1'")
@@ -875,6 +829,30 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.EventId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_event_sessions_event");
+        });
+
+        modelBuilder.Entity<FavoriteType>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("favorite_types", tb => tb.HasComment("찜 유형 코드 테이블"));
+
+            entity.HasIndex(e => e.Code, "uq_favorite_types_code").IsUnique();
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedNever()
+                .HasColumnName("id");
+            entity.Property(e => e.Code)
+                .HasMaxLength(32)
+                .HasColumnName("code");
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValueSql("'1'")
+                .HasColumnName("is_active");
+            entity.Property(e => e.NameKo)
+                .HasMaxLength(32)
+                .HasColumnName("name_ko");
+            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
         });
 
         modelBuilder.Entity<Notification>(entity =>
@@ -932,11 +910,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.TypeId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_notifications_type");
-
-            entity.HasOne(d => d.User).WithMany(p => p.Notifications)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_notifications_user");
         });
 
         modelBuilder.Entity<NotificationPlatform>(entity =>
@@ -993,11 +966,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.PlatformId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_notification_token_platform");
-
-            entity.HasOne(d => d.User).WithMany(p => p.NotificationTokens)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_notification_token_user");
         });
 
         modelBuilder.Entity<NotificationType>(entity =>
@@ -1195,11 +1163,6 @@ public partial class TicketContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_refunds_reason");
 
-            entity.HasOne(d => d.RequestedByNavigation).WithMany(p => p.Refunds)
-                .HasForeignKey(d => d.RequestedBy)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_refunds_requested_by");
-
             entity.HasOne(d => d.Status).WithMany(p => p.Refunds)
                 .HasForeignKey(d => d.StatusId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -1355,11 +1318,6 @@ public partial class TicketContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_settlements_bank");
 
-            entity.HasOne(d => d.Seller).WithMany(p => p.Settlements)
-                .HasForeignKey(d => d.SellerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_settlements_seller");
-
             entity.HasOne(d => d.Status).WithMany(p => p.Settlements)
                 .HasForeignKey(d => d.StatusId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -1422,9 +1380,7 @@ public partial class TicketContext : DbContext
             entity.HasIndex(e => e.StatusId, "idx_tickets_status");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.CategoryId)
-                .HasComment("카테고리 FK")
-                .HasColumnName("category_id");
+            entity.Property(e => e.CategoryId).HasColumnName("category_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp")
@@ -1441,13 +1397,7 @@ public partial class TicketContext : DbContext
                 .HasComment("공연 일시")
                 .HasColumnType("datetime")
                 .HasColumnName("event_datetime");
-            entity.Property(e => e.EventSessionId)
-                .HasComment("이벤트 세션 FK")
-                .HasColumnName("event_session_id");
-            entity.Property(e => e.IsContinuous)
-                .HasDefaultValueSql("'0'")
-                .HasComment("연석 여부")
-                .HasColumnName("is_continuous");
+            entity.Property(e => e.EventSessionId).HasColumnName("event_session_id");
             entity.Property(e => e.OriginalPrice)
                 .HasComment("정가")
                 .HasColumnName("original_price");
@@ -1460,16 +1410,17 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.RemainingQuantity)
                 .HasComment("남은 수량")
                 .HasColumnName("remaining_quantity");
+            entity.Property(e => e.SeatFeatures)
+                .HasComment("좌석 특징 키워드 (JSON 배열)")
+                .HasColumnType("json")
+                .HasColumnName("seat_features");
             entity.Property(e => e.SeatInfo)
                 .HasMaxLength(255)
                 .HasComment("좌석 정보")
                 .HasColumnName("seat_info");
-            entity.Property(e => e.SellerId)
-                .HasComment("판매자 FK")
-                .HasColumnName("seller_id");
+            entity.Property(e => e.SellerId).HasColumnName("seller_id");
             entity.Property(e => e.StatusId)
                 .HasDefaultValueSql("'1'")
-                .HasComment("상태 FK")
                 .HasColumnName("status_id");
             entity.Property(e => e.Title)
                 .HasMaxLength(255)
@@ -1489,11 +1440,6 @@ public partial class TicketContext : DbContext
             entity.HasOne(d => d.EventSession).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.EventSessionId)
                 .HasConstraintName("fk_tickets_event_session");
-
-            entity.HasOne(d => d.Seller).WithMany(p => p.Tickets)
-                .HasForeignKey(d => d.SellerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_tickets_seller");
 
             entity.HasOne(d => d.Status).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.StatusId)
@@ -1540,11 +1486,6 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(500)
                 .HasColumnName("image_url");
             entity.Property(e => e.TicketId).HasColumnName("ticket_id");
-
-            entity.HasOne(d => d.Ticket).WithMany(p => p.TicketImages)
-                .HasForeignKey(d => d.TicketId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_ticket_images_ticket");
         });
 
         modelBuilder.Entity<TicketPriceHistory>(entity =>
@@ -1576,15 +1517,6 @@ public partial class TicketContext : DbContext
                 .HasComment("변경 사유")
                 .HasColumnName("reason");
             entity.Property(e => e.TicketId).HasColumnName("ticket_id");
-
-            entity.HasOne(d => d.ChangedByNavigation).WithMany(p => p.TicketPriceHistories)
-                .HasForeignKey(d => d.ChangedBy)
-                .HasConstraintName("fk_ticket_price_history_user");
-
-            entity.HasOne(d => d.Ticket).WithMany(p => p.TicketPriceHistories)
-                .HasForeignKey(d => d.TicketId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_ticket_price_history_ticket");
         });
 
         modelBuilder.Entity<TicketStatus>(entity =>
@@ -1667,10 +1599,6 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.TransactionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_ticket_verification_trans");
-
-            entity.HasOne(d => d.VerifiedByNavigation).WithMany(p => p.TicketVerifications)
-                .HasForeignKey(d => d.VerifiedBy)
-                .HasConstraintName("fk_ticket_verification_user");
         });
 
         modelBuilder.Entity<TicketVerificationMethod>(entity =>
@@ -1762,19 +1690,9 @@ public partial class TicketContext : DbContext
                 .HasComment("상태 FK")
                 .HasColumnName("status_id");
 
-            entity.HasOne(d => d.Buyer).WithMany(p => p.TransactionBuyers)
-                .HasForeignKey(d => d.BuyerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_transactions_buyer");
-
             entity.HasOne(d => d.ConfirmedBy).WithMany(p => p.Transactions)
                 .HasForeignKey(d => d.ConfirmedById)
                 .HasConstraintName("fk_transactions_confirmed_by");
-
-            entity.HasOne(d => d.Seller).WithMany(p => p.TransactionSellers)
-                .HasForeignKey(d => d.SellerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_transactions_seller");
 
             entity.HasOne(d => d.Status).WithMany(p => p.Transactions)
                 .HasForeignKey(d => d.StatusId)
@@ -1871,11 +1789,6 @@ public partial class TicketContext : DbContext
                 .HasComment("단가")
                 .HasColumnName("unit_price");
 
-            entity.HasOne(d => d.Ticket).WithMany(p => p.TransactionItems)
-                .HasForeignKey(d => d.TicketId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_trans_items_ticket");
-
             entity.HasOne(d => d.Transaction).WithMany(p => p.TransactionItems)
                 .HasForeignKey(d => d.TransactionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
@@ -1946,11 +1859,9 @@ public partial class TicketContext : DbContext
                 .HasColumnName("phone");
             entity.Property(e => e.ProviderId)
                 .HasDefaultValueSql("'1'")
-                .HasComment("인증 제공자 FK")
                 .HasColumnName("provider_id");
             entity.Property(e => e.RoleId)
                 .HasDefaultValueSql("'1'")
-                .HasComment("사용자 역할 FK")
                 .HasColumnName("role_id");
 
             entity.HasOne(d => d.Provider).WithMany(p => p.Users)
@@ -1962,6 +1873,33 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.RoleId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_users_role");
+        });
+
+        modelBuilder.Entity<UserFavorite>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("user_favorites", tb => tb.HasComment("사용자 찜 테이블"));
+
+            entity.HasIndex(e => new { e.FavoriteTypeId, e.TargetId }, "idx_user_favorites_type_target");
+
+            entity.HasIndex(e => e.UserId, "idx_user_favorites_user");
+
+            entity.HasIndex(e => new { e.UserId, e.FavoriteTypeId, e.TargetId }, "uk_user_favorite").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.FavoriteTypeId).HasColumnName("favorite_type_id");
+            entity.Property(e => e.TargetId).HasColumnName("target_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.FavoriteType).WithMany(p => p.UserFavorites)
+                .HasForeignKey(d => d.FavoriteTypeId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_user_favorites_type");
         });
 
         modelBuilder.Entity<UserProfile>(entity =>
@@ -1979,14 +1917,10 @@ public partial class TicketContext : DbContext
                 .HasComment("자기소개")
                 .HasColumnType("text")
                 .HasColumnName("bio");
-            entity.Property(e => e.BuyerRating)
-                .HasDefaultValueSql("'0'")
-                .HasComment("구매자 평점")
-                .HasColumnName("buyer_rating");
-            entity.Property(e => e.BuyerTradeCount)
-                .HasDefaultValueSql("'0'")
-                .HasComment("구매 거래 횟수")
-                .HasColumnName("buyer_trade_count");
+            entity.Property(e => e.MannerTemperature)
+                .HasDefaultValueSql("'36.5'")
+                .HasComment("매너 온도 (36.5~99.9)")
+                .HasColumnName("manner_temperature");
             entity.Property(e => e.Nickname)
                 .HasMaxLength(50)
                 .HasComment("닉네임")
@@ -1995,11 +1929,10 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(500)
                 .HasComment("프로필 이미지 URL")
                 .HasColumnName("profile_image_url");
-
-            entity.HasOne(d => d.User).WithOne(p => p.UserProfile)
-                .HasForeignKey<UserProfile>(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_user_profile_user");
+            entity.Property(e => e.TotalTradeCount)
+                .HasDefaultValueSql("'0'")
+                .HasComment("총 거래 횟수")
+                .HasColumnName("total_trade_count");
         });
 
         modelBuilder.Entity<UserReputation>(entity =>
@@ -2046,20 +1979,10 @@ public partial class TicketContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_user_reputation_rating_type");
 
-            entity.HasOne(d => d.Reviewer).WithMany(p => p.UserReputationReviewers)
-                .HasForeignKey(d => d.ReviewerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_user_reputation_reviewer");
-
             entity.HasOne(d => d.Transaction).WithMany(p => p.UserReputations)
                 .HasForeignKey(d => d.TransactionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_user_reputation_trans");
-
-            entity.HasOne(d => d.User).WithMany(p => p.UserReputationUsers)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_user_reputation_user");
         });
 
         modelBuilder.Entity<UserVerification>(entity =>
@@ -2100,11 +2023,6 @@ public partial class TicketContext : DbContext
                 .HasComment("인증 완료 시각")
                 .HasColumnType("timestamp")
                 .HasColumnName("verified_at");
-
-            entity.HasOne(d => d.User).WithOne(p => p.UserVerification)
-                .HasForeignKey<UserVerification>(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("fk_user_verification_user");
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -37,8 +37,6 @@ public partial class Dispute
 
     public DateTime? CreatedAt { get; set; }
 
-    public virtual User Claimant { get; set; } = null!;
-
     public virtual ICollection<DisputeEvidence> DisputeEvidences { get; set; } = new List<DisputeEvidence>();
 
     public virtual DisputeStatus Status { get; set; } = null!;

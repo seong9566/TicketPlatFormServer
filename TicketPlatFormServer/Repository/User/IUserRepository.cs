@@ -27,7 +27,7 @@ public interface IUserRepository
     /// 마지막 로그인 시간 업데이트
     /// </summary>
     /// <param name="userId">사용자 ID</param>
-    Task UpdateLastLoginAt(long userId);
+    Task UpdateLastLoginAt(int userId);
 
     /// <summary>
     /// Provider Code로 Provider 조회

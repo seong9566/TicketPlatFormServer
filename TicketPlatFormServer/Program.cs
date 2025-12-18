@@ -1,6 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Repository;
+using TicketPlatFormServer.Repository.EventRepo;
+using TicketPlatFormServer.Repository.Home;
+using TicketPlatFormServer.Services.Event;
+using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.User;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,18 +16,44 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 1. DB Context 셋팅
-builder.Services.AddDbContext<TicketContext>(options =>
+#region DB 연결 설정
+string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!string.IsNullOrWhiteSpace(connectionString))
 {
-    options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(9, 0, 0))
-    );
-});
+    // EF Core
+    builder.Services.AddDbContext<TicketContext>(options =>
+        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
+            mySqlOptions =>
+            {
+                mySqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null); // 재시도 3회, 10초 간격
+                mySqlOptions.CommandTimeout(60); // CommandTimeout 60초
+                mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery); // 복잡한 쿼리의 성능 향상을 위한 쿼리 분할 사용
+            })
+        .LogTo(Console.WriteLine, new[]
+        {
+            DbLoggerCategory.Database.Command.Name,
+            DbLoggerCategory.Database.Transaction.Name,
+            DbLoggerCategory.Database.Connection.Name
+        }, LogLevel.Warning)
+        .EnableSensitiveDataLogging());
+    
+    // Dapper용 IDbConnection 등록 (Scoped)
+    builder.Services.AddScoped<System.Data.IDbConnection>(sp => 
+        new MySqlConnector.MySqlConnection(connectionString));
+}
+else
+{
+    throw new InvalidOperationException("Connection string 'DefaultConnection' is null or empty.");
+}
+#endregion
 
 // ---------- 레이어 별 의존성 주입 -----------
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IHomeRepository, HomeRepository>();
+builder.Services.AddScoped<IHomeService, HomeService>();
 
 var app = builder.Build();
 
@@ -32,7 +62,7 @@ var app = builder.Build();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment()) 
 {
     // 개발환경일 경우에만 스웨거 실행
     app.UseSwagger();

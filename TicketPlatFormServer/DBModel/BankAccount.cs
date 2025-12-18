@@ -35,6 +35,4 @@ public partial class BankAccount
     public DateTime? CreatedAt { get; set; }
 
     public virtual ICollection<Settlement> Settlements { get; set; } = new List<Settlement>();
-
-    public virtual User User { get; set; } = null!;
 }

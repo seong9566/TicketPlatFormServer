@@ -28,6 +28,4 @@ public partial class NotificationToken
     public DateTime? CreatedAt { get; set; }
 
     public virtual NotificationPlatform Platform { get; set; } = null!;
-
-    public virtual User User { get; set; } = null!;
 }

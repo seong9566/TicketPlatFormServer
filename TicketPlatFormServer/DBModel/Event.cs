@@ -8,14 +8,11 @@ namespace TicketPlatFormServer.DBModel;
 /// </summary>
 public partial class Event
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
 
-    /// <summary>
-    /// 카테고리 FK
-    /// </summary>
-    public long CategoryId { get; set; }
+    public int CategoryId { get; set; }
 
-    public long? ArtistId { get; set; }
+    public int? ArtistId { get; set; }
 
     /// <summary>
     /// 공연/이벤트 제목
@@ -32,10 +29,7 @@ public partial class Event
     /// </summary>
     public string? PosterImageUrl { get; set; }
 
-    /// <summary>
-    /// 등록 관리자 FK
-    /// </summary>
-    public long? CreatedByAdminId { get; set; }
+    public int? CreatedByAdminId { get; set; }
 
     /// <summary>
     /// 활성화 여부
@@ -54,8 +48,6 @@ public partial class Event
     public virtual Artist? Artist { get; set; }
 
     public virtual TicketCategory Category { get; set; } = null!;
-
-    public virtual User? CreatedByAdmin { get; set; }
 
     public virtual ICollection<EventSession> EventSessions { get; set; } = new List<EventSession>();
 }

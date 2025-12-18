@@ -68,8 +68,6 @@ public partial class Settlement
 
     public virtual BankAccount BankAccount { get; set; } = null!;
 
-    public virtual User Seller { get; set; } = null!;
-
     public virtual SettlementStatus Status { get; set; } = null!;
 
     public virtual Transaction Transaction { get; set; } = null!;

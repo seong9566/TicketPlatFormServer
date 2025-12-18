@@ -13,11 +13,13 @@ public class GlobalExceptionMiddleware
 {
     // 의존성 주입
     private readonly RequestDelegate _next;
+    private readonly ILogger<GlobalExceptionMiddleware> _logger;
     
     // 생성자 
-    public GlobalExceptionMiddleware(RequestDelegate next)
+    public GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
     {
         _next = next;
+        _logger = logger;
     }
     
     
@@ -34,15 +36,31 @@ public class GlobalExceptionMiddleware
             // AppException이 갖고 있는 StatusCode를 미들웨어에서 그대로 사용
             context.Response.StatusCode = (int)e.StatusCode;
 
+            // 비즈니스 로직 에러 로깅
+            _logger.LogWarning(e, "[AppException] {Message} | Path: {Path}", 
+                e.Message, context.Request.Path);
+
             await context.Response.WriteAsJsonAsync(new ApiResponse<object>(
                 message: e.Message,
                 data: null,
                 statusCode: context.Response.StatusCode
             ));
-        }
+        } 
         catch (Exception e)
         {
             context.Response.StatusCode = 500;
+            
+            // 서버 에러 상세 로깅 (스택 트레이스 포함)
+            _logger.LogError(e, 
+                "[서버 에러] {Message}\n" +
+                "Path: {Path}\n" +
+                "Method: {Method}\n" +
+                "StackTrace: {StackTrace}", 
+                e.Message, 
+                context.Request.Path, 
+                context.Request.Method,
+                e.StackTrace);
+
             await context.Response.WriteAsJsonAsync(new ApiResponse<object>(
                 message: "서버 내부 오류 발생",
                 data: null,

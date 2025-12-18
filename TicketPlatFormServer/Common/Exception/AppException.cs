@@ -8,7 +8,8 @@ public class AppException : Exception
     public HttpStatusCode StatusCode { get; }
     
     // 생성자
-    public AppException(string message, HttpStatusCode statusCode = HttpStatusCode.BadRequest): base(message) // Exception의 message를 호출  
+    // Exception의 message를 호출  
+    public AppException(string message, HttpStatusCode statusCode = HttpStatusCode.BadRequest): base(message) 
     {
         StatusCode = statusCode;
     }

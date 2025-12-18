@@ -39,7 +39,5 @@ public partial class AdminAction
 
     public virtual AdminActionType ActionType { get; set; } = null!;
 
-    public virtual User Admin { get; set; } = null!;
-
     public virtual AdminTargetType TargetType { get; set; } = null!;
 }

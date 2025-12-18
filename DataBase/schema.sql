@@ -249,12 +249,12 @@ CREATE INDEX idx_users_role_id ON users (role_id);
 
 -- 사용자 프로필
 CREATE TABLE user_profile (
-    user_id           BIGINT          NOT NULL PRIMARY KEY,
-    nickname          VARCHAR(50)     NOT NULL COMMENT '닉네임',
-    profile_image_url VARCHAR(500)    NULL COMMENT '프로필 이미지 URL',
-    bio               TEXT            NULL COMMENT '자기소개',
-    buyer_rating      FLOAT DEFAULT 0 NULL COMMENT '구매자 평점',
-    buyer_trade_count INT   DEFAULT 0 NULL COMMENT '구매 거래 횟수',
+    user_id            BIGINT              NOT NULL PRIMARY KEY,
+    nickname           VARCHAR(50)         NOT NULL COMMENT '닉네임',
+    profile_image_url  VARCHAR(500)        NULL COMMENT '프로필 이미지 URL',
+    bio                TEXT                NULL COMMENT '자기소개',
+    manner_temperature FLOAT DEFAULT 36.5  NULL COMMENT '매너 온도 (36.5~99.9)',
+    total_trade_count  INT   DEFAULT 0     NULL COMMENT '총 거래 횟수',
     
     CONSTRAINT fk_user_profile_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) COMMENT '사용자 프로필 테이블';
@@ -333,6 +333,37 @@ CREATE TABLE artist_followers (
 CREATE INDEX idx_artist_followers_artist ON artist_followers (artist_id);
 CREATE INDEX idx_artist_followers_user ON artist_followers (user_id);
 
+-- 찜 유형 코드 테이블
+CREATE TABLE favorite_types (
+    id         BIGINT       PRIMARY KEY,
+    code       VARCHAR(32)  NOT NULL,
+    name_ko    VARCHAR(32)  NOT NULL,
+    is_active  TINYINT(1)   DEFAULT 1 NOT NULL,
+    sort_order INT          DEFAULT 0 NOT NULL,
+    
+    CONSTRAINT uq_favorite_types_code UNIQUE (code)
+) COMMENT '찜 유형 코드 테이블';
+
+INSERT INTO favorite_types (id, code, name_ko, sort_order) VALUES
+(1, 'event', '공연', 1),
+(2, 'ticket', '티켓', 2);
+
+-- 사용자 찜 테이블
+CREATE TABLE user_favorites (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id          BIGINT                               NOT NULL COMMENT '사용자 FK',
+    favorite_type_id BIGINT                               NOT NULL COMMENT '찜 유형 FK',
+    target_id        BIGINT                               NOT NULL COMMENT '대상 ID (event_id 또는 ticket_id)',
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP  NULL,
+    
+    CONSTRAINT fk_user_favorites_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_user_favorites_type FOREIGN KEY (favorite_type_id) REFERENCES favorite_types (id),
+    CONSTRAINT uk_user_favorite UNIQUE (user_id, favorite_type_id, target_id)
+) COMMENT '사용자 찜 테이블';
+
+CREATE INDEX idx_user_favorites_user ON user_favorites (user_id);
+CREATE INDEX idx_user_favorites_type_target ON user_favorites (favorite_type_id, target_id);
+
 -- 이벤트/공연 정보
 CREATE TABLE events (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -391,7 +422,7 @@ CREATE TABLE tickets (
     seat_info          VARCHAR(255)                         NULL COMMENT '좌석 정보',
     quantity           INT                                  NOT NULL COMMENT '총 수량',
     remaining_quantity INT        DEFAULT 0                 NOT NULL COMMENT '남은 수량',
-    is_continuous      TINYINT(1) DEFAULT 0                 NULL COMMENT '연석 여부',
+    seat_features      JSON                                 NULL COMMENT '좌석 특징 키워드 (JSON 배열)',
     price              INT                                  NOT NULL COMMENT '판매가',
     original_price     INT                                  NOT NULL COMMENT '정가',
     description        TEXT                                 NULL COMMENT '상세 설명',
@@ -1182,3 +1213,119 @@ INSERT INTO transaction_statuses (id, code, name_ko, is_active, sort_order) VALU
 INSERT INTO transaction_confirmed_bys (id, code, name_ko, is_active, sort_order) VALUES
 (1, 'buyer', '구매자', 1, 1),
 (2, 'seller', '판매자', 1, 2);
+
+-- ============================================
+-- 예시 데이터 (Sample Data)
+-- ============================================
+
+-- 사용자 프로필 예시 데이터
+-- INSERT INTO user_profile (user_id, nickname, profile_image_url, bio, manner_temperature, total_trade_count) VALUES
+-- (7, '티켓마스터', 'https://picsum.photos/200/200?random=1', '안녕하세요! 공연 티켓 거래합니다.', 38.5, 15),
+-- (8, '콘서트러버', 'https://picsum.photos/200/200?random=2', '콘서트를 사랑하는 사람입니다', 42.0, 28),
+-- (9, '뮤지컬팬', 'https://picsum.photos/200/200?random=3', '뮤지컬 덕후입니다 ^^', 36.5, 3),
+-- (10, '스포츠광', 'https://picsum.photos/200/200?random=4', '야구, 축구 다 좋아해요', 45.2, 42),
+-- (11, '문화생활', 'https://picsum.photos/200/200?random=5', '전시회도 좋아합니다', 39.8, 18);
+
+-- ============================================
+-- 카테고리별 예시 데이터
+-- ============================================
+
+-- [콘서트] 아티스트 (category_id = 1) - 콘서트에서만 아티스트 사용
+-- INSERT INTO artists (category_id, name, profile_image_url, description, is_active, sort_order) VALUES
+-- (1, '아이유 (IU)', 'https://picsum.photos/200/300?random=1', '대한민국 대표 솔로 가수', 1, 1),
+-- (1, '뉴진스 (NewJeans)', 'https://picsum.photos/200/300?random=2', 'HYBE 소속 5인조 걸그룹', 1, 2),
+-- (1, '싸이 (PSY)', 'https://picsum.photos/200/300?random=3', '강남스타일로 세계를 놀라게 한 가수', 1, 3),
+-- (1, '임영웅', 'https://picsum.photos/200/300?random=4', '트로트 황제, 국민 가수', 1, 4),
+-- (1, '데이식스 (DAY6)', 'https://picsum.photos/200/300?random=5', 'JYP 소속 밴드', 1, 5),
+-- (1, 'BTS', 'https://picsum.photos/200/300?random=6', '전세계를 사로잡은 K-POP 그룹', 1, 6);
+
+-- [스포츠/뮤지컬/기타] 아티스트 없음 - events.artist_id = NULL
+
+-- [콘서트] 이벤트
+-- INSERT INTO events (category_id, artist_id, title, description, poster_image_url, is_active, sort_order) VALUES
+-- (1, 1, '2024 월드 투어 서울', '아이유의 2024 월드 투어 서울 공연', 'https://picsum.photos/400/600?random=1', 1, 1),
+-- (1, 2, 'Bunnies Camp 2024', '뉴진스 팬미팅', 'https://picsum.photos/400/600?random=2', 1, 2),
+-- (1, 3, '흠뻑쇼 2024 - SUMMER SWAG', '싸이의 여름 물총 축제', 'https://picsum.photos/400/600?random=3', 1, 3),
+-- (1, 4, 'IM HERO 앙코르 콘서트', '임영웅 앙코르 콘서트', 'https://picsum.photos/400/600?random=4', 1, 4),
+-- (1, 5, 'Welcome to the Show', '데이식스 콘서트', 'https://picsum.photos/400/600?random=5', 1, 5),
+-- (1, 6, 'BTS Yet To Come', 'BTS 부산 콘서트', 'https://picsum.photos/400/600?random=6', 1, 6);
+
+-- [뮤지컬] 이벤트 (artist_id = NULL)
+-- INSERT INTO events (category_id, artist_id, title, description, poster_image_url, is_active, sort_order) VALUES
+-- (3, NULL, '위키드 (WICKED)', '마법의 나라 오즈에서 펼쳐지는 두 마녀의 우정 이야기', 'https://picsum.photos/400/600?random=20', 1, 1),
+-- (3, NULL, '지킬앤하이드', '조승우 주연의 지킬앤하이드 공연', 'https://picsum.photos/400/600?random=21', 1, 2),
+-- (3, NULL, '엘리자벳', '오스트리아 황후 엘리자벳의 이야기', 'https://picsum.photos/400/600?random=22', 1, 3),
+-- (3, NULL, '알라딘', '디즈니 뮤지컬 알라딘', 'https://picsum.photos/400/600?random=23', 1, 4);
+
+-- [스포츠] 이벤트 (artist_id = NULL)
+-- INSERT INTO events (category_id, artist_id, title, description, poster_image_url, is_active, sort_order) VALUES
+-- (2, NULL, '2025 KBO 시즌 - KIA vs 두산', 'KBO 리그 정규시즌 경기', 'https://picsum.photos/400/600?random=30', 1, 1),
+-- (2, NULL, '2025 KBO 시즌 - 두산 홈경기', 'KBO 리그 두산 베어스 홈경기', 'https://picsum.photos/400/600?random=31', 1, 2),
+-- (2, NULL, '2025 K리그 - FC서울 홈경기', 'K리그 정규시즌 FC서울 홈경기', 'https://picsum.photos/400/600?random=32', 1, 3),
+-- (2, NULL, '2025 KBL - 서울 삼성 vs SK', '프로농구 정규시즌 경기', 'https://picsum.photos/400/600?random=33', 1, 4),
+-- (2, NULL, '손흥민 친선 경기', '대한민국 vs 일본 친선경기', 'https://picsum.photos/400/600?random=34', 1, 5);
+
+-- [기타] 이벤트 (artist_id = NULL)
+-- INSERT INTO events (category_id, artist_id, title, description, poster_image_url, is_active, sort_order) VALUES
+-- (4, NULL, '반 고흐 인사이드', '빛의 시어터에서 만나는 반 고흐', 'https://picsum.photos/400/600?random=40', 1, 1),
+-- (4, NULL, '팀랩 보더리스', '디지털 아트 뮤지엄', 'https://picsum.photos/400/600?random=41', 1, 2),
+-- (4, NULL, '모네: 빛을 그리다', '인상파 거장 모네 특별전', 'https://picsum.photos/400/600?random=42', 1, 3);
+
+-- [뮤지컬] 이벤트 세션
+-- INSERT INTO event_sessions (event_id, start_at, end_at, venue_name, venue_address, is_active) VALUES
+-- (7, '2025-03-01 14:00:00', '2025-03-01 17:00:00', '블루스퀘어 신한카드홀', '서울시 용산구 이태원로 294', 1),
+-- (7, '2025-03-01 19:00:00', '2025-03-01 22:00:00', '블루스퀘어 신한카드홀', '서울시 용산구 이태원로 294', 1),
+-- (8, '2025-04-10 19:30:00', '2025-04-10 22:30:00', '예술의전당 오페라극장', '서울시 서초구 남부순환로 2406', 1),
+-- (9, '2025-05-15 19:00:00', '2025-05-15 22:00:00', '샤롯데씨어터', '서울시 송파구 잠실로 240', 1),
+-- (10, '2025-06-20 19:00:00', '2025-06-20 21:30:00', '디큐브아트센터', '서울시 구로구 경인로 662', 1);
+
+-- [스포츠] 이벤트 세션
+-- INSERT INTO event_sessions (event_id, start_at, end_at, venue_name, venue_address, is_active) VALUES
+-- (11, '2025-04-05 14:00:00', '2025-04-05 17:00:00', '광주 기아 챔피언스필드', '광주시 북구 서림로 10', 1),
+-- (12, '2025-04-12 18:30:00', '2025-04-12 21:30:00', '잠실야구장', '서울시 송파구 올림픽로 25', 1),
+-- (13, '2025-05-10 19:00:00', '2025-05-10 21:00:00', '서울월드컵경기장', '서울시 마포구 월드컵로 240', 1),
+-- (14, '2025-11-15 18:00:00', '2025-11-15 20:00:00', '잠실실내체육관', '서울시 송파구 올림픽로 25', 1),
+-- (15, '2025-06-05 20:00:00', '2025-06-05 22:00:00', '서울월드컵경기장', '서울시 마포구 월드컵로 240', 1);
+
+-- [기타] 이벤트 세션
+-- INSERT INTO event_sessions (event_id, start_at, end_at, venue_name, venue_address, is_active) VALUES
+-- (16, '2025-01-01 10:00:00', '2025-06-30 20:00:00', '빛의 시어터 제주', '제주시 애월읍 어음리 1942', 1),
+-- (17, '2025-03-01 10:00:00', '2025-12-31 21:00:00', '잠실 롯데월드타워', '서울시 송파구 올림픽로 300', 1),
+-- (18, '2025-04-01 10:00:00', '2025-07-31 19:00:00', '예술의전당 한가람미술관', '서울시 서초구 남부순환로 2406', 1);
+
+-- [뮤지컬] 티켓
+-- INSERT INTO tickets (seller_id, event_session_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
+-- (7, 10, 3, '위키드 VIP석', '2025-03-01 14:00:00', '1층 A구역 3열 5번', 2, 2, 180000, 198000, 'VIP석 2연석입니다. 시야 최고!', 1, '["VIP", "연석", "앞좌석"]'),
+-- (8, 10, 3, '위키드 R석', '2025-03-01 14:00:00', '1층 B구역 10열 15번', 1, 1, 130000, 154000, 'R석 단석입니다.', 1, '["단석", "중앙"]'),
+-- (9, 13, 3, '지킬앤하이드 S석', '2025-04-10 19:30:00', '2층 C구역 2열 8번', 2, 2, 90000, 110000, '조승우 캐스팅일입니다!', 1, '["연석", "2층"]');
+
+-- [스포츠] 티켓
+-- INSERT INTO tickets (seller_id, event_session_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
+-- (10, 18, 2, 'KIA vs 두산 내야석', '2025-04-05 14:00:00', '1루 내야 C블록 5열 12번', 2, 2, 25000, 30000, '야구 관람 좋은 자리입니다', 1, '["연석", "내야석"]'),
+-- (7, 18, 2, 'KIA vs 두산 외야석', '2025-04-05 14:00:00', '외야 응원석 자유석', 4, 4, 12000, 15000, '외야 응원석 4장 함께 드려요', 1, '["자유석", "외야석"]'),
+-- (8, 20, 2, '두산 홈경기 테이블석', '2025-04-12 18:30:00', '테이블석 T구역 3번', 2, 2, 50000, 60000, '테이블석 연석, 맥주 마시며 관람', 1, '["테이블석", "연석"]');
+
+-- [기타] 티켓 (event_session_id 있는 경우와 NULL인 경우)
+-- INSERT INTO tickets (seller_id, event_session_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
+-- (7, 25, 4, '반 고흐 인사이드 입장권', '2025-03-15 14:00:00', NULL, 2, 2, 18000, 22000, '제주 빛의 시어터 반 고흐 전시 입장권입니다', 1, NULL),
+-- (8, 26, 4, '팀랩 보더리스 티켓', '2025-05-01 15:00:00', NULL, 1, 1, 25000, 30000, '디지털 아트 전시 입장권', 1, NULL),
+-- (10, NULL, 4, '에버랜드 자유이용권', '2025-06-01 10:00:00', NULL, 2, 2, 45000, 58000, '에버랜드 1일 자유이용권입니다', 1, NULL),
+-- (11, NULL, 4, '롯데월드 자유이용권', '2025-07-15 10:00:00', NULL, 1, 1, 40000, 52000, '롯데월드 1일권 판매합니다', 1, NULL),
+-- (8, NULL, 4, 'CGV 영화 예매권', '2025-12-31 23:59:59', NULL, 5, 5, 10000, 14000, 'CGV 영화 관람권 5장', 1, NULL);
+
+-- 사용자 찜 예시 데이터
+-- INSERT INTO user_favorites (user_id, favorite_type_id, target_id) VALUES
+-- -- 공연 찜 (favorite_type_id = 1)
+-- (7, 1, 1),   -- user7이 event 1번 찜
+-- (7, 1, 2),   -- user7이 event 2번 찜
+-- (8, 1, 1),   -- user8이 event 1번 찜
+-- (8, 1, 6),   -- user8이 event 6번 찜
+-- (9, 1, 4),   -- user9이 event 4번 찜
+-- (10, 1, 5),  -- user10이 event 5번 찜
+-- -- 티켓 찜 (favorite_type_id = 2)
+-- (7, 2, 1),   -- user7이 ticket 1번 찜
+-- (7, 2, 3),   -- user7이 ticket 3번 찜
+-- (8, 2, 2),   -- user8이 ticket 2번 찜
+-- (9, 2, 1),   -- user9이 ticket 1번 찜
+-- (10, 2, 4),  -- user10이 ticket 4번 찜
+-- (11, 2, 5);  -- user11이 ticket 5번 찜

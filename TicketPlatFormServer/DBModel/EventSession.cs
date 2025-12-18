@@ -8,12 +8,9 @@ namespace TicketPlatFormServer.DBModel;
 /// </summary>
 public partial class EventSession
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
 
-    /// <summary>
-    /// 이벤트 FK
-    /// </summary>
-    public long EventId { get; set; }
+    public int EventId { get; set; }
 
     /// <summary>
     /// 시작 일시

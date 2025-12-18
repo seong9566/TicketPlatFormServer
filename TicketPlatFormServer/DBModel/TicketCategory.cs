@@ -8,7 +8,7 @@ namespace TicketPlatFormServer.DBModel;
 /// </summary>
 public partial class TicketCategory
 {
-    public long Id { get; set; }
+    public int Id { get; set; }
 
     public string Code { get; set; } = null!;
 

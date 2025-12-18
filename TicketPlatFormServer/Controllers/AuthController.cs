@@ -24,7 +24,6 @@ namespace TicketPlatFormServer.Controllers
         [HttpPost("sign")]
         public async Task<IActionResult> Sign([FromBody] RegisterUserReqDto dto)
         {
-
             var result = await _userService.RegisterUser(dto);
             ApiResponse<RegisterUserRespDto> resp = new ApiResponse<RegisterUserRespDto>(
                 message: "회원가입 성공",
@@ -33,7 +32,6 @@ namespace TicketPlatFormServer.Controllers
             );
 
             return Ok(resp);
-
         }
 
         /// <summary>
