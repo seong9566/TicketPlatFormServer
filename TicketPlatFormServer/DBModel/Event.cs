@@ -12,6 +12,9 @@ public partial class Event
 
     public int CategoryId { get; set; }
 
+    /// <summary>
+    /// 아티스트 FK (콘서트 카테고리만)
+    /// </summary>
     public int? ArtistId { get; set; }
 
     /// <summary>
@@ -28,6 +31,26 @@ public partial class Event
     /// 포스터 이미지 URL
     /// </summary>
     public string? PosterImageUrl { get; set; }
+
+    /// <summary>
+    /// 장소명
+    /// </summary>
+    public string? VenueName { get; set; }
+
+    /// <summary>
+    /// 장소 주소
+    /// </summary>
+    public string? VenueAddress { get; set; }
+
+    /// <summary>
+    /// 공연 시작 시간
+    /// </summary>
+    public DateTime? StartAt { get; set; }
+
+    /// <summary>
+    /// 공연 종료 시간
+    /// </summary>
+    public DateTime? EndAt { get; set; }
 
     public int? CreatedByAdminId { get; set; }
 
@@ -49,5 +72,5 @@ public partial class Event
 
     public virtual TicketCategory Category { get; set; } = null!;
 
-    public virtual ICollection<EventSession> EventSessions { get; set; } = new List<EventSession>();
+    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 }

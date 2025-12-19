@@ -366,13 +366,17 @@ CREATE INDEX idx_user_favorites_type_target ON user_favorites (favorite_type_id,
 
 -- 이벤트/공연 정보
 CREATE TABLE events (
-    id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
-    category_id         BIGINT                               NOT NULL COMMENT '카테고리 FK',
-    artist_id           BIGINT                               NULL COMMENT '아티스트 FK',
+    id                  INT AUTO_INCREMENT PRIMARY KEY,
+    category_id         INT                                  NOT NULL COMMENT '카테고리 FK',
+    artist_id           INT                                  NULL COMMENT '아티스트 FK (콘서트 카테고리만)',
     title               VARCHAR(255)                         NOT NULL COMMENT '공연/이벤트 제목',
     description         TEXT                                 NULL COMMENT '설명',
     poster_image_url    VARCHAR(500)                         NULL COMMENT '포스터 이미지 URL',
-    created_by_admin_id BIGINT                               NULL COMMENT '등록 관리자 FK',
+    venue_name          VARCHAR(255)                         NULL COMMENT '장소명',
+    venue_address       VARCHAR(500)                         NULL COMMENT '장소 주소',
+    start_at            DATETIME                             NULL COMMENT '공연 시작 시간',
+    end_at              DATETIME                             NULL COMMENT '공연 종료 시간',
+    created_by_admin_id INT                                  NULL COMMENT '등록 관리자 FK',
     is_active           TINYINT(1) DEFAULT 1                 NOT NULL COMMENT '활성화 여부',
     sort_order          INT        DEFAULT 0                 NOT NULL COMMENT '정렬 순서',
     created_at          TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL,
@@ -386,25 +390,7 @@ CREATE TABLE events (
 CREATE INDEX idx_events_category_active_sort ON events (category_id, is_active, sort_order);
 CREATE INDEX idx_events_title ON events (title);
 CREATE INDEX idx_events_artist ON events (artist_id);
-
--- 이벤트 회차/세션 정보
-CREATE TABLE event_sessions (
-    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
-    event_id      BIGINT                               NOT NULL COMMENT '이벤트 FK',
-    start_at      DATETIME                             NOT NULL COMMENT '시작 일시',
-    end_at        DATETIME                             NULL COMMENT '종료 일시',
-    venue_name    VARCHAR(255)                         NULL COMMENT '공연장 이름',
-    venue_address VARCHAR(500)                         NULL COMMENT '공연장 주소',
-    is_active     TINYINT(1) DEFAULT 1                 NOT NULL,
-    created_at    TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL,
-    
-    CONSTRAINT uq_event_sessions_event_start UNIQUE (event_id, start_at),
-    CONSTRAINT fk_event_sessions_event FOREIGN KEY (event_id) REFERENCES events (id)
-) COMMENT '이벤트 회차/세션 정보 테이블';
-
-CREATE INDEX idx_event_sessions_event_start ON event_sessions (event_id, start_at);
--- [개선] 날짜별 세션 조회를 위한 인덱스 추가
-CREATE INDEX idx_event_sessions_start_at ON event_sessions (start_at);
+CREATE INDEX idx_events_start_at ON events (start_at);
 
 
 -- ============================================
@@ -413,10 +399,10 @@ CREATE INDEX idx_event_sessions_start_at ON event_sessions (start_at);
 
 -- 티켓 정보
 CREATE TABLE tickets (
-    id                 BIGINT AUTO_INCREMENT PRIMARY KEY,
-    seller_id          BIGINT                               NOT NULL COMMENT '판매자 FK',
-    event_session_id   BIGINT                               NULL COMMENT '이벤트 세션 FK',
-    category_id        BIGINT                               NOT NULL COMMENT '카테고리 FK',
+    id                 INT AUTO_INCREMENT PRIMARY KEY,
+    seller_id          INT                                  NOT NULL COMMENT '판매자 FK',
+    event_id           INT                                  NULL COMMENT '공연 FK',
+    category_id        INT                                  NOT NULL COMMENT '카테고리 FK',
     title              VARCHAR(255)                         NOT NULL COMMENT '티켓 제목',
     event_datetime     DATETIME                             NOT NULL COMMENT '공연 일시',
     seat_info          VARCHAR(255)                         NULL COMMENT '좌석 정보',
@@ -426,13 +412,13 @@ CREATE TABLE tickets (
     price              INT                                  NOT NULL COMMENT '판매가',
     original_price     INT                                  NOT NULL COMMENT '정가',
     description        TEXT                                 NULL COMMENT '상세 설명',
-    status_id          BIGINT     DEFAULT 1                 NOT NULL COMMENT '상태 FK',
+    status_id          INT        DEFAULT 1                 NOT NULL COMMENT '상태 FK',
     created_at         TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL,
     updated_at         TIMESTAMP  DEFAULT CURRENT_TIMESTAMP NULL ON UPDATE CURRENT_TIMESTAMP,
     deleted_at         TIMESTAMP                            NULL COMMENT 'Soft Delete 시각',
     
     CONSTRAINT fk_tickets_seller FOREIGN KEY (seller_id) REFERENCES users (id),
-    CONSTRAINT fk_tickets_event_session FOREIGN KEY (event_session_id) REFERENCES event_sessions (id),
+    CONSTRAINT fk_tickets_event FOREIGN KEY (event_id) REFERENCES events (id),
     CONSTRAINT fk_ticket_category FOREIGN KEY (category_id) REFERENCES ticket_category (id),
     CONSTRAINT fk_tickets_status FOREIGN KEY (status_id) REFERENCES ticket_statuses (id),
     
@@ -444,7 +430,7 @@ CREATE TABLE tickets (
 ) COMMENT '티켓 정보 테이블';
 
 CREATE INDEX idx_tickets_seller ON tickets (seller_id);
-CREATE INDEX idx_tickets_event_session ON tickets (event_session_id);
+CREATE INDEX idx_tickets_event ON tickets (event_id);
 CREATE INDEX idx_tickets_status ON tickets (status_id);
 CREATE INDEX idx_tickets_event_date ON tickets (event_datetime);
 CREATE INDEX idx_tickets_created ON tickets (created_at);
@@ -1271,44 +1257,22 @@ INSERT INTO transaction_confirmed_bys (id, code, name_ko, is_active, sort_order)
 -- (4, NULL, '팀랩 보더리스', '디지털 아트 뮤지엄', 'https://picsum.photos/400/600?random=41', 1, 2),
 -- (4, NULL, '모네: 빛을 그리다', '인상파 거장 모네 특별전', 'https://picsum.photos/400/600?random=42', 1, 3);
 
--- [뮤지컬] 이벤트 세션
--- INSERT INTO event_sessions (event_id, start_at, end_at, venue_name, venue_address, is_active) VALUES
--- (7, '2025-03-01 14:00:00', '2025-03-01 17:00:00', '블루스퀘어 신한카드홀', '서울시 용산구 이태원로 294', 1),
--- (7, '2025-03-01 19:00:00', '2025-03-01 22:00:00', '블루스퀘어 신한카드홀', '서울시 용산구 이태원로 294', 1),
--- (8, '2025-04-10 19:30:00', '2025-04-10 22:30:00', '예술의전당 오페라극장', '서울시 서초구 남부순환로 2406', 1),
--- (9, '2025-05-15 19:00:00', '2025-05-15 22:00:00', '샤롯데씨어터', '서울시 송파구 잠실로 240', 1),
--- (10, '2025-06-20 19:00:00', '2025-06-20 21:30:00', '디큐브아트센터', '서울시 구로구 경인로 662', 1);
-
--- [스포츠] 이벤트 세션
--- INSERT INTO event_sessions (event_id, start_at, end_at, venue_name, venue_address, is_active) VALUES
--- (11, '2025-04-05 14:00:00', '2025-04-05 17:00:00', '광주 기아 챔피언스필드', '광주시 북구 서림로 10', 1),
--- (12, '2025-04-12 18:30:00', '2025-04-12 21:30:00', '잠실야구장', '서울시 송파구 올림픽로 25', 1),
--- (13, '2025-05-10 19:00:00', '2025-05-10 21:00:00', '서울월드컵경기장', '서울시 마포구 월드컵로 240', 1),
--- (14, '2025-11-15 18:00:00', '2025-11-15 20:00:00', '잠실실내체육관', '서울시 송파구 올림픽로 25', 1),
--- (15, '2025-06-05 20:00:00', '2025-06-05 22:00:00', '서울월드컵경기장', '서울시 마포구 월드컵로 240', 1);
-
--- [기타] 이벤트 세션
--- INSERT INTO event_sessions (event_id, start_at, end_at, venue_name, venue_address, is_active) VALUES
--- (16, '2025-01-01 10:00:00', '2025-06-30 20:00:00', '빛의 시어터 제주', '제주시 애월읍 어음리 1942', 1),
--- (17, '2025-03-01 10:00:00', '2025-12-31 21:00:00', '잠실 롯데월드타워', '서울시 송파구 올림픽로 300', 1),
--- (18, '2025-04-01 10:00:00', '2025-07-31 19:00:00', '예술의전당 한가람미술관', '서울시 서초구 남부순환로 2406', 1);
-
 -- [뮤지컬] 티켓
--- INSERT INTO tickets (seller_id, event_session_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
--- (7, 10, 3, '위키드 VIP석', '2025-03-01 14:00:00', '1층 A구역 3열 5번', 2, 2, 180000, 198000, 'VIP석 2연석입니다. 시야 최고!', 1, '["VIP", "연석", "앞좌석"]'),
--- (8, 10, 3, '위키드 R석', '2025-03-01 14:00:00', '1층 B구역 10열 15번', 1, 1, 130000, 154000, 'R석 단석입니다.', 1, '["단석", "중앙"]'),
--- (9, 13, 3, '지킬앤하이드 S석', '2025-04-10 19:30:00', '2층 C구역 2열 8번', 2, 2, 90000, 110000, '조승우 캐스팅일입니다!', 1, '["연석", "2층"]');
+-- INSERT INTO tickets (seller_id, event_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
+-- (7, 7, 3, '위키드 VIP석', '2025-03-01 14:00:00', '1층 A구역 3열 5번', 2, 2, 180000, 198000, 'VIP석 2연석입니다. 시야 최고!', 1, '["VIP", "연석", "앞좌석"]'),
+-- (8, 7, 3, '위키드 R석', '2025-03-01 14:00:00', '1층 B구역 10열 15번', 1, 1, 130000, 154000, 'R석 단석입니다.', 1, '["단석", "중앙"]'),
+-- (9, 8, 3, '지킬앤하이드 S석', '2025-04-10 19:30:00', '2층 C구역 2열 8번', 2, 2, 90000, 110000, '조승우 캐스팅일입니다!', 1, '["연석", "2층"]');
 
 -- [스포츠] 티켓
--- INSERT INTO tickets (seller_id, event_session_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
--- (10, 18, 2, 'KIA vs 두산 내야석', '2025-04-05 14:00:00', '1루 내야 C블록 5열 12번', 2, 2, 25000, 30000, '야구 관람 좋은 자리입니다', 1, '["연석", "내야석"]'),
--- (7, 18, 2, 'KIA vs 두산 외야석', '2025-04-05 14:00:00', '외야 응원석 자유석', 4, 4, 12000, 15000, '외야 응원석 4장 함께 드려요', 1, '["자유석", "외야석"]'),
--- (8, 20, 2, '두산 홈경기 테이블석', '2025-04-12 18:30:00', '테이블석 T구역 3번', 2, 2, 50000, 60000, '테이블석 연석, 맥주 마시며 관람', 1, '["테이블석", "연석"]');
+-- INSERT INTO tickets (seller_id, event_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
+-- (10, 11, 2, 'KIA vs 두산 내야석', '2025-04-05 14:00:00', '1루 내야 C블록 5열 12번', 2, 2, 25000, 30000, '야구 관람 좋은 자리입니다', 1, '["연석", "내야석"]'),
+-- (7, 11, 2, 'KIA vs 두산 외야석', '2025-04-05 14:00:00', '외야 응원석 자유석', 4, 4, 12000, 15000, '외야 응원석 4장 함께 드려요', 1, '["자유석", "외야석"]'),
+-- (8, 12, 2, '두산 홈경기 테이블석', '2025-04-12 18:30:00', '테이블석 T구역 3번', 2, 2, 50000, 60000, '테이블석 연석, 맥주 마시며 관람', 1, '["테이블석", "연석"]');
 
--- [기타] 티켓 (event_session_id 있는 경우와 NULL인 경우)
--- INSERT INTO tickets (seller_id, event_session_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
--- (7, 25, 4, '반 고흐 인사이드 입장권', '2025-03-15 14:00:00', NULL, 2, 2, 18000, 22000, '제주 빛의 시어터 반 고흐 전시 입장권입니다', 1, NULL),
--- (8, 26, 4, '팀랩 보더리스 티켓', '2025-05-01 15:00:00', NULL, 1, 1, 25000, 30000, '디지털 아트 전시 입장권', 1, NULL),
+-- [기타] 티켓 (event_id 있는 경우와 NULL인 경우)
+-- INSERT INTO tickets (seller_id, event_id, category_id, title, event_datetime, seat_info, quantity, remaining_quantity, price, original_price, description, status_id, seat_features) VALUES
+-- (7, 16, 4, '반 고흐 인사이드 입장권', '2025-03-15 14:00:00', NULL, 2, 2, 18000, 22000, '제주 빛의 시어터 반 고흐 전시 입장권입니다', 1, NULL),
+-- (8, 17, 4, '팀랩 보더리스 티켓', '2025-05-01 15:00:00', NULL, 1, 1, 25000, 30000, '디지털 아트 전시 입장권', 1, NULL),
 -- (10, NULL, 4, '에버랜드 자유이용권', '2025-06-01 10:00:00', NULL, 2, 2, 45000, 58000, '에버랜드 1일 자유이용권입니다', 1, NULL),
 -- (11, NULL, 4, '롯데월드 자유이용권', '2025-07-15 10:00:00', NULL, 1, 1, 40000, 52000, '롯데월드 1일권 판매합니다', 1, NULL),
 -- (8, NULL, 4, 'CGV 영화 예매권', '2025-12-31 23:59:59', NULL, 5, 5, 10000, 14000, 'CGV 영화 관람권 5장', 1, NULL);

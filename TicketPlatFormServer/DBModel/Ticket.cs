@@ -12,7 +12,10 @@ public partial class Ticket
 
     public int SellerId { get; set; }
 
-    public int? EventSessionId { get; set; }
+    /// <summary>
+    /// 공연 FK
+    /// </summary>
+    public int? EventId { get; set; }
 
     public int CategoryId { get; set; }
 
@@ -74,7 +77,7 @@ public partial class Ticket
 
     public virtual TicketCategory Category { get; set; } = null!;
 
-    public virtual EventSession? EventSession { get; set; }
+    public virtual Event? Event { get; set; }
 
     public virtual TicketStatus Status { get; set; } = null!;
 }

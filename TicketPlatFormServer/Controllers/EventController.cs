@@ -14,10 +14,10 @@ public class EventController : Controller
     private readonly IEventService _eventService;
 
     public EventController(IEventService eventService)
-    {
+    { 
         _eventService = eventService;
-    }
-
+    } 
+ 
     /// <summary>
     /// 카테고리별 공연 목록 조회 (공연 기준)
     /// </summary>
