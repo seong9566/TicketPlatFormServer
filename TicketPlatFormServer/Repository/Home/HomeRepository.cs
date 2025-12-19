@@ -30,8 +30,7 @@ public class HomeRepository : IHomeRepository
                 e.title AS EventTitle,
                 DATE_FORMAT(t.event_datetime, '%m.%d') AS EventDate
             FROM tickets t
-            LEFT JOIN event_sessions es ON t.event_session_id = es.id
-            LEFT JOIN events e ON es.event_id = e.id
+            LEFT JOIN events e ON t.event_id = e.id
             WHERE t.status_id = 1 AND t.deleted_at IS NULL
             ORDER BY t.created_at DESC
             LIMIT @Limit";
@@ -51,24 +50,23 @@ public class HomeRepository : IHomeRepository
             // 로그인한 사용자: 찜한 이벤트와 같은 카테고리의 다른 이벤트 추천
             sql = @"
                 SELECT
-                e.id AS EventId,
-                e.title AS EventTitle,
-                e.poster_image_url AS PosterImageUrl,
-                DATE_FORMAT(MIN(es.start_at), '%m.%d') AS EventDate,
-                COUNT(DISTINCT t.id) AS TicketCount
-            FROM user_favorites uf
-                     JOIN events fav_e ON uf.target_id = fav_e.id AND uf.favorite_type_id = 1
-                     JOIN ticket_category tc ON fav_e.category_id = tc.id
-                     JOIN events e ON e.category_id = tc.id AND e.id != fav_e.id
-                     LEFT JOIN event_sessions es ON e.id = es.event_id
-                     LEFT JOIN tickets t ON t.event_session_id = es.id
-                AND t.deleted_at IS NULL
-                AND t.status_id = 1
-            WHERE uf.user_id = @UserId AND e.is_active = 1
-            GROUP BY e.id
-            HAVING TicketCount > 0
-            ORDER BY TicketCount DESC
-            LIMIT @Limit";
+                    e.id AS EventId,
+                    e.title AS EventTitle,
+                    e.poster_image_url AS PosterImageUrl,
+                    DATE_FORMAT(e.start_at, '%m.%d') AS EventDate,
+                    COUNT(DISTINCT t.id) AS TicketCount
+                FROM user_favorites uf
+                JOIN events fav_e ON uf.target_id = fav_e.id AND uf.favorite_type_id = 1
+                JOIN ticket_category tc ON fav_e.category_id = tc.id
+                JOIN events e ON e.category_id = tc.id AND e.id != fav_e.id
+                LEFT JOIN tickets t ON t.event_id = e.id
+                    AND t.deleted_at IS NULL
+                    AND t.status_id = 1
+                WHERE uf.user_id = @UserId AND e.is_active = 1
+                GROUP BY e.id
+                HAVING TicketCount > 0
+                ORDER BY TicketCount DESC
+                LIMIT @Limit";
         }
         else
         {
@@ -78,11 +76,10 @@ public class HomeRepository : IHomeRepository
                     e.id AS EventId,
                     e.title AS EventTitle,
                     e.poster_image_url AS PosterImageUrl,
-                    DATE_FORMAT(MIN(es.start_at), '%m.%d') AS EventDate,
+                    DATE_FORMAT(e.start_at, '%m.%d') AS EventDate,
                     COUNT(DISTINCT t.id) AS TicketCount
                 FROM events e
-                LEFT JOIN event_sessions es ON e.id = es.event_id
-                LEFT JOIN tickets t ON t.event_session_id = es.id 
+                LEFT JOIN tickets t ON t.event_id = e.id 
                     AND t.deleted_at IS NULL 
                     AND t.status_id = 1
                 WHERE e.is_active = 1

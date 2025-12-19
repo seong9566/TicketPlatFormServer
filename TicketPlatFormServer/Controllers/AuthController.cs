@@ -50,7 +50,7 @@ namespace TicketPlatFormServer.Controllers
             );
 
             return Ok(resp);
-        }
+        } 
 
     }
 }
