@@ -10,7 +10,162 @@
 | **IDE** | Cursor, Rider | -       | 개발 환경 |
 | **VCS** | GitHub | -       | 버전 관리 |
 | **CI/CD** | GitHub Actions | -       | 자동화된 CI/CD 파이프라인 (추가 예정)|
-| 추후 업로드 예정 | 추후 업로드 예정 | -       | 추후 업로드 예정 |
+
+---
+
+## 🚀 환경 설정 가이드 (Quick Start)
+
+### 1. 필수 설치 항목
+
+```bash
+# .NET 9 SDK 설치 (Homebrew)
+brew install dotnet@9
+
+# MySQL 설치
+brew install mysql
+
+# Node.js 설치 (MCP 서버용)
+brew install node
+```
+
+### 2. 데이터베이스 설정
+
+```bash
+# MySQL 서비스 시작
+brew services start mysql
+
+# MySQL 접속 (초기 비밀번호 설정)
+mysql -u root
+
+# 데이터베이스 생성
+CREATE DATABASE TicketPlatFormDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+# 스키마 적용
+mysql -u root -p TicketPlatFormDB < DataBase/schema.sql
+```
+
+### 3. 프로젝트 설정
+
+```bash
+# 프로젝트 클론
+git clone <repository-url>
+cd TicketPlatFormServer
+
+# NuGet 패키지 복원
+dotnet restore
+
+# 빌드
+dotnet build
+```
+
+### 4. appsettings.json 설정
+
+`TicketPlatFormServer/appsettings.json` 파일에서 DB 연결 정보 수정:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Port=3306;Database=TicketPlatFormDB;User=root;Password=YOUR_PASSWORD;"
+  }
+}
+```
+
+### 5. 서버 실행
+
+```bash
+cd TicketPlatFormServer
+dotnet run
+```
+
+서버 주소: `http://localhost:5224`
+Swagger UI: `http://localhost:5224/swagger`
+
+### 6. Cursor MCP 서버 설정 (선택)
+
+`~/.cursor/mcp.json` 파일 생성/수정:
+
+```json
+{
+  "mcpServers": {
+    "dart": {
+      "type": "stdio",
+      "command": "dart mcp-server --experimental-mcp-server --force-roots-fallback",
+      "env": {},
+      "args": []
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {}
+    },
+    "mysql": {
+      "command": "node",
+      "args": ["/path/to/mysql-mcp-server/server.js"],
+      "env": {
+        "DB_HOST": "localhost",
+        "DB_USER": "root",
+        "DB_PASSWORD": "YOUR_PASSWORD",
+        "DB_NAME": "TicketPlatFormDB"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 📱 모바일 앱 연동 (로컬 테스트)
+
+로컬에서 실기기 테스트 시:
+
+1. 맥북 IP 확인: `ifconfig | grep "inet " | grep -v 127.0.0.1`
+2. API 엔드포인트: `http://<맥북IP>:5224/api/...`
+
+### 주요 API 엔드포인트
+
+| Method | Endpoint | 설명 |
+|--------|----------|------|
+| GET | `/api/home` | 홈 화면 데이터 |
+| GET | `/api/events/category/{categoryId}` | 카테고리별 이벤트 |
+| POST | `/api/auth/login` | 로그인 |
+| POST | `/api/auth/register` | 회원가입 |
+
+---
+
+## 🗄️ 데이터베이스 관리
+
+### 덤프 (백업)
+
+```bash
+# 전체 백업
+mysqldump -u root -p TicketPlatFormDB > backup_$(date +%Y%m%d).sql
+
+# 스키마만 백업
+mysqldump -u root -p --no-data TicketPlatFormDB > schema_backup.sql
+
+# 데이터만 백업
+mysqldump -u root -p --no-create-info TicketPlatFormDB > data_backup.sql
+```
+
+### 복원
+
+```bash
+mysql -u root -p TicketPlatFormDB < backup.sql
+```
+
+### EF Core 스캐폴딩 (DB → 모델 동기화)
+
+```bash
+cd TicketPlatFormServer
+
+dotnet ef dbcontext scaffold \
+  "Server=localhost;Port=3306;Database=TicketPlatFormDB;User=root;Password=YOUR_PASSWORD;" \
+  Pomelo.EntityFrameworkCore.MySql \
+  --output-dir DBModel \
+  --context TicketContext \
+  --context-dir Repository \
+  --force
+```
 
 ---
 
