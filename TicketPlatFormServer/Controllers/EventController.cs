@@ -36,5 +36,24 @@ public class EventController : Controller
 
         return Ok(resp);
     }
+    
+    /// <summary>
+    /// 이벤트 상세 정보 및 티켓 목록 조회
+    /// </summary>
+    /// <param name="eventId">이벤트 ID</param>
+    /// <returns>이벤트 상세 정보 및 티켓 목록</returns>
+    [HttpGet("tickets")]
+    public async Task<IActionResult> GetEventDetailWithTickets([FromQuery] int eventId)
+    {
+        var result = await _eventService.GetEventDetailById(eventId);
+        
+        var resp = new ApiResponse<EventDetailRespDto>(
+            message: "이벤트 상세 정보 조회 성공",
+            data: result,
+            statusCode: 200
+        );
+
+        return Ok(resp);
+    }
 }
 

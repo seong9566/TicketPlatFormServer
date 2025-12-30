@@ -27,5 +27,22 @@ public class EventService : IEventService
         var result = await _repo.GetEventsByCategoryId(categoryId);
         return result;
     }
+
+    public async Task<EventDetailRespDto> GetEventDetailById(int eventId)
+    {
+        if (eventId <= 0)
+        {
+            throw new AppException(message: "유효하지 않은 이벤트 ID입니다.", statusCode: HttpStatusCode.BadRequest);
+        }
+
+        var result = await _repo.GetEventDetailById(eventId);
+        
+        if (result == null)
+        {
+            throw new AppException(message: "이벤트를 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
+        }
+
+        return result;
+    }
 }
 
