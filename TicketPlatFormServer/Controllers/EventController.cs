@@ -45,7 +45,7 @@ public class EventController : Controller
     [HttpGet("tickets")]
     public async Task<IActionResult> GetEventDetailWithTickets([FromQuery] int eventId)
     {
-        var result = await _eventService.GetEventDetailById(eventId);
+        var result = await _eventService.GetEventDetailWithTickets(eventId);
         
         var resp = new ApiResponse<EventDetailRespDto>(
             message: "이벤트 상세 정보 조회 성공",

@@ -1,0 +1,200 @@
+using System.Data;
+using System.Text.Json;
+using Dapper;
+using TicketPlatFormServer.DTO;
+
+namespace TicketPlatFormServer.Repository.Ticket;
+
+/// <summary>
+/// 티켓 관련 Repository 구현체
+/// </summary>
+public partial class TicketRepository : ITicketRepository
+{
+    private readonly TicketContext _db;
+    private readonly IDbConnection _dapper;
+
+    public TicketRepository(TicketContext db, IDbConnection dapper)
+    {
+        _db = db;
+        _dapper = dapper;
+    }
+
+    public async Task<List<TicketListRespDto>> GetTicketsByEventId(int eventId)
+    {
+        // 이벤트의 티켓 목록 조회 (간단한 정보만)
+        var ticketRows = await _dapper.QueryAsync<dynamic>(
+            SqlGetTicketsByEventId,
+            new { EventId = eventId }
+        );
+
+        var tickets = new List<TicketListRespDto>();
+
+        foreach (var row in ticketRows)
+        {
+            // 좌석 타입 추출
+            string? seatType = ExtractSeatType(row.TicketTitle, row.SeatFeatures);
+
+            // SeatFeatures JSON 파싱
+            List<string> seatFeatures = new();
+            if (row.SeatFeatures != null)
+            {
+                try
+                {
+                    var features = JsonSerializer.Deserialize<List<string>>(row.SeatFeatures.ToString() ?? "[]");
+                    if (features != null)
+                    {
+                        seatFeatures = features;
+                    }
+                }
+                catch
+                {
+                    // JSON 파싱 실패 시 무시
+                }
+            }
+
+            tickets.Add(new TicketListRespDto
+            {
+                TicketId = row.TicketId,
+                TicketTitle = row.TicketTitle,
+                SeatInfo = row.SeatInfo,
+                SeatType = seatType,
+                Price = row.Price,
+                OriginalPrice = row.OriginalPrice,
+                SeatFeatures = seatFeatures,
+                CreatedAt = row.CreatedAt,
+                Quantity = row.Quantity,
+                IsSingleTicket = row.Quantity == 1,
+                RemainingQuantity = row.RemainingQuantity,
+                // 이벤트 목록에서는 상세 정보 제외
+                Description = null,
+                TicketImages = new List<string>(),
+                Seller = new SellerInfoDto
+                {
+                    UserId = row.UserId,
+                    Nickname = row.Nickname,
+                    ProfileImageUrl = row.ProfileImageUrl,
+                    MannerTemperature = row.MannerTemperature != null ? (float?)Convert.ToDouble(row.MannerTemperature) : null,
+                    // 이벤트 목록에서는 상세 정보 제외
+                    TotalTradeCount = 0,
+                    ResponseRate = null,
+                    IsSecurePayment = false
+                }
+            });
+        }
+
+        return tickets;
+    }
+
+    public async Task<TicketListRespDto?> GetTicketDetailById(int ticketId)
+    {
+        // 티켓 상세 정보 조회
+        var ticketRow = await _dapper.QueryFirstOrDefaultAsync<dynamic>(
+            SqlGetTicketDetailById,
+            new { TicketId = ticketId }
+        );
+
+        if (ticketRow == null)
+        {
+            return null;
+        }
+
+        // 좌석 타입 추출
+        string? seatType = ExtractSeatType(ticketRow.TicketTitle, ticketRow.SeatFeatures);
+
+        // SeatFeatures JSON 파싱
+        List<string> seatFeatures = new();
+        if (ticketRow.SeatFeatures != null)
+        {
+            try
+            {
+                var features = JsonSerializer.Deserialize<List<string>>(ticketRow.SeatFeatures.ToString() ?? "[]");
+                if (features != null)
+                {
+                    seatFeatures = features;
+                }
+            }
+            catch
+            {
+                // JSON 파싱 실패 시 무시
+            }
+        }
+
+        // 티켓 이미지 조회
+        var ticketImages = await _dapper.QueryAsync<string>(
+            SqlGetTicketImages,
+            new { TicketId = ticketId }
+        );
+
+        return new TicketListRespDto
+        {
+            TicketId = ticketRow.TicketId,
+            TicketTitle = ticketRow.TicketTitle,
+            SeatInfo = ticketRow.SeatInfo,
+            SeatType = seatType,
+            Price = ticketRow.Price,
+            OriginalPrice = ticketRow.OriginalPrice,
+            SeatFeatures = seatFeatures,
+            Description = ticketRow.Description,
+            CreatedAt = ticketRow.CreatedAt,
+            Quantity = ticketRow.Quantity,
+            IsSingleTicket = ticketRow.Quantity == 1,
+            TicketImages = ticketImages.ToList(),
+            Seller = new SellerInfoDto
+            {
+                UserId = ticketRow.UserId,
+                Nickname = ticketRow.Nickname,
+                ProfileImageUrl = ticketRow.ProfileImageUrl,
+                MannerTemperature = ticketRow.MannerTemperature != null ? (float?)Convert.ToDouble(ticketRow.MannerTemperature) : null,
+                TotalTradeCount = ticketRow.TotalTradeCount ?? 0,
+                ResponseRate = ticketRow.ResponseRate != null ? (float?)Convert.ToDouble(ticketRow.ResponseRate) : null,
+                IsSecurePayment = ticketRow.IsSecurePayment == 1
+            }
+        };
+    }
+
+    /// <summary>
+    /// 티켓 제목 또는 seat_features에서 좌석 타입 추출
+    /// </summary>
+    private string? ExtractSeatType(string? ticketTitle, object? seatFeatures)
+    {
+        if (!string.IsNullOrEmpty(ticketTitle))
+        {
+            // 티켓 제목에서 좌석 타입 추출 (예: "위키드 VIP석" -> "VIP석")
+            if (ticketTitle.Contains("VIP"))
+                return "VIP석";
+            if (ticketTitle.Contains("R석") || ticketTitle.Contains(" R "))
+                return "R석";
+            if (ticketTitle.Contains("S석") || ticketTitle.Contains(" S "))
+                return "S석";
+            if (ticketTitle.Contains("A석") || ticketTitle.Contains(" A "))
+                return "A석";
+        }
+
+        // seat_features JSON에서 추출
+        if (seatFeatures != null)
+        {
+            try
+            {
+                var features = JsonSerializer.Deserialize<List<string>>(seatFeatures.ToString() ?? "[]");
+                if (features != null)
+                {
+                    // VIP, R, S, A 등 좌석 타입 키워드 찾기
+                    var seatTypeKeywords = new[] { "VIP", "R", "S", "A" };
+                    foreach (var keyword in seatTypeKeywords)
+                    {
+                        if (features.Any(f => f.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            return keyword == "VIP" ? "VIP석" : $"{keyword}석";
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // JSON 파싱 실패 시 무시
+            }
+        }
+
+        return null;
+    }
+}

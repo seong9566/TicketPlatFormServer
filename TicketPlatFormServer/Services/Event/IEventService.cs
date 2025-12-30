@@ -19,6 +19,6 @@ public interface IEventService
     /// </summary>
     /// <param name="eventId">이벤트 ID</param>
     /// <returns>이벤트 상세 정보 및 티켓 목록</returns>
-    Task<EventDetailRespDto> GetEventDetailById(int eventId);
+    Task<EventDetailRespDto> GetEventDetailWithTickets(int eventId);
 }
 

@@ -3,8 +3,10 @@ using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Repository;
 using TicketPlatFormServer.Repository.EventRepo;
 using TicketPlatFormServer.Repository.Home;
+using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Services.Event;
 using TicketPlatFormServer.Services.Home;
+using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.User;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +56,8 @@ builder.Services.AddScoped<IEventRepository, EventRepository>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IHomeRepository, HomeRepository>();
 builder.Services.AddScoped<IHomeService, HomeService>();
+builder.Services.AddScoped<ITicketRepository, TicketRepository>();
+builder.Services.AddScoped<ITicketService, TicketService>();
 
 var app = builder.Build();
 

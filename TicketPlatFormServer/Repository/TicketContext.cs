@@ -81,7 +81,7 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<SettlementStatus> SettlementStatuses { get; set; }
 
-    public virtual DbSet<Ticket> Tickets { get; set; }
+    public virtual DbSet<DBModel.Ticket> Tickets { get; set; }
 
     public virtual DbSet<TicketCategory> TicketCategories { get; set; }
 
@@ -1326,7 +1326,7 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
         });
 
-        modelBuilder.Entity<Ticket>(entity =>
+        modelBuilder.Entity<DBModel.Ticket>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 

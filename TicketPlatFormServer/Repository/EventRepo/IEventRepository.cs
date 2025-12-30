@@ -15,10 +15,10 @@ public interface IEventRepository
     Task<List<EventListRespDto>> GetEventsByCategoryId(int categoryId);
     
     /// <summary>
-    /// 이벤트 상세 정보 및 티켓 목록 조회
+    /// 이벤트 상세 정보 조회 (이벤트 정보만, 티켓 목록 제외)
     /// </summary>
     /// <param name="eventId">이벤트 ID</param>
-    /// <returns>이벤트 상세 정보 및 티켓 목록</returns>
+    /// <returns>이벤트 상세 정보</returns>
     Task<EventDetailRespDto?> GetEventDetailById(int eventId);
 }
 

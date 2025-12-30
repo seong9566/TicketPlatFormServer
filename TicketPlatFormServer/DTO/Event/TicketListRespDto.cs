@@ -48,6 +48,26 @@ public class TicketListRespDto
     public DateTime CreatedAt { get; set; }
     
     /// <summary>
+    /// 티켓 수량
+    /// </summary>
+    public int Quantity { get; set; }
+    
+    /// <summary>
+    /// 남은 수량
+    /// </summary>
+    public int RemainingQuantity { get; set; }
+    
+    /// <summary>
+    /// 1인 1매 여부 (quantity가 1이면 true)
+    /// </summary>
+    public bool IsSingleTicket { get; set; }
+    
+    /// <summary>
+    /// 티켓 이미지 URL 목록
+    /// </summary>
+    public List<string> TicketImages { get; set; } = new();
+    
+    /// <summary>
     /// 판매자 정보
     /// </summary>
     public SellerInfoDto Seller { get; set; } = null!;
@@ -74,4 +94,19 @@ public class SellerInfoDto
     /// 매너 온도
     /// </summary>
     public float? MannerTemperature { get; set; }
+    
+    /// <summary>
+    /// 총 거래 횟수
+    /// </summary>
+    public int TotalTradeCount { get; set; }
+    
+    /// <summary>
+    /// 응답률 (0-100, 판매자가 채팅에 응답한 비율)
+    /// </summary>
+    public float? ResponseRate { get; set; }
+    
+    /// <summary>
+    /// 안심결제 가능 여부 (본인인증, 휴대폰인증, 계좌인증 모두 완료)
+    /// </summary>
+    public bool IsSecurePayment { get; set; }
 }

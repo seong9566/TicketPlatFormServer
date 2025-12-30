@@ -21,7 +21,7 @@ public partial class EventRepository
             a.name AS ArtistName,
             a.profile_image_url AS ArtistProfileImageUrl,
             e.created_at AS EventCreatedAt,
-            CASE 
+            CASE  
                 WHEN DATEDIFF(NOW(), e.created_at) <= 5 THEN 1 
                 ELSE 0 
             END AS IsNew
@@ -32,7 +32,7 @@ public partial class EventRepository
         ORDER BY e.sort_order ASC, e.start_at ASC";
     
     /// <summary>
-    /// 이벤트 상세 정보 조회 SQL
+    /// 이벤트 상세 정보 조회 SQL (이벤트 정보만)
     /// </summary>
     private const string SqlGetEventDetailById = @"
         SELECT 
@@ -49,31 +49,5 @@ public partial class EventRepository
         LEFT JOIN artists a ON e.artist_id = a.id
         WHERE e.id = @EventId
           AND e.is_active = 1";
-    
-    /// <summary>
-    /// 이벤트의 티켓 목록 조회 SQL
-    /// </summary>
-    private const string SqlGetTicketsByEventId = @"
-        SELECT 
-            t.id AS TicketId,
-            t.title AS TicketTitle,
-            t.seat_info AS SeatInfo,
-            t.price AS Price,
-            t.original_price AS OriginalPrice,
-            t.seat_features AS SeatFeatures,
-            t.description AS Description,
-            t.remaining_quantity AS RemainingQuantity,
-            t.created_at AS CreatedAt,
-            up.user_id AS UserId,
-            up.nickname AS Nickname,
-            up.profile_image_url AS ProfileImageUrl,
-            up.manner_temperature AS MannerTemperature
-        FROM tickets t
-        INNER JOIN user_profile up ON t.seller_id = up.user_id
-        WHERE t.event_id = @EventId
-          AND t.status_id = 1
-          AND t.deleted_at IS NULL
-          AND t.remaining_quantity > 0
-        ORDER BY t.price ASC, t.created_at DESC";
 }
 
