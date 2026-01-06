@@ -1,7 +1,7 @@
 using System.Data;
 using System.Text.Json;
 using Dapper;
-using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Ticket;
 
@@ -19,7 +19,7 @@ public partial class TicketRepository : ITicketRepository
         _dapper = dapper;
     }
 
-    public async Task<List<TicketListRespDto>> GetTicketsByEventId(int eventId)
+    public async Task<List<TicketListReadModel>> GetTicketsByEventId(int eventId)
     {
         // 이벤트의 티켓 목록 조회 (간단한 정보만)
         var ticketRows = await _dapper.QueryAsync<dynamic>(
@@ -27,7 +27,7 @@ public partial class TicketRepository : ITicketRepository
             new { EventId = eventId }
         );
 
-        var tickets = new List<TicketListRespDto>();
+        var tickets = new List<TicketListReadModel>();
 
         foreach (var row in ticketRows)
         {
@@ -52,7 +52,7 @@ public partial class TicketRepository : ITicketRepository
                 }
             }
 
-            tickets.Add(new TicketListRespDto
+            tickets.Add(new TicketListReadModel
             {
                 TicketId = row.TicketId,
                 TicketTitle = row.TicketTitle,
@@ -68,7 +68,7 @@ public partial class TicketRepository : ITicketRepository
                 // 이벤트 목록에서는 상세 정보 제외
                 Description = null,
                 TicketImages = new List<string>(),
-                Seller = new SellerInfoDto
+                Seller = new SellerInfoReadModel
                 {
                     UserId = row.UserId,
                     Nickname = row.Nickname,
@@ -85,7 +85,7 @@ public partial class TicketRepository : ITicketRepository
         return tickets;
     }
 
-    public async Task<TicketListRespDto?> GetTicketDetailById(int ticketId)
+    public async Task<TicketListReadModel?> GetTicketDetailById(int ticketId)
     {
         // 티켓 상세 정보 조회
         var ticketRow = await _dapper.QueryFirstOrDefaultAsync<dynamic>(
@@ -125,7 +125,7 @@ public partial class TicketRepository : ITicketRepository
             new { TicketId = ticketId }
         );
 
-        return new TicketListRespDto
+        return new TicketListReadModel
         {
             TicketId = ticketRow.TicketId,
             TicketTitle = ticketRow.TicketTitle,
@@ -139,7 +139,8 @@ public partial class TicketRepository : ITicketRepository
             Quantity = ticketRow.Quantity,
             IsSingleTicket = ticketRow.Quantity == 1,
             TicketImages = ticketImages.ToList(),
-            Seller = new SellerInfoDto
+            RemainingQuantity = ticketRow.RemainingQuantity,
+            Seller = new SellerInfoReadModel
             {
                 UserId = ticketRow.UserId,
                 Nickname = ticketRow.Nickname,

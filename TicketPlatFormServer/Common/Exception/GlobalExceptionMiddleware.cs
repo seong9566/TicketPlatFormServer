@@ -30,15 +30,30 @@ public class GlobalExceptionMiddleware
             // Controller -> Service -> Repository 로직을 실행 
             await _next(context);
         }
-        // 에러는 커스텀 에러로 처리 
+        // 에러는 커스텀 에러로 처리
         catch (AppException e)
         {
             // AppException이 갖고 있는 StatusCode를 미들웨어에서 그대로 사용
             context.Response.StatusCode = (int)e.StatusCode;
 
-            // 비즈니스 로직 에러 로깅
-            _logger.LogWarning(e, "[AppException] {Message} | Path: {Path}", 
-                e.Message, context.Request.Path);
+            // 비즈니스 로직 에러 로깅 (InnerException 포함)
+            if (e.InnerException != null)
+            {
+                // InnerException이 있는 경우 - 원본 예외 정보도 함께 로깅
+                _logger.LogWarning(e,
+                    "[AppException] {Message} | Path: {Path}\n" +
+                    "InnerException: {InnerExceptionType} - {InnerExceptionMessage}",
+                    e.Message,
+                    context.Request.Path,
+                    e.InnerException.GetType().Name,
+                    e.InnerException.Message);
+            }
+            else
+            {
+                // InnerException이 없는 경우 - 기존 방식
+                _logger.LogWarning(e, "[AppException] {Message} | Path: {Path}",
+                    e.Message, context.Request.Path);
+            }
 
             await context.Response.WriteAsJsonAsync(new ApiResponse<object>(
                 message: e.Message,

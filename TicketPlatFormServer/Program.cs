@@ -4,6 +4,7 @@ using TicketPlatFormServer.Repository;
 using TicketPlatFormServer.Repository.EventRepo;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Ticket;
+using TicketPlatFormServer.Repository.Users;
 using TicketPlatFormServer.Services.Event;
 using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Ticket;
@@ -24,20 +25,29 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     // EF Core
     builder.Services.AddDbContext<TicketContext>(options =>
+    {
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
             mySqlOptions =>
             {
                 mySqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null); // 재시도 3회, 10초 간격
                 mySqlOptions.CommandTimeout(60); // CommandTimeout 60초
                 mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery); // 복잡한 쿼리의 성능 향상을 위한 쿼리 분할 사용
-            })
-        .LogTo(Console.WriteLine, new[]
+            });
+
+        // 개발 환경에서만 로깅 활성화
+        if (builder.Environment.IsDevelopment())
         {
-            DbLoggerCategory.Database.Command.Name,
-            DbLoggerCategory.Database.Transaction.Name,
-            DbLoggerCategory.Database.Connection.Name
-        }, LogLevel.Warning)
-        .EnableSensitiveDataLogging());
+            options.LogTo(Console.WriteLine, new[]
+            {
+                DbLoggerCategory.Database.Command.Name,
+                DbLoggerCategory.Database.Transaction.Name,
+                DbLoggerCategory.Database.Connection.Name
+            }, LogLevel.Warning);
+
+            // 개발 환경에서만 민감 데이터 로깅 (보안: 프로덕션에서는 비활성화)
+            options.EnableSensitiveDataLogging();
+        }
+    });
     
     // Dapper용 IDbConnection 등록 (Scoped)
     builder.Services.AddScoped<System.Data.IDbConnection>(sp => 

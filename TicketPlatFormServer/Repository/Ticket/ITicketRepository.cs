@@ -1,4 +1,4 @@
-using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Ticket;
 
@@ -12,12 +12,12 @@ public interface ITicketRepository
     /// </summary>
     /// <param name="eventId">이벤트 ID</param>
     /// <returns>티켓 목록</returns>
-    Task<List<TicketListRespDto>> GetTicketsByEventId(int eventId);
-    
+    Task<List<TicketListReadModel>> GetTicketsByEventId(int eventId);
+
     /// <summary>
     /// 티켓 상세 정보 조회 (티켓 상세 화면용 - 모든 정보)
     /// </summary>
     /// <param name="ticketId">티켓 ID</param>
     /// <returns>티켓 상세 정보</returns>
-    Task<TicketListRespDto?> GetTicketDetailById(int ticketId);
+    Task<TicketListReadModel?> GetTicketDetailById(int ticketId);
 }

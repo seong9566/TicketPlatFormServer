@@ -1,10 +1,10 @@
-
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.DBModel;
-using TicketPlatFormServer.Repository;
 
-public class UserRepository :IUserRepository
+namespace TicketPlatFormServer.Repository.Users;
+
+public class UserRepository : IUserRepository
 {
     private readonly TicketContext _db;
     private readonly IDbConnection _dapper;

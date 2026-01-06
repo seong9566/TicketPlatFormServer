@@ -2,6 +2,7 @@ using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Enum;
+using TicketPlatFormServer.Repository.Users;
 
 namespace TicketPlatFormServer.Services.User;
 

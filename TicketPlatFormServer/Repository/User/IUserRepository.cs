@@ -1,5 +1,6 @@
-
 using TicketPlatFormServer.DBModel;
+
+namespace TicketPlatFormServer.Repository.Users;
 
 /// <summary>
 /// Repository는 DB와 1:1로 맞닿아 있는 계층이다.

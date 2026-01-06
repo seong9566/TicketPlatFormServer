@@ -1,7 +1,7 @@
 using System.Data;
 using System.Text.Json;
 using Dapper;
-using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.EventRepo;
 
@@ -15,27 +15,27 @@ public partial class EventRepository : IEventRepository
 
     public EventRepository(TicketContext db , IDbConnection dapper)
     {
-        _db = db; 
+        _db = db;
         _dapper = dapper;
     }
 
-    public async Task<List<EventListRespDto>> GetEventsByCategoryId(int categoryId)
+    public async Task<List<EventListReadModel>> GetEventsByCategoryId(int categoryId)
     {
-        var result = await _dapper.QueryAsync<EventListRespDto>(
-            SqlGetEventsByCategoryId, 
+        var result = await _dapper.QueryAsync<EventListReadModel>(
+            SqlGetEventsByCategoryId,
             new { CategoryId = categoryId }
         );
-        
+
         return result.ToList();
     }
 
-    public async Task<EventDetailRespDto?> GetEventDetailById(int eventId)
+    public async Task<EventDetailReadModel?> GetEventDetailById(int eventId)
     {
-        var result = await _dapper.QueryFirstOrDefaultAsync<EventDetailRespDto>(
+        var result = await _dapper.QueryFirstOrDefaultAsync<EventDetailReadModel>(
             SqlGetEventDetailById,
             new { EventId = eventId }
         );
-        
+
         return result;
     }
 }
