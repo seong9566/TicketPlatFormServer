@@ -1,6 +1,6 @@
 using TicketPlatFormServer.Repository.ReadModels;
 
-namespace TicketPlatFormServer.Repository.EventRepo;
+namespace TicketPlatFormServer.Repository.Events;
 
 /// <summary>
 /// 이벤트 관련 Repository 인터페이스

@@ -1,29 +1,25 @@
 using System.Data;
 using System.Text.Json;
 using Dapper;
+using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Ticket;
 
 /// <summary>
-/// 티켓 관련 Repository 구현체
+/// 티켓 관련 Repository 구현체 (Primary Constructor + Static Class 패턴 + 안전한 JSON 로깅)
 /// </summary>
-public partial class TicketRepository : ITicketRepository
+public class TicketRepository(
+    TicketContext db,
+    IDbConnection dapper,
+    ILogger<TicketRepository> logger) : ITicketRepository
 {
-    private readonly TicketContext _db;
-    private readonly IDbConnection _dapper;
-
-    public TicketRepository(TicketContext db, IDbConnection dapper)
-    {
-        _db = db;
-        _dapper = dapper;
-    }
 
     public async Task<List<TicketListReadModel>> GetTicketsByEventId(int eventId)
     {
         // 이벤트의 티켓 목록 조회 (간단한 정보만)
-        var ticketRows = await _dapper.QueryAsync<dynamic>(
-            SqlGetTicketsByEventId,
+        var ticketRows = await dapper.QueryAsync<dynamic>(
+            TicketQueries.GetTicketsByEventId,
             new { EventId = eventId }
         );
 
@@ -46,9 +42,12 @@ public partial class TicketRepository : ITicketRepository
                         seatFeatures = features;
                     }
                 }
-                catch
+                catch (JsonException ex)
                 {
-                    // JSON 파싱 실패 시 무시
+                    // JSON 파싱 실패 시 로깅 (보안: 민감한 데이터 노출 방지)
+                    logger.LogWarning(ex,
+                        "[TicketRepository] JSON 파싱 실패 | TicketId: {TicketId}",
+                        (int)row.TicketId);
                 }
             }
 
@@ -88,8 +87,8 @@ public partial class TicketRepository : ITicketRepository
     public async Task<TicketListReadModel?> GetTicketDetailById(int ticketId)
     {
         // 티켓 상세 정보 조회
-        var ticketRow = await _dapper.QueryFirstOrDefaultAsync<dynamic>(
-            SqlGetTicketDetailById,
+        var ticketRow = await dapper.QueryFirstOrDefaultAsync<dynamic>(
+            TicketQueries.GetTicketDetailById,
             new { TicketId = ticketId }
         );
 
@@ -113,15 +112,18 @@ public partial class TicketRepository : ITicketRepository
                     seatFeatures = features;
                 }
             }
-            catch
+            catch (JsonException ex)
             {
-                // JSON 파싱 실패 시 무시
+                // JSON 파싱 실패 시 로깅 (보안: 민감한 데이터 노출 방지)
+                logger.LogWarning(ex,
+                    "[TicketRepository.GetTicketDetailById] JSON 파싱 실패 | TicketId: {TicketId}",
+                    (int)ticketRow.TicketId);
             }
         }
 
         // 티켓 이미지 조회
-        var ticketImages = await _dapper.QueryAsync<string>(
-            SqlGetTicketImages,
+        var ticketImages = await dapper.QueryAsync<string>(
+            TicketQueries.GetTicketImages,
             new { TicketId = ticketId }
         );
 
@@ -190,9 +192,10 @@ public partial class TicketRepository : ITicketRepository
                     }
                 }
             }
-            catch
+            catch (JsonException ex)
             {
-                // JSON 파싱 실패 시 무시
+                // JSON 파싱 실패 시 로깅 (보안: 민감한 데이터 노출 방지)
+                logger.LogWarning(ex, "[TicketRepository.ExtractSeatType] JSON 파싱 실패");
             }
         }
 

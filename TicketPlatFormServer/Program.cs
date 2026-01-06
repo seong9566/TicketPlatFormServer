@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Repository;
-using TicketPlatFormServer.Repository.EventRepo;
+using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Users;
@@ -37,12 +37,9 @@ if (!string.IsNullOrWhiteSpace(connectionString))
         // 개발 환경에서만 로깅 활성화
         if (builder.Environment.IsDevelopment())
         {
-            options.LogTo(Console.WriteLine, new[]
-            {
-                DbLoggerCategory.Database.Command.Name,
-                DbLoggerCategory.Database.Transaction.Name,
-                DbLoggerCategory.Database.Connection.Name
-            }, LogLevel.Warning);
+            // EF Core 쿼리 로깅은 ASP.NET Core의 기본 로깅 시스템(ILogger) 사용
+            // appsettings.Development.json에서 로그 레벨 설정 가능
+            options.EnableDetailedErrors();
 
             // 개발 환경에서만 민감 데이터 로깅 (보안: 프로덕션에서는 비활성화)
             options.EnableSensitiveDataLogging();

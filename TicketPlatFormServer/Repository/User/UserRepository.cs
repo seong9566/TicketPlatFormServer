@@ -4,18 +4,11 @@ using TicketPlatFormServer.DBModel;
 
 namespace TicketPlatFormServer.Repository.Users;
 
-public class UserRepository : IUserRepository
+/// <summary>
+/// 사용자 Repository 구현체 (Primary Constructor 사용)
+/// </summary>
+public class UserRepository(TicketContext db, IDbConnection dapper) : IUserRepository
 {
-    private readonly TicketContext _db;
-    private readonly IDbConnection _dapper;
-
-    public UserRepository(TicketContext db, IDbConnection dapper)
-    {
-        // Context 의존성 주입
-        _db = db;
-        _dapper = dapper;
-
-    }
     
     /// <summary>
     /// 이메일로 사용자 찾기 
@@ -24,7 +17,7 @@ public class UserRepository : IUserRepository
     /// <returns></returns>
     public async Task<User?> GetByEmail(string email)
     {
-        var user = await _db.Users
+        var user = await db.Users
             .Include(u => u.Provider)
             .Include(u => u.Role)
             .FirstOrDefaultAsync(x => x.Email == email && x.IsDeleted == false);
@@ -38,8 +31,8 @@ public class UserRepository : IUserRepository
     /// <returns></returns>
     public async Task<User> Sign(User user)
     {
-        _db.Users.Add(user);
-        await _db.SaveChangesAsync();
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
         return user;
     }
 
@@ -49,31 +42,31 @@ public class UserRepository : IUserRepository
     /// <param name="userId"></param>
     public async Task UpdateLastLoginAt(int userId)
     {
-        var user = await _db.Users.FindAsync(userId);
+        var user = await db.Users.FindAsync(userId);
         if (user != null)
         {
             user.LastLoginAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
     }
 
     /// <summary>
-    ///  Provider코드로 사용자 찾기 
+    ///  Provider코드로 사용자 찾기
     /// </summary>
     /// <param name="code"></param>
     /// <returns></returns>
     public async Task<AuthProvider?> GetProviderByCode(string code)
     {
-        return await _db.AuthProviders.FirstOrDefaultAsync(x => x.Code == code && x.IsActive == true);
+        return await db.AuthProviders.FirstOrDefaultAsync(x => x.Code == code && x.IsActive == true);
     }
 
     /// <summary>
-    ///  Role 값으로 사용자 찾기 
+    ///  Role 값으로 사용자 찾기
     /// </summary>
     /// <param name="code"></param>
     /// <returns></returns>
     public async Task<AuthRole?> GetRoleByCode(string code)
     {
-        return await _db.AuthRoles.FirstOrDefaultAsync(x => x.Code == code && x.IsActive == true);
+        return await db.AuthRoles.FirstOrDefaultAsync(x => x.Code == code && x.IsActive == true);
     }
 } 

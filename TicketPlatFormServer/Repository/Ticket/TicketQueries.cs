@@ -1,16 +1,15 @@
 namespace TicketPlatFormServer.Repository.Ticket;
 
 /// <summary>
-/// TicketRepository SQL 쿼리 모음
-/// Partial 로 분리 시킴.
+/// TicketRepository SQL 쿼리 모음 (Static Class 패턴)
 /// </summary>
-public partial class TicketRepository
+internal static class TicketQueries
 {
     /// <summary>
     /// 이벤트의 티켓 목록 조회 SQL (이벤트 상세 화면용 - 간단한 정보만)
     /// </summary>
-    private const string SqlGetTicketsByEventId = @"
-        SELECT 
+    internal const string GetTicketsByEventId = @"
+        SELECT
             t.id AS TicketId,
             t.title AS TicketTitle,
             t.seat_info AS SeatInfo,
@@ -31,12 +30,12 @@ public partial class TicketRepository
           AND t.deleted_at IS NULL
           AND t.remaining_quantity > 0
         ORDER BY t.price ASC, t.created_at DESC";
-    
+
     /// <summary>
     /// 티켓 상세 정보 조회 SQL (티켓 상세 화면용 - 모든 정보)
     /// </summary>
-    private const string SqlGetTicketDetailById = @"
-        SELECT 
+    internal const string GetTicketDetailById = @"
+        SELECT
             t.id AS TicketId,
             t.title AS TicketTitle,
             t.seat_info AS SeatInfo,
@@ -52,19 +51,19 @@ public partial class TicketRepository
             up.profile_image_url AS ProfileImageUrl,
             up.manner_temperature AS MannerTemperature,
             up.total_trade_count AS TotalTradeCount,
-            CASE 
-                WHEN uv.identity_verified = 1 
-                 AND uv.phone_verified = 1 
-                 AND uv.account_verified = 1 
-                THEN 1 
-                ELSE 0 
+            CASE
+                WHEN uv.identity_verified = 1
+                 AND uv.phone_verified = 1
+                 AND uv.account_verified = 1
+                THEN 1
+                ELSE 0
             END AS IsSecurePayment,
             COALESCE(
-                (SELECT 
-                    CASE 
+                (SELECT
+                    CASE
                         WHEN COUNT(DISTINCT cm.id) = 0 THEN NULL
                         ELSE ROUND(
-                            (COUNT(CASE WHEN cm.sender_id = t.seller_id THEN 1 END) * 100.0 / COUNT(DISTINCT cm.id)), 
+                            (COUNT(CASE WHEN cm.sender_id = t.seller_id THEN 1 END) * 100.0 / COUNT(DISTINCT cm.id)),
                             1
                         )
                     END
@@ -81,11 +80,11 @@ public partial class TicketRepository
           AND t.status_id = 1
           AND t.deleted_at IS NULL
           AND t.remaining_quantity > 0";
-    
+
     /// <summary>
     /// 티켓 이미지 조회 SQL
     /// </summary>
-    private const string SqlGetTicketImages = @"
+    internal const string GetTicketImages = @"
         SELECT image_url
         FROM ticket_images
         WHERE ticket_id = @TicketId
