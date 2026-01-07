@@ -8,10 +8,20 @@ namespace TicketPlatFormServer.Repository.Home;
 public interface IHomeRepository
 {
     /// <summary>
-    /// 인기 티켓 목록 조회
+    /// 배너 목록 조회
     /// </summary>
-    Task<List<PopularTicketDto>> GetPopularTickets(int limit = 10);
-    
+    Task<List<BannerDto>> GetBanners();
+
+    /// <summary>
+    /// 카테고리 목록 조회
+    /// </summary>
+    Task<List<CategoryDto>> GetCategories();
+
+    /// <summary>
+    /// 인기 공연 목록 조회
+    /// </summary>
+    Task<List<PopularEventDto>> GetPopularEvents(int limit = 10);
+
     /// <summary>
     /// 추천 이벤트 목록 조회 (사용자 찜 기반)
     /// </summary>

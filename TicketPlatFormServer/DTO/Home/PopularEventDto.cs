@@ -1,9 +1,9 @@
 namespace TicketPlatFormServer.DTO.Home;
 
 /// <summary>
-/// 추천 공연 DTO (RecommendedEventList 섹션 - Just for you)
+/// 인기 공연 DTO (PopularEventList 섹션)
 /// </summary>
-public class RecommendedEventDto
+public class PopularEventDto
 {
     /// <summary>
     /// 공연 ID
@@ -21,7 +21,7 @@ public class RecommendedEventDto
     public string? EventDescription { get; set; }
 
     /// <summary>
-    /// 공연 날짜 (예: "2026.06.15")
+    /// 공연 날짜 (예: "2026.05.20")
     /// </summary>
     public string EventDate { get; set; } = null!;
 
@@ -36,12 +36,12 @@ public class RecommendedEventDto
     public int MinTicketPrice { get; set; }
 
     /// <summary>
-    /// 가장 저렴한 티켓의 원가 (원)
+    /// 공연의 가장 저렴한 티켓의 원가 (원)
     /// </summary>
     public int OriginalMinTicketPrice { get; set; }
 
     /// <summary>
-    /// 공연의 티켓 할인율 (%). 예: 20 → UI에서 "-20%"
+    /// 공연의 티켓 할인율 (%). 예: 8 → UI에서 "-8%"
     /// </summary>
     public int TicketDiscountRate { get; set; }
 
@@ -59,10 +59,4 @@ public class RecommendedEventDto
     /// 카테고리 ID
     /// </summary>
     public int CategoryId { get; set; }
-
-    /// <summary>
-    /// 나의 찜 여부 (true/false)
-    /// </summary>
-    public bool IsWishedByMe { get; set; }
 }
-
