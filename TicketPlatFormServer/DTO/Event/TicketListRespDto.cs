@@ -66,7 +66,12 @@ public class TicketListRespDto
     /// 티켓 이미지 URL 목록
     /// </summary>
     public List<string> TicketImages { get; set; } = new();
-    
+
+    /// <summary>
+    /// 찜 여부 (userId가 제공된 경우만 값 설정)
+    /// </summary>
+    public bool? IsFavorited { get; set; }
+
     /// <summary>
     /// 판매자 정보
     /// </summary>

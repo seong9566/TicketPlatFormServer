@@ -1,6 +1,7 @@
 using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.ReadModels;
 using TicketPlatFormServer.Repository.Ticket;
 
@@ -12,13 +13,16 @@ namespace TicketPlatFormServer.Services.Ticket;
 public class TicketService : ITicketService
 {
     private readonly ITicketRepository _repo;
+    private readonly IFavoriteRepository _favoriteRepo;
+    private const int FAVORITE_TYPE_TICKET = 2;
 
-    public TicketService(ITicketRepository repo)
+    public TicketService(ITicketRepository repo, IFavoriteRepository favoriteRepo)
     {
         _repo = repo;
+        _favoriteRepo = favoriteRepo;
     }
 
-    public async Task<TicketListRespDto> GetTicketDetailById(int ticketId)
+    public async Task<TicketListRespDto> GetTicketDetailById(int ticketId, int? userId = null)
     {
         if (ticketId <= 0)
         {
@@ -30,6 +34,13 @@ public class TicketService : ITicketService
         if (readModel == null)
         {
             throw new AppException(message: "티켓을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
+        }
+
+        // 찜 여부 확인 (userId가 제공된 경우만)
+        bool? isFavorited = null;
+        if (userId.HasValue && userId.Value > 0)
+        {
+            isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
         }
 
         // ReadModel → RespDto 변환
@@ -48,6 +59,7 @@ public class TicketService : ITicketService
             RemainingQuantity = readModel.RemainingQuantity,
             IsSingleTicket = readModel.IsSingleTicket,
             TicketImages = readModel.TicketImages,
+            IsFavorited = isFavorited,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,

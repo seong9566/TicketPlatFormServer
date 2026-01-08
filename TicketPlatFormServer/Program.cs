@@ -1,13 +1,21 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using TicketPlatFormServer.Common;
+using TicketPlatFormServer.Config;
 using TicketPlatFormServer.Repository;
 using TicketPlatFormServer.Repository.Events;
+using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Ticket;
+using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Users;
 using TicketPlatFormServer.Services.Event;
+using TicketPlatFormServer.Services.Favorite;
 using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Ticket;
+using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +26,34 @@ builder.Services.AddControllersWithViews();
 // Swagger 서비스 등록
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+#region JWT 인증 설정
+// JWT 설정 읽기
+var jwtSettings = new JwtSettings();
+builder.Configuration.GetSection("JwtSettings").Bind(jwtSettings);
+builder.Services.AddSingleton(jwtSettings);
+
+// JWT 인증 미들웨어
+var key = Encoding.ASCII.GetBytes(jwtSettings.SecretKey);
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = jwtSettings.ValidateIssuerSigningKey,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = jwtSettings.ValidateIssuer,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidateAudience = jwtSettings.ValidateAudience,
+            ValidAudience = jwtSettings.Audience,
+            ValidateLifetime = jwtSettings.ValidateLifetime,
+            ClockSkew = TimeSpan.FromSeconds(jwtSettings.ClockSkew)
+        };
+    });
+
+builder.Services.AddAuthorization();
+#endregion
 
 #region DB 연결 설정
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -65,6 +101,10 @@ builder.Services.AddScoped<IHomeRepository, HomeRepository>();
 builder.Services.AddScoped<IHomeService, HomeService>();
 builder.Services.AddScoped<ITicketRepository, TicketRepository>();
 builder.Services.AddScoped<ITicketService, TicketService>();
+builder.Services.AddScoped<IFavoriteRepository, FavoriteRepository>();
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 var app = builder.Build();
 
@@ -96,6 +136,7 @@ app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

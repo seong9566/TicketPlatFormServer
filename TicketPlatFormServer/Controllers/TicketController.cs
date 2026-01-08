@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Services.Ticket;
 
@@ -27,8 +28,11 @@ public class TicketController : Controller
     [Route("detail")]
     public async Task<IActionResult> GetTicketDetail([FromQuery] int ticketId)
     {
-        var result = await _ticketService.GetTicketDetailById(ticketId);
-        
+        // Claims에서 userId 추출 (로그인하지 않은 경우 null)
+        var userId = User.GetUserId();
+
+        var result = await _ticketService.GetTicketDetailById(ticketId, userId);
+
         var resp = new ApiResponse<TicketListRespDto>(
             message: "티켓 상세 정보 조회 성공",
             data: result,

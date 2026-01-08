@@ -11,6 +11,7 @@ public interface ITicketService
     /// 티켓 상세 정보 조회
     /// </summary>
     /// <param name="ticketId">티켓 ID</param>
+    /// <param name="userId">사용자 ID (선택, 찜 여부 확인용)</param>
     /// <returns>티켓 상세 정보</returns>
-    Task<TicketListRespDto> GetTicketDetailById(int ticketId);
+    Task<TicketListRespDto> GetTicketDetailById(int ticketId, int? userId = null);
 }

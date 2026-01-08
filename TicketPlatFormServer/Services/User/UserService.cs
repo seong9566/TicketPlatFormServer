@@ -2,7 +2,9 @@ using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Enum;
+using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Users;
+using TicketPlatFormServer.Services.Token;
 
 namespace TicketPlatFormServer.Services.User;
 
@@ -10,10 +12,17 @@ public class UserService : IUserService
 
 {
     private readonly IUserRepository _repo;
+    private readonly ITokenService _tokenService;
+    private readonly IRefreshTokenRepository _refreshTokenRepo;
 
-    public UserService(IUserRepository repo)
+    public UserService(
+        IUserRepository repo,
+        ITokenService tokenService,
+        IRefreshTokenRepository refreshTokenRepo)
     {
         _repo = repo;
+        _tokenService = tokenService;
+        _refreshTokenRepo = refreshTokenRepo;
     }
     public async Task<RegisterUserRespDto> RegisterUser(RegisterUserReqDto dto)
     {
@@ -124,7 +133,19 @@ public class UserService : IUserService
         // 3. 마지막 로그인 시간 업데이트
         await _repo.UpdateLastLoginAt(user.Id);
 
-        // 4. Entity -> Dto (DB 코드 값을 그대로 내려줌)
+        // 4. JWT Token 생성
+        var tokenResponse = await _tokenService.GenerateTokensAsync(user, 7);
+
+        // 5. Refresh Token DB 저장
+        var refreshToken = new DBModel.RefreshToken
+        {
+            UserId = user.Id,
+            Token = tokenResponse.RefreshToken,
+            ExpiryDate = DateTime.UtcNow.AddDays(7)
+        };
+        await _refreshTokenRepo.SaveRefreshTokenAsync(refreshToken);
+
+        // 6. Entity -> Dto (DB 코드 값 + Token 정보 반환)
         return new LoginUserRespDto
         {
             Id = user.Id,
@@ -132,7 +153,12 @@ public class UserService : IUserService
             Phone = user.Phone ?? "",
             Role = user.Role.Code,                            // 예: "user"
             Provider = user.Provider.Code,                    // 예: "email"
-            LastLoginAt = DateTime.UtcNow
+            LastLoginAt = DateTime.UtcNow,
+            AccessToken = tokenResponse.AccessToken,
+            RefreshToken = tokenResponse.RefreshToken,
+            ExpiresIn = tokenResponse.ExpiresIn,
+            TokenType = tokenResponse.TokenType,
+            ExpiresAt = tokenResponse.ExpiresAt
         };
     }
 }
