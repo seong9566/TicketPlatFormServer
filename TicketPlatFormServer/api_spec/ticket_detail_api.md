@@ -4,7 +4,7 @@
 티켓 상세 정보와 찜 여부, 이벤트 정보를 조회하는 API입니다.
 
 **기본 URL**: `/api/tickets`  
-**인증**: 선택 (로그인 시 찜 여부 반환)  
+**인증**: 선택 (로그인 시 `Authorization` 헤더 필요)  
 **응답 형식**: JSON (ApiResponse<T> 래퍼 사용)
 
 ---
@@ -13,13 +13,17 @@
 
 ### 1. 티켓 상세 조회 (찜 정보 포함)
 
-**Endpoint**: `GET /api/tickets/detail?ticketId={ticketId}&userId={userId}`
+**Endpoint**: `GET /api/tickets/detail?ticketId={ticketId}`
 
 **Query Parameters**:
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
 | ticketId | integer | O | 티켓 ID |
-| userId | integer | X | 사용자 ID (찜 여부 확인용, 미제공 시 isFavorited는 null) |
+
+**Headers (선택)**:
+| 헤더 | 값 | 설명 |
+|------|-----|------|
+| Authorization | Bearer {accessToken} | 로그인 사용자만 필요 |
 
 **Success Response (로그인 사용자)**:
 ```json
@@ -70,7 +74,7 @@
     "ticketId": 123,
     "ticketTitle": "위키드 VIP석",
     // ... (기타 필드 동일)
-    "isFavorited": null,  // userId 미제공 시 null
+    "isFavorited": null,  // 인증 정보가 없으면 null
     "seller": { ... }
   },
   "statusCode": 200,
@@ -81,16 +85,15 @@
 **Response Fields** (기존 필드 + 추가):
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| isFavorited | boolean \| null | 찜 여부 (userId 제공 시만 true/false, 미제공 시 null) |
+| isFavorited | boolean \| null | 찜 여부 (인증 시 true/false, 비로그인 시 null) |
 | eventTitle | string \| null | 이벤트 제목 |
 | eventDate | string \| null | 공연 날짜 (YYYY.MM.DD) |
 | venueName | string \| null | 장소명 |
 | eventPosterImageUrl | string \| null | 이벤트 포스터 이미지 URL |
 
 **참고사항**:
-- **기존 API와 호환**: userId 파라미터는 선택사항이므로 기존 클라이언트에 영향 없음
-- **찜 여부 확인**: userId를 전달하면 해당 사용자의 찜 여부를 확인하여 반환
-- **비로그인 상태**: userId를 전달하지 않으면 isFavorited는 null
+- **찜 여부 확인**: 로그인 시 토큰에서 사용자 정보를 추출해 찜 여부를 반환
+- **비로그인 상태**: 인증 정보가 없으면 isFavorited는 null
 
 **Error Responses**:
 
@@ -122,7 +125,8 @@
 **예시 코드 (cURL)**:
 ```bash
 # 로그인 사용자
-curl -X GET "http://localhost:5000/api/tickets/detail?ticketId=123&userId=1"
+curl -X GET "http://localhost:5000/api/tickets/detail?ticketId=123" \
+  -H "Authorization: Bearer {accessToken}"
 
 # 비로그인 사용자
 curl -X GET "http://localhost:5000/api/tickets/detail?ticketId=123"
@@ -150,4 +154,3 @@ curl -X GET "http://localhost:5000/api/tickets/detail?ticketId=123"
 | data | object \| array \| null | 응답 데이터 |
 | statusCode | integer | HTTP 상태 코드 |
 | success | boolean | 성공 여부 (200-299: true, 그 외: false) |
-

@@ -423,14 +423,9 @@ async function getFavorites() {
 
 ### 4. GET /api/tickets/detail (티켓 상세 조회)
 
-#### ℹ️ 선택적 변경: userId 파라미터 제거 (하위 호환 유지)
+#### ✅ 변경 사항: userId 파라미터 제거
 
-**Request (Before)** ⚠️ Deprecated (여전히 작동하지만 권장하지 않음)
-```http
-GET /api/tickets/detail?ticketId=123&userId=456
-```
-
-**Request (After)** ✅ 권장 방식
+**Request**
 ```http
 # 로그인한 사용자
 GET /api/tickets/detail?ticketId=123
@@ -456,26 +451,17 @@ GET /api/tickets/detail?ticketId=123
 ```
 
 #### 마이그레이션 작업
-- ❌ Query Parameter `userId` 제거 (선택적)
+- ❌ Query Parameter `userId` 제거
 - ✅ Authorization 헤더 추가 (로그인한 경우)
 
 **코드 예시**
 ```typescript
-// Before
-async function getTicketDetail(ticketId: number, userId?: number) {
-  const url = userId
-    ? `/api/tickets/detail?ticketId=${ticketId}&userId=${userId}`  // ❌
-    : `/api/tickets/detail?ticketId=${ticketId}`;
-  return await fetch(url);
-}
-
-// After
 async function getTicketDetail(ticketId: number) {
   const token = localStorage.getItem('accessToken');
   const headers: HeadersInit = {};
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;  // ✅
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   return await fetch(`/api/tickets/detail?ticketId=${ticketId}`, { headers });

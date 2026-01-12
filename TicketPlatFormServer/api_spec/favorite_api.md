@@ -258,7 +258,8 @@ if (result['success']) {
 ```dart
 // 로그인 사용자
 final response = await http.get(
-  Uri.parse('$baseUrl/api/tickets/detail?ticketId=$ticketId&userId=$userId'),
+  Uri.parse('$baseUrl/api/tickets/detail?ticketId=$ticketId'),
+  headers: {'Authorization': 'Bearer $accessToken'},
 );
 
 // 비로그인 사용자
