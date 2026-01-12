@@ -41,6 +41,26 @@ public class TicketListRespDto
     /// 판매 사유/설명
     /// </summary>
     public string? Description { get; set; }
+
+    /// <summary>
+    /// 이벤트 제목
+    /// </summary>
+    public string? EventTitle { get; set; }
+
+    /// <summary>
+    /// 공연 날짜
+    /// </summary>
+    public string? EventDate { get; set; }
+
+    /// <summary>
+    /// 장소명
+    /// </summary>
+    public string? VenueName { get; set; }
+
+    /// <summary>
+    /// 이벤트 포스터 이미지 URL
+    /// </summary>
+    public string? EventPosterImageUrl { get; set; }
     
     /// <summary>
     /// 티켓 등록 날짜

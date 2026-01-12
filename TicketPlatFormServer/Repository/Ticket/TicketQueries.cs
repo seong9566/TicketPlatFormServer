@@ -47,6 +47,10 @@ internal static class TicketQueries
             t.remaining_quantity AS RemainingQuantity,
             t.quantity AS Quantity,
             t.created_at AS CreatedAt,
+            e.title AS EventTitle,
+            DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
+            e.venue_name AS VenueName,
+            e.poster_image_url AS EventPosterImageUrl,
             up.user_id AS UserId,
             up.nickname AS Nickname,
             up.profile_image_url AS ProfileImageUrl,
@@ -76,6 +80,7 @@ internal static class TicketQueries
             ) AS ResponseRate
         FROM tickets t
         INNER JOIN user_profile up ON t.seller_id = up.user_id
+        LEFT JOIN events e ON t.event_id = e.id
         LEFT JOIN user_verification uv ON t.seller_id = uv.user_id
         WHERE t.id = @TicketId
           AND t.status_id = 1
