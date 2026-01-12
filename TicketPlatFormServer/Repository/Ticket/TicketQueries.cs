@@ -18,6 +18,7 @@ internal static class TicketQueries
             t.seat_features AS SeatFeatures,
             t.quantity AS Quantity,
             t.remaining_quantity AS RemainingQuantity,
+            t.description AS Description,
             t.created_at AS CreatedAt,
             up.user_id AS UserId,
             up.nickname AS Nickname,

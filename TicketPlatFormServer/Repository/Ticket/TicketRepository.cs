@@ -65,7 +65,7 @@ public class TicketRepository(
                 IsSingleTicket = row.Quantity == 1,
                 RemainingQuantity = row.RemainingQuantity,
                 // 이벤트 목록에서는 상세 정보 제외
-                Description = null,
+                Description = row.Description,
                 TicketImages = new List<string>(),
                 Seller = new SellerInfoReadModel
                 {
