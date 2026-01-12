@@ -1,18 +1,25 @@
 using System.Text;
+using Amazon.S3;
+using Amazon;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
+using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository;
+using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Users;
+using TicketPlatFormServer.Services.BackgroundServices;
+using TicketPlatFormServer.Services.Chat;
 using TicketPlatFormServer.Services.Event;
 using TicketPlatFormServer.Services.Favorite;
+using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
@@ -50,9 +57,54 @@ builder.Services
             ValidateLifetime = jwtSettings.ValidateLifetime,
             ClockSkew = TimeSpan.FromSeconds(jwtSettings.ClockSkew)
         };
+
+        // SignalR을 위한 이벤트 설정
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                // SignalR Hub 경로에서 쿼리스트링으로 토큰 받기
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
+#endregion
+
+#region AWS S3 설정
+var awsS3Settings = new AwsS3Settings();
+builder.Configuration.GetSection("AwsS3Settings").Bind(awsS3Settings);
+builder.Services.AddSingleton(awsS3Settings);
+
+// AWS S3 클라이언트 등록
+builder.Services.AddSingleton<IAmazonS3>(sp =>
+{
+    var settings = sp.GetRequiredService<AwsS3Settings>();
+    var config = new AmazonS3Config
+    {
+        RegionEndpoint = RegionEndpoint.GetBySystemName(settings.Region)
+    };
+    return new AmazonS3Client(settings.AccessKey, settings.SecretKey, config);
+});
+#endregion
+
+#region Chat 설정
+var chatSettings = new ChatSettings();
+builder.Configuration.GetSection("ChatSettings").Bind(chatSettings);
+builder.Services.AddSingleton(chatSettings);
+#endregion
+
+#region SignalR 설정
+builder.Services.AddSignalR();
 #endregion
 
 #region DB 연결 설정
@@ -106,6 +158,14 @@ builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
+// Chat 서비스
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+
+// Background 서비스
+builder.Services.AddHostedService<ChatCleanupService>();
+
 var app = builder.Build();
 
 // Exception 미들 웨어 추가 
@@ -145,5 +205,8 @@ app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
+
+// SignalR Hub 매핑
+app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();

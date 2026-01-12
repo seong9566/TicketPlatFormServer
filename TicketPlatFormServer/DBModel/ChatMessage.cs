@@ -33,4 +33,6 @@ public partial class ChatMessage
     public DateTime? CreatedAt { get; set; }
 
     public virtual ChatRoom Room { get; set; } = null!;
+
+    public virtual User Sender { get; set; } = null!;
 }

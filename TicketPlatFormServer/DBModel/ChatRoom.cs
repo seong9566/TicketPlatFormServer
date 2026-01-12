@@ -66,6 +66,12 @@ public partial class ChatRoom
 
     public virtual ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
 
+    public virtual Ticket Ticket { get; set; } = null!;
+
+    public virtual User Buyer { get; set; } = null!;
+
+    public virtual User Seller { get; set; } = null!;
+
     public virtual ChatRoomStatus Status { get; set; } = null!;
 
     public virtual Transaction? Transaction { get; set; }
