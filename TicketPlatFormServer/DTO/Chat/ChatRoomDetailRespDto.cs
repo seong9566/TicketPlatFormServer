@@ -13,6 +13,7 @@ public class ChatRoomDetailRespDto
     public bool CanRequestPayment { get; set; }
     public bool CanConfirmPurchase { get; set; }
     public bool CanCancelTransaction { get; set; }
+    public List<ChatMessageRespDto> Messages { get; set; } = new();
 }
 
 public class TicketInfo

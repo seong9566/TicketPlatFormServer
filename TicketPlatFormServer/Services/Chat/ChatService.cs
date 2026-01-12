@@ -14,6 +14,7 @@ public class ChatService(
     IFileUploadService fileUploadService,
     ILogger<ChatService> logger) : IChatService
 {
+    private const int DetailMessageLimit = 30;
     /// <summary>
     /// 채팅방 조회 또는 생성
     /// </summary>
@@ -37,7 +38,8 @@ public class ChatService(
 
         if (existingRoom != null)
         {
-            return MapToRoomDetailDto(existingRoom, userId);
+            var messages = await GetRecentMessages(existingRoom.Id, userId);
+            return MapToRoomDetailDto(existingRoom, userId, messages);
         }
 
         // 새 채팅방 생성
@@ -47,7 +49,8 @@ public class ChatService(
         logger.LogInformation("[ChatService.GetOrCreateChatRoom] 새 채팅방 생성: RoomId={RoomId}, TicketId={TicketId}, BuyerId={BuyerId}, SellerId={SellerId}",
             newRoom.Id, ticketId, userId, ticket.Seller.UserId);
 
-        return MapToRoomDetailDto(newRoom, userId);
+        var newRoomMessages = await GetRecentMessages(newRoom.Id, userId);
+        return MapToRoomDetailDto(newRoom, userId, newRoomMessages);
     }
 
     /// <summary>
@@ -97,7 +100,8 @@ public class ChatService(
             throw new AppException("채팅방을 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
-        return MapToRoomDetailDto(room, userId);
+        var messages = await GetRecentMessages(roomId, userId);
+        return MapToRoomDetailDto(room, userId, messages);
     }
 
     /// <summary>
@@ -167,18 +171,7 @@ public class ChatService(
 
         var messages = await chatRepo.GetMessagesByRoomId(req.RoomId, req.LastMessageId, req.Limit);
 
-        return messages.Select(m => new ChatMessageRespDto
-        {
-            MessageId = m.Id,
-            RoomId = m.RoomId,
-            SenderId = m.SenderId,
-            SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
-            SenderProfileImage = m.Sender?.UserProfile?.ProfileImageUrl,
-            Message = m.Message,
-            ImageUrl = m.ImageUrl,
-            CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
-            IsMyMessage = m.SenderId == req.UserId
-        }).ToList();
+        return MapMessages(messages, req.UserId);
     }
 
     /// <summary>
@@ -346,7 +339,29 @@ public class ChatService(
     /// <summary>
     /// ChatRoom 엔티티를 ChatRoomDetailRespDto로 매핑
     /// </summary>
-    private ChatRoomDetailRespDto MapToRoomDetailDto(DBModel.ChatRoom room, long userId)
+    private async Task<List<ChatMessageRespDto>> GetRecentMessages(long roomId, long userId)
+    {
+        var messages = await chatRepo.GetMessagesByRoomId(roomId, null, DetailMessageLimit);
+        return MapMessages(messages, userId);
+    }
+
+    private List<ChatMessageRespDto> MapMessages(IEnumerable<DBModel.ChatMessage> messages, long userId)
+    {
+        return messages.Select(m => new ChatMessageRespDto
+        {
+            MessageId = m.Id,
+            RoomId = m.RoomId,
+            SenderId = m.SenderId,
+            SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
+            SenderProfileImage = m.Sender?.UserProfile?.ProfileImageUrl,
+            Message = m.Message,
+            ImageUrl = m.ImageUrl,
+            CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
+            IsMyMessage = m.SenderId == userId
+        }).ToList();
+    }
+
+    private ChatRoomDetailRespDto MapToRoomDetailDto(DBModel.ChatRoom room, long userId, List<ChatMessageRespDto> messages)
     {
         var isBuyer = room.BuyerId == userId;
         var transaction = room.Transaction;
@@ -388,7 +403,8 @@ public class ChatService(
             CanSendMessage = room.LockedAt == null && room.ClosedAt == null,
             CanRequestPayment = !isBuyer && transaction != null,
             CanConfirmPurchase = isBuyer && transaction != null && transaction.ConfirmedAt == null,
-            CanCancelTransaction = transaction != null && transaction.ConfirmedAt == null && transaction.CancelledAt == null
+            CanCancelTransaction = transaction != null && transaction.ConfirmedAt == null && transaction.CancelledAt == null,
+            Messages = messages
         };
     }
 }

@@ -57,7 +57,8 @@
     "canSendMessage": true,
     "canRequestPayment": false,
     "canConfirmPurchase": false,
-    "canCancelTransaction": false
+    "canCancelTransaction": false,
+    "messages": []
   },
   "statusCode": 200,
   "success": true
@@ -66,6 +67,7 @@
 
 **참고사항**:
 - **티켓 1개당 구매자별 1개 채팅방**만 생성됩니다. (동일 구매자는 재요청 시 기존 방 반환)
+- 신규 생성 시 `messages`는 빈 배열일 수 있습니다.
 
 **Error Responses**:
 - `404 Not Found`: `"티켓을 찾을 수 없습니다."`
@@ -127,7 +129,10 @@
 |---------|------|------|------|
 | roomId | integer | O | 채팅방 ID |
 
-**Success Response**: `채팅방 생성/조회`와 동일한 구조
+**Success Response**: `채팅방 생성/조회`와 동일한 구조 (`messages` 포함)
+
+**참고사항**:
+- `messages`에는 최근 **30개** 메시지가 포함됩니다 (내림차순).
 
 **Error Responses**:
 - `404 Not Found`: `"채팅방을 찾을 수 없습니다."`
@@ -213,6 +218,7 @@
 **참고사항**:
 - 기본 정렬은 **최근 메시지부터 내림차순**입니다.
 - 이전 메시지를 더 가져오려면 `lastMessageId`를 전달합니다.
+- 상세 조회 응답의 `messages`를 기준으로 추가 페이징 호출합니다.
 
 **Error Responses**:
 - `403 Forbidden`: `"이 채팅방에 접근할 권한이 없습니다."`
@@ -409,4 +415,3 @@
 | data | object \| array \| null | 응답 데이터 |
 | statusCode | integer | HTTP 상태 코드 |
 | success | boolean | 성공 여부 (200-299: true, 그 외: false) |
-
