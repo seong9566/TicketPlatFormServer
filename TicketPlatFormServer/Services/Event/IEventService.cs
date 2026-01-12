@@ -18,7 +18,8 @@ public interface IEventService
     /// 이벤트 상세 정보 및 티켓 목록 조회
     /// </summary>
     /// <param name="eventId">이벤트 ID</param>
+    /// <param name="userId">사용자 ID (찜 여부 확인용, optional)</param>
     /// <returns>이벤트 상세 정보 및 티켓 목록</returns>
-    Task<EventDetailRespDto> GetEventDetailWithTickets(int eventId);
+    Task<EventDetailRespDto> GetEventDetailWithTickets(int eventId, int? userId = null);
 }
 

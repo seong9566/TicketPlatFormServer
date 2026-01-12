@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Services.Event;
 
@@ -45,8 +46,11 @@ public class EventController : Controller
     [HttpGet("tickets")]
     public async Task<IActionResult> GetEventDetailWithTickets([FromQuery] int eventId)
     {
-        var result = await _eventService.GetEventDetailWithTickets(eventId);
-        
+        // Optional: 인증된 사용자의 userId 가져오기 (찜 여부 확인용)
+        var userId = User.GetUserId();
+
+        var result = await _eventService.GetEventDetailWithTickets(eventId, userId);
+
         var resp = new ApiResponse<EventDetailRespDto>(
             message: "이벤트 상세 정보 조회 성공",
             data: result,

@@ -2,6 +2,7 @@ using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Repository.Events;
+using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.ReadModels;
 using TicketPlatFormServer.Repository.Ticket;
 
@@ -14,11 +15,13 @@ public class EventService : IEventService
 {
     private readonly IEventRepository _eventRepo;
     private readonly ITicketRepository _ticketRepo;
+    private readonly IFavoriteRepository _favoriteRepo;
 
-    public EventService(IEventRepository eventRepo, ITicketRepository ticketRepo)
+    public EventService(IEventRepository eventRepo, ITicketRepository ticketRepo, IFavoriteRepository favoriteRepo)
     {
         _eventRepo = eventRepo;
         _ticketRepo = ticketRepo;
+        _favoriteRepo = favoriteRepo;
     }
 
     public async Task<List<EventListRespDto>> GetEventsByCategoryId(int categoryId)
@@ -47,7 +50,7 @@ public class EventService : IEventService
         }).ToList();
     }
 
-    public async Task<EventDetailRespDto> GetEventDetailWithTickets(int eventId)
+    public async Task<EventDetailRespDto> GetEventDetailWithTickets(int eventId, int? userId = null)
     {
         if (eventId <= 0)
         {
@@ -64,6 +67,24 @@ public class EventService : IEventService
 
         // 티켓 목록 조회
         var ticketReadModels = await _ticketRepo.GetTicketsByEventId(eventId);
+
+        // 찜 목록 조회 (userId가 있는 경우)
+        HashSet<int> favoritedTicketIds = new HashSet<int>();
+        if (userId.HasValue)
+        {
+            // 찜 타입 
+            // Ticket : 2
+            // Event : 1
+            const int ticketFavoriteTypeId = 2; // 티켓 찜 타입 ID
+            foreach (var ticket in ticketReadModels)
+            {
+                var isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, ticketFavoriteTypeId, ticket.TicketId);
+                if (isFavorited)
+                {
+                    favoritedTicketIds.Add(ticket.TicketId);
+                }
+            }
+        }
 
         // 좌석 타입 필터 생성 및 매진 임박 여부 계산
         var seatTypeCounts = new Dictionary<string, int>();
@@ -137,6 +158,7 @@ public class EventService : IEventService
                 RemainingQuantity = tm.RemainingQuantity,
                 IsSingleTicket = tm.IsSingleTicket,
                 TicketImages = tm.TicketImages,
+                IsFavorited = userId.HasValue ? favoritedTicketIds.Contains(tm.TicketId) : null,
                 Seller = new SellerInfoDto
                 {
                     UserId = tm.Seller.UserId,
