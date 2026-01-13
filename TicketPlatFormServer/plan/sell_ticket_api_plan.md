@@ -276,8 +276,8 @@ TicketPlatFormServer/
 ├── DBModel/
 │   ├── EventSchedule.cs                     [NEW]
 │   └── SeatLocation.cs                      [NEW]
-└── Migrations/
-    └── [Migration files]                    [NEW]
+└── database_history/
+    └── TicketPlatFormDB_dump.sql            [MOD]
 ```
 
 ---
@@ -291,7 +291,7 @@ TicketPlatFormServer/
 3. `tickets` 테이블 컬럼 추가
 4. `ticket_statuses` 상태 추가
 5. 기존 데이터 백필(가능한 범위)
-6. EF Core 마이그레이션 생성 및 적용
+6. DB 덤프 업데이트
 7. DBModel 클래스 스캐폴딩
 
 ### Phase 2: 조회 API 구현 (의존성 없음)

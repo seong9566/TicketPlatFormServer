@@ -40,8 +40,8 @@ mysql -u root
 # 데이터베이스 생성
 CREATE DATABASE TicketPlatFormDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-# 스키마 적용
-mysql -u root -p TicketPlatFormDB < DataBase/schema.sql
+# 덤프 적용
+mysql -u root -p TicketPlatFormDB < TicketPlatFormServer/database_history/TicketPlatFormDB_dump.sql
 ```
 
 ### 3. 프로젝트 설정
@@ -152,6 +152,11 @@ mysqldump -u root -p --no-create-info TicketPlatFormDB > data_backup.sql
 ```bash
 mysql -u root -p TicketPlatFormDB < backup.sql
 ```
+
+### 덤프 히스토리
+
+- 최신 덤프: `TicketPlatFormServer/database_history/TicketPlatFormDB_dump.sql`
+- 필요 시 같은 폴더에 날짜별 덤프를 저장
 
 ### EF Core 스캐폴딩 (DB → 모델 동기화)
 

@@ -4,15 +4,15 @@
 - `TicketPlatFormServer/` hosts the ASP.NET Core API.
 - `Controllers/` defines HTTP endpoints; `Services/` owns business logic; `Repository/` handles data access (EF Core + Dapper). Review `TicketPlatFormServer/Repository/README.md` for connection and transaction rules.
 - `DBModel/` contains EF entities; `DTO/` contains request/response contracts; `Config/` holds options bindings; `Common/` includes shared middleware and exceptions.
-- `Migrations/` contains EF Core migrations; `Hubs/` holds SignalR hubs.
-- `api_spec/` stores API specs; `DataBase/` has SQL dumps/restore scripts; `scripts/setup.sh` bootstraps local setup.
+- `database_history/` stores SQL dumps/restore scripts; `Hubs/` holds SignalR hubs.
+- `api_spec/` stores API specs; `scripts/setup.sh` bootstraps local setup.
 
 ## Build, Test, and Development Commands
 - `dotnet restore` restores NuGet packages.
 - `dotnet build` builds the solution.
 - `dotnet run --project TicketPlatFormServer` runs the API (Swagger at `http://localhost:5224/swagger`).
 - `scripts/setup.sh` installs local tooling and builds the project (macOS).
-- `DataBase/db_restore.sh` or `DataBase/db_restore.bat` restores the MySQL dump.
+- `TicketPlatFormServer/database_history/db_restore.sh` or `TicketPlatFormServer/database_history/db_restore.bat` restores the MySQL dump.
 
 ## Coding Style & Naming Conventions
 - Use 4-space indentation with braces on new lines, matching existing C# files.

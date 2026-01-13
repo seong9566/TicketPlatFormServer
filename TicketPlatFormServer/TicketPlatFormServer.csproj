@@ -18,6 +18,7 @@
 
     <ItemGroup>
       <Folder Include="Controllers\" />
+      <Folder Include="database_history\past_dump\" />
       <Folder Include="DBModel\" />
     </ItemGroup>
 

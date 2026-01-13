@@ -128,24 +128,6 @@ builder.Services
 
 builder.Services.AddAuthorization();
 #endregion
-
-#region AWS S3 설정
-var awsS3Settings = new AwsS3Settings();
-builder.Configuration.GetSection("AwsS3Settings").Bind(awsS3Settings);
-builder.Services.AddSingleton(awsS3Settings);
-
-// AWS S3 클라이언트 등록
-builder.Services.AddSingleton<IAmazonS3>(sp =>
-{
-    var settings = sp.GetRequiredService<AwsS3Settings>();
-    var config = new AmazonS3Config
-    {
-        RegionEndpoint = RegionEndpoint.GetBySystemName(settings.Region)
-    };
-    return new AmazonS3Client(settings.AccessKey, settings.SecretKey, config);
-});
-#endregion
-
 #region Chat 설정
 var chatSettings = new ChatSettings();
 builder.Configuration.GetSection("ChatSettings").Bind(chatSettings);
