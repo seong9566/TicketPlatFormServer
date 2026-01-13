@@ -13,7 +13,7 @@ public partial class ChatRoom
     /// <summary>
     /// 티켓 FK
     /// </summary>
-    public long TicketId { get; set; }
+    public int TicketId { get; set; }
 
     /// <summary>
     /// 거래 FK (거래 성사 시)
@@ -23,12 +23,12 @@ public partial class ChatRoom
     /// <summary>
     /// 구매자 FK
     /// </summary>
-    public long BuyerId { get; set; }
+    public int BuyerId { get; set; }
 
     /// <summary>
     /// 판매자 FK
     /// </summary>
-    public long SellerId { get; set; }
+    public int SellerId { get; set; }
 
     /// <summary>
     /// 상태 FK

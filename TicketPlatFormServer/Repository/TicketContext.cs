@@ -415,6 +415,11 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.RoomId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_chat_messages_room");
+
+            entity.HasOne(d => d.Sender).WithMany()
+                .HasForeignKey(d => d.SenderId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_chat_messages_sender");
         });
 
         modelBuilder.Entity<ChatRoom>(entity =>
@@ -483,6 +488,21 @@ public partial class TicketContext : DbContext
                 .HasDefaultValueSql("'0'")
                 .HasComment("판매자 읽지 않은 수")
                 .HasColumnName("unread_count_seller");
+
+            entity.HasOne(d => d.Buyer).WithMany()
+                .HasForeignKey(d => d.BuyerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_chat_rooms_buyer");
+
+            entity.HasOne(d => d.Seller).WithMany()
+                .HasForeignKey(d => d.SellerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_chat_rooms_seller");
+
+            entity.HasOne(d => d.Ticket).WithMany()
+                .HasForeignKey(d => d.TicketId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_chat_rooms_ticket");
 
             entity.HasOne(d => d.Status).WithMany(p => p.ChatRooms)
                 .HasForeignKey(d => d.StatusId)

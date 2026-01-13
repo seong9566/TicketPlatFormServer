@@ -18,7 +18,7 @@ public partial class ChatMessage
     /// <summary>
     /// 발신자 FK
     /// </summary>
-    public long SenderId { get; set; }
+    public int SenderId { get; set; }
 
     /// <summary>
     /// 메시지 내용

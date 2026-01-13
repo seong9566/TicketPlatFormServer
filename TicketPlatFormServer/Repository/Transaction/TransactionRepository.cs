@@ -1,0 +1,48 @@
+using System.Data;
+using Dapper;
+using Microsoft.EntityFrameworkCore;
+using TicketPlatFormServer.Repository;
+
+namespace TicketPlatFormServer.Repository.Transactions;
+
+/// <summary>
+/// 거래(Transaction) 관련 Repository 구현체
+/// Primary Constructor 패턴 사용
+/// </summary>
+public class TransactionRepository(TicketContext context, IDbConnection dapper) : ITransactionRepository
+{
+    /// <summary>
+    /// ID로 거래 조회
+    /// </summary>
+    public async Task<DBModel.Transaction?> GetTransactionById(long transactionId)
+    {
+        return await context.Transactions
+            .Where(t => t.Id == transactionId && t.DeletedAt == null)
+            .Include(t => t.Status)
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// 거래 소유권 검증 (BuyerId, SellerId 일치 여부)
+    /// </summary>
+    public async Task<bool> ValidateTransactionOwnership(long transactionId, long buyerId, long sellerId)
+    {
+        const string query = @"
+            SELECT COUNT(1)
+            FROM transactions
+            WHERE id = @TransactionId
+              AND buyer_id = @BuyerId
+              AND seller_id = @SellerId
+              AND deleted_at IS NULL
+        ";
+
+        var count = await dapper.ExecuteScalarAsync<int>(query, new
+        {
+            TransactionId = transactionId,
+            BuyerId = buyerId,
+            SellerId = sellerId
+        });
+
+        return count > 0;
+    }
+}

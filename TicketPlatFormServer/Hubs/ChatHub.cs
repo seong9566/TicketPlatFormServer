@@ -146,6 +146,13 @@ public class ChatHub(IChatRepository chatRepo, ILogger<ChatHub> logger) : Hub
             throw new HubException("인증되지 않은 사용자입니다.");
         }
 
+        // 권한 확인
+        var isInRoom = await chatRepo.IsUserInChatRoom(roomId, userId.Value);
+        if (!isInRoom)
+        {
+            throw new HubException("이 채팅방에 접근할 권한이 없습니다.");
+        }
+
         // 같은 방의 다른 사용자들에게만 알림
         await Clients.OthersInGroup($"room_{roomId}").SendAsync("UserStoppedTyping", new
         {

@@ -3,7 +3,7 @@ namespace TicketPlatFormServer.DTO.Chat;
 public class ChatRoomListRespDto
 {
     public long RoomId { get; set; }
-    public long TicketId { get; set; }
+    public int TicketId { get; set; }
     public string TicketTitle { get; set; } = null!;
     public OtherUserInfo OtherUser { get; set; } = null!;
     public string? LastMessage { get; set; }
@@ -18,7 +18,7 @@ public class ChatRoomListRespDto
 
 public class OtherUserInfo
 {
-    public long UserId { get; set; }
+    public int UserId { get; set; }
     public string Nickname { get; set; } = null!;
     public string? ProfileImageUrl { get; set; }
 }

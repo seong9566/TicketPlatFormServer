@@ -18,7 +18,7 @@ public class ChatRoomDetailRespDto
 
 public class TicketInfo
 {
-    public long TicketId { get; set; }
+    public int TicketId { get; set; }
     public string Title { get; set; } = null!;
     public int Price { get; set; }
     public string? ThumbnailUrl { get; set; }
@@ -26,7 +26,7 @@ public class TicketInfo
 
 public class UserInfo
 {
-    public long UserId { get; set; }
+    public int UserId { get; set; }
     public string Nickname { get; set; } = null!;
     public string? ProfileImageUrl { get; set; }
     public double MannerTemperature { get; set; }
