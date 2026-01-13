@@ -32,6 +32,11 @@ using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile(
+    "appsettings.SupabaseStorage.json",
+    optional: true,
+    reloadOnChange: true);
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 

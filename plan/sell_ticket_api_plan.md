@@ -399,5 +399,13 @@ TicketPlatFormServer/
 
 ---
 
+## 10. 다음 단계 (제안)
+
+1. `ticket_statuses`에 추가할 코드/ID 확정: `pending_review (6)`, `cancelled (7)`
+2. 백필 기준 결정: `events.start_at` 기준 또는 `tickets.event_datetime` 기준
+3. 스키마 변경 적용 범위 확정 후 마이그레이션/백필 SQL 작성 및 검토
+
+---
+
 **작성일**: 2026-01-13  
 **버전**: v1.0
