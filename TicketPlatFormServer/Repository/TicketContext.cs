@@ -53,6 +53,8 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<Event> Events { get; set; }
 
+    public virtual DbSet<EventSchedule> EventSchedules { get; set; }
+
     public virtual DbSet<FavoriteType> FavoriteTypes { get; set; }
 
     public virtual DbSet<Notification> Notifications { get; set; }
@@ -76,6 +78,8 @@ public partial class TicketContext : DbContext
     public virtual DbSet<RefundStatus> RefundStatuses { get; set; }
 
     public virtual DbSet<ReputationRatingType> ReputationRatingTypes { get; set; }
+
+    public virtual DbSet<SeatLocation> SeatLocations { get; set; }
 
     public virtual DbSet<Settlement> Settlements { get; set; }
 
@@ -826,6 +830,73 @@ public partial class TicketContext : DbContext
                 .HasConstraintName("fk_events_category");
         });
 
+        modelBuilder.Entity<EventSchedule>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("event_schedules", tb => tb.HasComment("공연 일정 테이블"));
+
+            entity.HasIndex(e => e.EventId, "idx_schedules_event");
+
+            entity.HasIndex(e => e.ScheduleDate, "idx_schedules_date");
+
+            entity.Property(e => e.Id)
+                .HasMaxLength(36)
+                .HasComment("일정 ID (예: sch001)")
+                .HasColumnName("id");
+            entity.Property(e => e.EventId)
+                .HasComment("공연 FK")
+                .HasColumnName("event_id");
+            entity.Property(e => e.ScheduleDate)
+                .HasComment("공연 날짜")
+                .HasColumnName("schedule_date");
+            entity.Property(e => e.ScheduleTime)
+                .HasComment("공연 시간")
+                .HasColumnName("schedule_time");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValueSql("'1'")
+                .HasColumnName("is_active");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Event).WithMany(p => p.EventSchedules)
+                .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_schedules_event");
+        });
+
+        modelBuilder.Entity<SeatLocation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("seat_locations", tb => tb.HasComment("좌석 위치 옵션 테이블"));
+
+            entity.HasIndex(e => e.EventId, "idx_locations_event");
+
+            entity.Property(e => e.Id)
+                .HasMaxLength(36)
+                .HasComment("위치 ID (예: LOC_1F)")
+                .HasColumnName("id");
+            entity.Property(e => e.EventId)
+                .HasComment("공연 FK (NULL이면 전역 사용)")
+                .HasColumnName("event_id");
+            entity.Property(e => e.LocationName)
+                .HasMaxLength(100)
+                .HasComment("위치명")
+                .HasColumnName("location_name");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValueSql("'1'")
+                .HasColumnName("is_active");
+            entity.Property(e => e.SortOrder)
+                .HasColumnName("sort_order");
+
+            entity.HasOne(d => d.Event).WithMany(p => p.SeatLocations)
+                .HasForeignKey(d => d.EventId)
+                .HasConstraintName("fk_locations_event");
+        });
+
         modelBuilder.Entity<FavoriteType>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
@@ -1379,6 +1450,10 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.EventId)
                 .HasComment("공연 FK")
                 .HasColumnName("event_id");
+            entity.Property(e => e.ScheduleId)
+                .HasMaxLength(36)
+                .HasComment("일정 FK")
+                .HasColumnName("schedule_id");
             entity.Property(e => e.CategoryId).HasColumnName("category_id");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
@@ -1416,6 +1491,22 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(255)
                 .HasComment("좌석 정보")
                 .HasColumnName("seat_info");
+            entity.Property(e => e.LocationId)
+                .HasMaxLength(36)
+                .HasComment("좌석 위치 FK")
+                .HasColumnName("location_id");
+            entity.Property(e => e.Area)
+                .HasMaxLength(50)
+                .HasComment("구역 (예: A구역)")
+                .HasColumnName("area");
+            entity.Property(e => e.Row)
+                .HasMaxLength(20)
+                .HasComment("열 (예: 5열)")
+                .HasColumnName("row");
+            entity.Property(e => e.IsConsecutive)
+                .HasDefaultValueSql("'0'")
+                .HasComment("연석 여부")
+                .HasColumnName("is_consecutive");
             entity.Property(e => e.StatusId)
                 .HasDefaultValueSql("'1'")
                 .HasColumnName("status_id");
@@ -1437,6 +1528,14 @@ public partial class TicketContext : DbContext
             entity.HasOne(d => d.Event).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.EventId)
                 .HasConstraintName("fk_tickets_event");
+
+            entity.HasOne(d => d.Schedule).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.ScheduleId)
+                .HasConstraintName("fk_tickets_schedule");
+
+            entity.HasOne(d => d.Location).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.LocationId)
+                .HasConstraintName("fk_tickets_location");
 
             entity.HasOne(d => d.Status).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.StatusId)

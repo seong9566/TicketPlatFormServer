@@ -17,6 +17,7 @@ using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Repository.Users;
+using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Services.BackgroundServices;
 using TicketPlatFormServer.Services.Chat;
 using TicketPlatFormServer.Services.Event;
@@ -27,6 +28,7 @@ using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
 using TicketPlatFormServer.Services.Storage;
+using TicketPlatFormServer.Services.Sell;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -265,6 +267,10 @@ builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+
+// Sell 서비스
+builder.Services.AddScoped<ISellRepository, SellRepository>();
+builder.Services.AddScoped<ISellService, SellService>();
 
 // Chat 서비스
 builder.Services.AddScoped<IChatRepository, ChatRepository>();

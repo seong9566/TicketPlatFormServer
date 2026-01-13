@@ -17,6 +17,11 @@ public partial class Ticket
     /// </summary>
     public int? EventId { get; set; }
 
+    /// <summary>
+    /// 일정 FK
+    /// </summary>
+    public string? ScheduleId { get; set; }
+
     public int CategoryId { get; set; }
 
     /// <summary>
@@ -35,9 +40,29 @@ public partial class Ticket
     public string? SeatInfo { get; set; }
 
     /// <summary>
+    /// 좌석 위치 FK
+    /// </summary>
+    public string? LocationId { get; set; }
+
+    /// <summary>
+    /// 구역 (예: A구역)
+    /// </summary>
+    public string? Area { get; set; }
+
+    /// <summary>
+    /// 열 (예: 5열)
+    /// </summary>
+    public string? Row { get; set; }
+
+    /// <summary>
     /// 총 수량
     /// </summary>
     public int Quantity { get; set; }
+
+    /// <summary>
+    /// 연석 여부
+    /// </summary>
+    public bool? IsConsecutive { get; set; }
 
     /// <summary>
     /// 남은 수량
@@ -78,6 +103,10 @@ public partial class Ticket
     public virtual TicketCategory Category { get; set; } = null!;
 
     public virtual Event? Event { get; set; }
+
+    public virtual EventSchedule? Schedule { get; set; }
+
+    public virtual SeatLocation? Location { get; set; }
 
     public virtual TicketStatus Status { get; set; } = null!;
 }
