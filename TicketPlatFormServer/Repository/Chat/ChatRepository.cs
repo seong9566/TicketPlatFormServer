@@ -28,7 +28,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     /// <summary>
     /// 티켓과 구매자로 채팅방 조회
     /// </summary>
-    public async Task<ChatRoom?> GetChatRoomByTicketAndBuyer(long ticketId, long buyerId)
+    public async Task<ChatRoom?> GetChatRoomByTicketAndBuyer(int ticketId, int buyerId)
     {
         return await db.ChatRooms
             .Include(cr => cr.Ticket)
@@ -42,7 +42,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     /// <summary>
     /// 사용자의 채팅방 목록 조회 (Dapper 사용)
     /// </summary>
-    public async Task<List<ChatRoom>> GetChatRoomsByUserId(long userId, int page, int pageSize)
+    public async Task<List<ChatRoom>> GetChatRoomsByUserId(int userId, int page, int pageSize)
     {
         var offset = (page - 1) * pageSize;
 
@@ -65,7 +65,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     /// <summary>
     /// 채팅방 생성
     /// </summary>
-    public async Task<ChatRoom> CreateChatRoom(long ticketId, long buyerId, long sellerId, long statusId)
+    public async Task<ChatRoom> CreateChatRoom(int ticketId, int buyerId, int sellerId, long statusId)
     {
         var chatRoom = new ChatRoom
         {
@@ -187,7 +187,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     /// <summary>
     /// 사용자가 채팅방에 속해 있는지 확인 (권한 체크)
     /// </summary>
-    public async Task<bool> IsUserInChatRoom(long roomId, long userId)
+    public async Task<bool> IsUserInChatRoom(long roomId, int userId)
     {
         return await db.ChatRooms
             .AnyAsync(cr => cr.Id == roomId &&
@@ -212,7 +212,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     /// <summary>
     /// 메시지 생성
     /// </summary>
-    public async Task<ChatMessage> CreateMessage(long roomId, long senderId, string? message, string? imageUrl)
+    public async Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl)
     {
         var chatMessage = new ChatMessage
         {
@@ -230,6 +230,15 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
             chatMessage.Id, roomId, senderId);
 
         return chatMessage;
+    }
+
+    /// <summary>
+    /// 메시지 ID로 조회
+    /// </summary>
+    public async Task<ChatMessage?> GetMessageById(long messageId)
+    {
+        return await db.ChatMessages
+            .FirstOrDefaultAsync(cm => cm.Id == messageId);
     }
 
     /// <summary>
@@ -257,7 +266,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     /// <summary>
     /// 읽지 않은 메시지 수 조회
     /// </summary>
-    public async Task<int> GetUnreadCount(long roomId, long userId)
+    public async Task<int> GetUnreadCount(long roomId, int userId)
     {
         var chatRoom = await db.ChatRooms
             .FirstOrDefaultAsync(cr => cr.Id == roomId && cr.DeletedAt == null);

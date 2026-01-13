@@ -15,6 +15,7 @@ using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
+using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Repository.Users;
 using TicketPlatFormServer.Services.BackgroundServices;
 using TicketPlatFormServer.Services.Chat;
@@ -25,6 +26,9 @@ using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
+using TicketPlatFormServer.Services.Storage;
+using Polly;
+using Polly.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -141,6 +145,66 @@ builder.Configuration.GetSection("ChatSettings").Bind(chatSettings);
 builder.Services.AddSingleton(chatSettings);
 #endregion
 
+#region Supabase Storage 설정
+var supabaseSettings = new SupabaseStorageSettings();
+builder.Configuration.GetSection("SupabaseStorage").Bind(supabaseSettings);
+builder.Services.AddSingleton(supabaseSettings);
+
+var storageProviderSettings = new StorageProviderSettings();
+builder.Configuration.GetSection("StorageProvider").Bind(storageProviderSettings);
+builder.Services.AddSingleton(storageProviderSettings);
+
+var resilienceSettings = new ResilienceSettings();
+builder.Configuration.GetSection("Resilience").Bind(resilienceSettings);
+builder.Services.AddSingleton(resilienceSettings);
+
+// Memory Cache
+builder.Services.AddMemoryCache();
+
+// Signed URL Cache Service
+builder.Services.AddScoped<ISignedUrlCacheService, SignedUrlCacheService>();
+
+// HttpClient with Polly for SupabaseStorageUploader
+builder.Services.AddHttpClient<SupabaseStorageUploader>()
+    .AddPolicyHandler(GetRetryPolicy(resilienceSettings))
+    .AddPolicyHandler(GetCircuitBreakerPolicy(resilienceSettings));
+
+// S3 Storage Uploader
+builder.Services.AddScoped<S3StorageUploader>();
+
+// IStorageUploader - Provider 선택
+builder.Services.AddScoped<IStorageUploader>(sp =>
+{
+    var providerSettings = sp.GetRequiredService<StorageProviderSettings>();
+
+    return providerSettings.ActiveProvider.ToLower() switch
+    {
+        "supabase" => sp.GetRequiredService<SupabaseStorageUploader>(),
+        "s3" => sp.GetRequiredService<S3StorageUploader>(),
+        _ => sp.GetRequiredService<SupabaseStorageUploader>()
+    };
+});
+
+static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(ResilienceSettings settings)
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .WaitAndRetryAsync(
+            settings.MaxRetryAttempts,
+            retryAttempt => TimeSpan.FromMilliseconds(
+                settings.InitialRetryDelayMs * Math.Pow(2, retryAttempt - 1)));
+}
+
+static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy(ResilienceSettings settings)
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(
+            settings.CircuitBreakerFailureThreshold,
+            TimeSpan.FromSeconds(settings.CircuitBreakerDurationSec));
+}
+#endregion
+
 #region SignalR 설정
 builder.Services.AddSignalR();
 #endregion
@@ -195,6 +259,7 @@ builder.Services.AddScoped<IFavoriteRepository, FavoriteRepository>();
 builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 
 // Chat 서비스
 builder.Services.AddScoped<IChatRepository, ChatRepository>();

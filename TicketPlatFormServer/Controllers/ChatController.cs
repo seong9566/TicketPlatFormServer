@@ -253,4 +253,23 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
         );
         return Ok(resp);
     }
+
+    /// <summary>
+    /// 메시지 이미지 URL 재발급
+    /// </summary>
+    [HttpGet("messages/{messageId}/image-url")]
+    public async Task<IActionResult> RefreshImageUrl(long messageId)
+    {
+        var userId = User.GetUserId();
+        if (userId == null)
+            throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
+
+        var result = await chatService.RefreshImageUrl(messageId, userId.Value);
+        var resp = new ApiResponse<RefreshImageUrlRespDto>(
+            message: "이미지 URL 재발급 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
 }

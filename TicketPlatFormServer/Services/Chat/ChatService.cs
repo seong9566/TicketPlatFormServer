@@ -1,9 +1,9 @@
 using System.Net;
-using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO.Chat;
 using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Ticket;
+using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.FileUpload;
 
 namespace TicketPlatFormServer.Services.Chat;
@@ -11,6 +11,7 @@ namespace TicketPlatFormServer.Services.Chat;
 public class ChatService(
     IChatRepository chatRepo,
     ITicketRepository ticketRepo,
+    ITransactionRepository transactionRepo,
     IFileUploadService fileUploadService,
     ILogger<ChatService> logger) : IChatService
 {
@@ -18,7 +19,7 @@ public class ChatService(
     /// <summary>
     /// 채팅방 조회 또는 생성
     /// </summary>
-    public async Task<ChatRoomDetailRespDto> GetOrCreateChatRoom(long ticketId, long userId)
+    public async Task<ChatRoomDetailRespDto> GetOrCreateChatRoom(int ticketId, int userId)
     {
         // 티켓 조회
         var ticket = await ticketRepo.GetTicketDetailById((int)ticketId);
@@ -56,7 +57,7 @@ public class ChatService(
     /// <summary>
     /// 내 채팅방 목록 조회
     /// </summary>
-    public async Task<List<ChatRoomListRespDto>> GetChatRooms(long userId, int page, int pageSize)
+    public async Task<List<ChatRoomListRespDto>> GetChatRooms(int userId, int page, int pageSize)
     {
         var rooms = await chatRepo.GetChatRoomsByUserId(userId, page, pageSize);
 
@@ -89,16 +90,17 @@ public class ChatService(
     /// <summary>
     /// 채팅방 상세 조회
     /// </summary>
-    public async Task<ChatRoomDetailRespDto> GetChatRoomDetail(long roomId, long userId)
+    public async Task<ChatRoomDetailRespDto> GetChatRoomDetail(long roomId, int userId)
     {
-        // 권한 확인
-        await ValidateUserInRoom(roomId, userId);
-
+        // 채팅방 존재 확인 (404 우선)
         var room = await chatRepo.GetChatRoomById(roomId);
         if (room == null)
         {
             throw new AppException("채팅방을 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
+
+        // 권한 확인 (403)
+        await ValidateUserInRoom(roomId, userId);
 
         var messages = await GetRecentMessages(roomId, userId);
         return MapToRoomDetailDto(room, userId, messages);
@@ -109,15 +111,15 @@ public class ChatService(
     /// </summary>
     public async Task<SendMessageRespDto> SendMessage(SendMessageReqDto req)
     {
-        // 권한 확인
-        await ValidateUserInRoom(req.RoomId, req.UserId);
-
-        // 채팅방 상태 확인
+        // 채팅방 존재 확인 (404 우선)
         var room = await chatRepo.GetChatRoomById(req.RoomId);
         if (room == null)
         {
             throw new AppException("채팅방을 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
+
+        // 권한 확인 (403)
+        await ValidateUserInRoom(req.RoomId, req.UserId);
 
         if (room.LockedAt != null || room.ClosedAt != null)
         {
@@ -125,20 +127,26 @@ public class ChatService(
         }
 
         // 이미지 업로드 (있는 경우)
-        string? imageUrl = null;
+        string? imageObjectKey = null;
+        string? imageSignedUrl = null;
+        DateTime? imageExpiresAt = null;
+
         if (req.Image != null)
         {
-            imageUrl = await fileUploadService.UploadChatImageAsync(req.Image, req.UserId, req.RoomId);
+            var uploadResult = await fileUploadService.UploadChatImageAsync(req.Image, req.UserId, req.RoomId);
+            imageObjectKey = uploadResult.ObjectKey;
+            imageSignedUrl = uploadResult.SignedUrl;
+            imageExpiresAt = uploadResult.ExpiresAt;
         }
 
         // 메시지 또는 이미지 중 하나는 필수
-        if (string.IsNullOrWhiteSpace(req.Message) && string.IsNullOrWhiteSpace(imageUrl))
+        if (string.IsNullOrWhiteSpace(req.Message) && string.IsNullOrWhiteSpace(imageObjectKey))
         {
             throw new AppException("메시지 또는 이미지를 입력해주세요.", HttpStatusCode.BadRequest);
         }
 
-        // 메시지 저장
-        var message = await chatRepo.CreateMessage(req.RoomId, req.UserId, req.Message, imageUrl);
+        // 메시지 저장 (DB에는 object key 저장)
+        var message = await chatRepo.CreateMessage(req.RoomId, req.UserId, req.Message, imageObjectKey);
 
         // 마지막 메시지 시간 업데이트
         await chatRepo.UpdateLastMessageAt(req.RoomId, message.CreatedAt ?? DateTime.UtcNow);
@@ -155,7 +163,8 @@ public class ChatService(
             MessageId = message.Id,
             RoomId = req.RoomId,
             Message = req.Message,
-            ImageUrl = imageUrl,
+            ImageUrl = imageSignedUrl,
+            ImageUrlExpiresAt = imageExpiresAt,
             CreatedAt = message.CreatedAt ?? DateTime.UtcNow,
             Success = true
         };
@@ -171,22 +180,23 @@ public class ChatService(
 
         var messages = await chatRepo.GetMessagesByRoomId(req.RoomId, req.LastMessageId, req.Limit);
 
-        return MapMessages(messages, req.UserId);
+        return await MapMessagesWithSignedUrls(messages, req.UserId);
     }
 
     /// <summary>
     /// 메시지 읽음 처리
     /// </summary>
-    public async Task MarkMessagesAsRead(long roomId, long userId)
+    public async Task MarkMessagesAsRead(long roomId, int userId)
     {
-        // 권한 확인
-        await ValidateUserInRoom(roomId, userId);
-
+        // 채팅방 존재 확인 (404 우선)
         var room = await chatRepo.GetChatRoomById(roomId);
         if (room == null)
         {
             throw new AppException("채팅방을 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
+
+        // 권한 확인 (403)
+        await ValidateUserInRoom(roomId, userId);
 
         var isBuyer = room.BuyerId == userId;
         await chatRepo.ResetUnreadCount(roomId, isBuyer);
@@ -197,7 +207,7 @@ public class ChatService(
     /// <summary>
     /// 결제 요청 (판매자가 구매자에게)
     /// </summary>
-    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, long transactionId, long userId)
+    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, long transactionId, int userId)
     {
         // 권한 확인
         await ValidateUserInRoom(roomId, userId);
@@ -214,6 +224,19 @@ public class ChatService(
             throw new AppException("판매자만 결제를 요청할 수 있습니다.", HttpStatusCode.Forbidden);
         }
 
+        // Transaction 검증
+        var transaction = await transactionRepo.GetTransactionById(transactionId);
+        if (transaction == null)
+        {
+            throw new AppException("거래 정보를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        // Transaction 소유권 검증 (BuyerId, SellerId 일치)
+        if (transaction.BuyerId != room.BuyerId || transaction.SellerId != room.SellerId)
+        {
+            throw new AppException("거래 정보가 이 채팅방과 일치하지 않습니다.", HttpStatusCode.Forbidden);
+        }
+
         // Transaction 연결 (없는 경우)
         if (room.TransactionId == null)
         {
@@ -221,7 +244,14 @@ public class ChatService(
         }
 
         // 시스템 메시지 전송
-        await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null);
+        var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null);
+
+        // LastMessageAt 업데이트
+        await chatRepo.UpdateLastMessageAt(roomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
+
+        // 상대방 읽지 않은 수 증가
+        var isSenderBuyer = room.BuyerId == userId;
+        await chatRepo.IncrementUnreadCount(roomId, !isSenderBuyer);
 
         logger.LogInformation("[ChatService.RequestPayment] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}",
             roomId, transactionId, userId);
@@ -270,7 +300,14 @@ public class ChatService(
         await chatRepo.LockChatRoom(req.RoomId);
 
         // 시스템 메시지 전송
-        await chatRepo.CreateMessage(req.RoomId, req.UserId, "구매가 확정되었습니다.", null);
+        var systemMessage = await chatRepo.CreateMessage(req.RoomId, req.UserId, "구매가 확정되었습니다.", null);
+
+        // LastMessageAt 업데이트
+        await chatRepo.UpdateLastMessageAt(req.RoomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
+
+        // 상대방 읽지 않은 수 증가
+        var isSenderBuyer = room.BuyerId == req.UserId;
+        await chatRepo.IncrementUnreadCount(req.RoomId, !isSenderBuyer);
 
         logger.LogInformation("[ChatService.ConfirmPurchase] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}",
             req.RoomId, req.TransactionId, req.UserId);
@@ -318,7 +355,14 @@ public class ChatService(
         await chatRepo.UpdateChatRoomStatus(req.RoomId, cancelledStatusId);
 
         // 시스템 메시지 전송
-        await chatRepo.CreateMessage(req.RoomId, req.UserId, $"거래가 취소되었습니다. 사유: {req.CancelReason}", null);
+        var systemMessage = await chatRepo.CreateMessage(req.RoomId, req.UserId, $"거래가 취소되었습니다. 사유: {req.CancelReason}", null);
+
+        // LastMessageAt 업데이트
+        await chatRepo.UpdateLastMessageAt(req.RoomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
+
+        // 상대방 읽지 않은 수 증가
+        var isSenderBuyer = room.BuyerId == req.UserId;
+        await chatRepo.IncrementUnreadCount(req.RoomId, !isSenderBuyer);
 
         logger.LogInformation("[ChatService.CancelTransaction] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}, Reason={Reason}",
             req.RoomId, req.TransactionId, req.UserId, req.CancelReason);
@@ -327,7 +371,7 @@ public class ChatService(
     /// <summary>
     /// 사용자가 채팅방에 속해 있는지 검증 (권한 체크)
     /// </summary>
-    private async Task ValidateUserInRoom(long roomId, long userId)
+    private async Task ValidateUserInRoom(long roomId, int userId)
     {
         var isInRoom = await chatRepo.IsUserInChatRoom(roomId, userId);
         if (!isInRoom)
@@ -337,31 +381,84 @@ public class ChatService(
     }
 
     /// <summary>
-    /// ChatRoom 엔티티를 ChatRoomDetailRespDto로 매핑
+    /// 메시지 이미지 URL 재발급
     /// </summary>
-    private async Task<List<ChatMessageRespDto>> GetRecentMessages(long roomId, long userId)
+    public async Task<RefreshImageUrlRespDto> RefreshImageUrl(long messageId, int userId)
     {
-        var messages = await chatRepo.GetMessagesByRoomId(roomId, null, DetailMessageLimit);
-        return MapMessages(messages, userId);
+        var message = await chatRepo.GetMessageById(messageId);
+        if (message == null)
+        {
+            throw new AppException("메시지를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        await ValidateUserInRoom(message.RoomId, userId);
+
+        if (string.IsNullOrEmpty(message.ImageUrl))
+        {
+            throw new AppException("이미지가 없는 메시지입니다.", HttpStatusCode.BadRequest);
+        }
+
+        var result = await fileUploadService.RefreshSignedUrlAsync(message.ImageUrl);
+
+        return new RefreshImageUrlRespDto
+        {
+            MessageId = messageId,
+            ImageUrl = result.SignedUrl,
+            ExpiresAt = result.ExpiresAt
+        };
     }
 
-    private List<ChatMessageRespDto> MapMessages(IEnumerable<DBModel.ChatMessage> messages, long userId)
+    /// <summary>
+    /// ChatRoom 엔티티를 ChatRoomDetailRespDto로 매핑
+    /// </summary>
+    private async Task<List<ChatMessageRespDto>> GetRecentMessages(long roomId, int userId)
     {
-        return messages.Select(m => new ChatMessageRespDto
+        var messages = await chatRepo.GetMessagesByRoomId(roomId, null, DetailMessageLimit);
+        return await MapMessagesWithSignedUrls(messages, userId);
+    }
+
+    private async Task<List<ChatMessageRespDto>> MapMessagesWithSignedUrls(IEnumerable<DBModel.ChatMessage> messages, int userId)
+    {
+        var messageList = messages.ToList();
+
+        // 이미지가 있는 메시지의 object key 수집
+        var imageKeys = messageList
+            .Where(m => !string.IsNullOrEmpty(m.ImageUrl))
+            .Select(m => m.ImageUrl!)
+            .Distinct()
+            .ToList();
+
+        // 배치로 signed URL 발급
+        var signedUrls = imageKeys.Count > 0
+            ? await fileUploadService.RefreshSignedUrlsBatchAsync(imageKeys)
+            : new Dictionary<string, SignedUrlResult>();
+
+        return messageList.Select(m =>
         {
-            MessageId = m.Id,
-            RoomId = m.RoomId,
-            SenderId = m.SenderId,
-            SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
-            SenderProfileImage = m.Sender?.UserProfile?.ProfileImageUrl,
-            Message = m.Message,
-            ImageUrl = m.ImageUrl,
-            CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
-            IsMyMessage = m.SenderId == userId
+            var hasImage = !string.IsNullOrEmpty(m.ImageUrl);
+            SignedUrlResult? signedUrlResult = null;
+            if (hasImage && signedUrls.TryGetValue(m.ImageUrl!, out var result))
+            {
+                signedUrlResult = result;
+            }
+
+            return new ChatMessageRespDto
+            {
+                MessageId = m.Id,
+                RoomId = m.RoomId,
+                SenderId = m.SenderId,
+                SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
+                SenderProfileImage = m.Sender?.UserProfile?.ProfileImageUrl,
+                Message = m.Message,
+                ImageUrl = signedUrlResult?.SignedUrl,
+                ImageUrlExpiresAt = signedUrlResult?.ExpiresAt,
+                CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
+                IsMyMessage = m.SenderId == userId
+            };
         }).ToList();
     }
 
-    private ChatRoomDetailRespDto MapToRoomDetailDto(DBModel.ChatRoom room, long userId, List<ChatMessageRespDto> messages)
+    private ChatRoomDetailRespDto MapToRoomDetailDto(DBModel.ChatRoom room, int userId, List<ChatMessageRespDto> messages)
     {
         var isBuyer = room.BuyerId == userId;
         var transaction = room.Transaction;
@@ -401,7 +498,7 @@ public class ChatService(
                 CancelledAt = transaction.CancelledAt
             } : null,
             CanSendMessage = room.LockedAt == null && room.ClosedAt == null,
-            CanRequestPayment = !isBuyer && transaction != null,
+            CanRequestPayment = !isBuyer && room.LockedAt == null && room.ClosedAt == null,
             CanConfirmPurchase = isBuyer && transaction != null && transaction.ConfirmedAt == null,
             CanCancelTransaction = transaction != null && transaction.ConfirmedAt == null && transaction.CancelledAt == null,
             Messages = messages

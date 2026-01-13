@@ -1,89 +1,80 @@
 using System.Net;
-using Amazon.S3;
-using Amazon.S3.Model;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
+using TicketPlatFormServer.Services.Storage;
 
 namespace TicketPlatFormServer.Services.FileUpload;
 
 public class FileUploadService(
-    IAmazonS3 s3Client,
-    AwsS3Settings s3Settings,
+    IStorageUploader storageUploader,
+    ISignedUrlCacheService cacheService,
+    SupabaseStorageSettings supabaseSettings,
     ILogger<FileUploadService> logger) : IFileUploadService
 {
     /// <summary>
     /// 채팅 이미지 업로드
     /// </summary>
-    public async Task<string> UploadChatImageAsync(IFormFile file, long userId, long roomId)
+    public async Task<ChatImageUploadResult> UploadChatImageAsync(IFormFile file, long userId, long roomId)
     {
-        // 파일 검증
+        // 1. 기본 검증 (null, empty, size)
         if (file == null || file.Length == 0)
         {
             throw new AppException("파일이 비어 있습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 파일 크기 검증
-        var maxSizeBytes = s3Settings.MaxFileSizeMB * 1024 * 1024;
+        var maxSizeBytes = supabaseSettings.MaxFileSizeMB * 1024 * 1024;
         if (file.Length > maxSizeBytes)
         {
-            throw new AppException($"파일 크기는 {s3Settings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
+            throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 파일 확장자 검증
+        // 2. 확장자 검증
         var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!s3Settings.AllowedExtensions.Contains(fileExtension))
+        if (!supabaseSettings.AllowedExtensions.Contains(fileExtension))
         {
             throw new AppException(
-                $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", s3Settings.AllowedExtensions)}",
+                $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
                 HttpStatusCode.BadRequest);
         }
 
+        // 3. Magic bytes 검증
+        using var stream = file.OpenReadStream();
+        var isMagicBytesValid = await MagicBytesValidator.ValidateAsync(stream, fileExtension);
+        if (!isMagicBytesValid)
+        {
+            logger.LogWarning("[FileUploadService] Magic bytes mismatch: Extension={Ext}, ContentType={ContentType}",
+                fileExtension, file.ContentType);
+            throw new AppException("파일 내용이 확장자와 일치하지 않습니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 4. Object key 생성
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var guid = Guid.NewGuid().ToString("N");
+        var fileName = $"{userId}_{timestamp}_{guid}{fileExtension}";
+        var objectKey = $"chat/{roomId}/{fileName}";
+
         try
         {
-            // 고유 파일명 생성: chat/{roomId}/{userId}_{timestamp}_{guid}.{ext}
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var guid = Guid.NewGuid().ToString("N");
-            var fileName = $"{userId}_{timestamp}_{guid}{fileExtension}";
-            var s3Key = $"chat/{roomId}/{fileName}";
+            // 5. 업로드
+            stream.Position = 0;
+            await storageUploader.UploadAsync(stream, objectKey, file.ContentType);
 
-            // S3 업로드
-            using var stream = file.OpenReadStream();
-            var putRequest = new PutObjectRequest
-            {
-                BucketName = s3Settings.BucketName,
-                Key = s3Key,
-                InputStream = stream,
-                ContentType = file.ContentType,
-                CannedACL = S3CannedACL.PublicRead // 공개 읽기 권한
-            };
+            // 6. Signed URL 생성 (업로드 직후용: 긴 만료)
+            var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec);
+            var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
 
-            var response = await s3Client.PutObjectAsync(putRequest);
+            // 7. 캐시에 저장
+            await cacheService.SetAsync(objectKey, signedUrl, supabaseSettings.UploadSignedUrlExpirySec);
 
-            if (response.HttpStatusCode != System.Net.HttpStatusCode.OK)
-            {
-                logger.LogError("[FileUploadService.UploadChatImageAsync] S3 업로드 실패: {StatusCode}", response.HttpStatusCode);
-                throw new AppException("파일 업로드에 실패했습니다.", HttpStatusCode.InternalServerError);
-            }
+            logger.LogInformation("[FileUploadService.UploadChatImageAsync] Success: ObjectKey={ObjectKey}, Provider={Provider}",
+                objectKey, storageUploader.ProviderName);
 
-            // URL 생성
-            var fileUrl = !string.IsNullOrEmpty(s3Settings.CloudFrontDomain)
-                ? $"https://{s3Settings.CloudFrontDomain}/{s3Key}"
-                : $"https://{s3Settings.BucketName}.s3.{s3Settings.Region}.amazonaws.com/{s3Key}";
-
-            logger.LogInformation("[FileUploadService.UploadChatImageAsync] 파일 업로드 성공: {FileUrl}", fileUrl);
-
-            return fileUrl;
-        }
-        catch (AmazonS3Exception ex)
-        {
-            logger.LogError(ex, "[FileUploadService.UploadChatImageAsync] AWS S3 에러");
-            throw new AppException("파일 업로드 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
+            return new ChatImageUploadResult(objectKey, signedUrl, expiresAt);
         }
         catch (Exception ex) when (ex is not AppException)
         {
-            logger.LogError(ex, "[FileUploadService.UploadChatImageAsync] 파일 업로드 에러");
+            logger.LogError(ex, "[FileUploadService.UploadChatImageAsync] Upload failed: ObjectKey={ObjectKey}", objectKey);
             throw new AppException("파일 업로드 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
         }
     }
@@ -91,36 +82,83 @@ public class FileUploadService(
     /// <summary>
     /// 파일 삭제
     /// </summary>
-    public async Task<bool> DeleteFileAsync(string fileUrl)
+    public async Task<bool> DeleteFileAsync(string objectKey)
     {
         try
         {
-            // URL에서 S3 키 추출
-            var uri = new Uri(fileUrl);
-            var key = uri.AbsolutePath.TrimStart('/');
-
-            var deleteRequest = new DeleteObjectRequest
-            {
-                BucketName = s3Settings.BucketName,
-                Key = key
-            };
-
-            var response = await s3Client.DeleteObjectAsync(deleteRequest);
-
-            logger.LogInformation("[FileUploadService.DeleteFileAsync] 파일 삭제 성공: {FileUrl}", fileUrl);
-
-            return response.HttpStatusCode == System.Net.HttpStatusCode.NoContent ||
-                   response.HttpStatusCode == System.Net.HttpStatusCode.OK;
-        }
-        catch (AmazonS3Exception ex)
-        {
-            logger.LogError(ex, "[FileUploadService.DeleteFileAsync] AWS S3 에러: {FileUrl}", fileUrl);
-            return false;
+            var result = await storageUploader.DeleteAsync(objectKey);
+            logger.LogInformation("[FileUploadService.DeleteFileAsync] Deleted: {ObjectKey}, Result: {Result}", objectKey, result);
+            return result;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "[FileUploadService.DeleteFileAsync] 파일 삭제 에러: {FileUrl}", fileUrl);
+            logger.LogError(ex, "[FileUploadService.DeleteFileAsync] Delete failed: {ObjectKey}", objectKey);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Signed URL 재발급 (단일)
+    /// </summary>
+    public async Task<SignedUrlResult> RefreshSignedUrlAsync(string objectKey)
+    {
+        // 캐시 확인
+        var cached = await cacheService.GetAsync(objectKey);
+        if (cached != null)
+        {
+            return new SignedUrlResult(cached, DateTime.UtcNow.AddSeconds(supabaseSettings.ReadSignedUrlExpirySec));
+        }
+
+        // 새로 발급
+        var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.ReadSignedUrlExpirySec);
+        var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.ReadSignedUrlExpirySec);
+
+        await cacheService.SetAsync(objectKey, signedUrl, supabaseSettings.ReadSignedUrlExpirySec);
+
+        return new SignedUrlResult(signedUrl, expiresAt);
+    }
+
+    /// <summary>
+    /// Signed URL 배치 재발급
+    /// </summary>
+    public async Task<Dictionary<string, SignedUrlResult>> RefreshSignedUrlsBatchAsync(IEnumerable<string> objectKeys)
+    {
+        var keysList = objectKeys.ToList();
+        var result = new Dictionary<string, SignedUrlResult>();
+
+        // 1. 캐시에서 조회
+        var cached = await cacheService.GetBatchAsync(keysList);
+        var cacheMissKeys = new List<string>();
+
+        foreach (var (key, url) in cached)
+        {
+            if (url != null)
+            {
+                result[key] = new SignedUrlResult(url, DateTime.UtcNow.AddSeconds(supabaseSettings.ReadSignedUrlExpirySec));
+            }
+            else
+            {
+                cacheMissKeys.Add(key);
+            }
+        }
+
+        // 2. 캐시 미스된 키들은 배치 요청
+        if (cacheMissKeys.Count > 0)
+        {
+            var freshUrls = await storageUploader.GetSignedUrlsBatchAsync(cacheMissKeys, supabaseSettings.ReadSignedUrlExpirySec);
+            var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.ReadSignedUrlExpirySec);
+
+            foreach (var (key, url) in freshUrls)
+            {
+                result[key] = new SignedUrlResult(url, expiresAt);
+            }
+
+            await cacheService.SetBatchAsync(freshUrls, supabaseSettings.ReadSignedUrlExpirySec);
+        }
+
+        logger.LogInformation("[FileUploadService.RefreshSignedUrlsBatchAsync] Total={Total}, CacheHit={Hit}, CacheMiss={Miss}",
+            keysList.Count, keysList.Count - cacheMissKeys.Count, cacheMissKeys.Count);
+
+        return result;
     }
 }
