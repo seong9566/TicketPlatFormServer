@@ -3,6 +3,18 @@
     "supabase": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=nbtsfiwerdxprhsoidrm"
+    },
+    "mysql": {
+      "command": "node",
+      "args": [
+        "/Users/stecdev/Desktop/workspace/dotnet_server/study_dotnet/mysql-mcp-server/server.js"
+      ],
+      "env": {
+        "DB_HOST": "localhost",
+        "DB_USER": "root",
+        "DB_PASSWORD": "stecdev1234!",
+        "DB_NAME": "TicketPlatFormDB"
+      }
     }
   }
 }

@@ -59,10 +59,10 @@ public class SellController(ISellService sellService) : ControllerBase
     /// </summary>
     /// <param name="eventId">공연 ID</param>
     /// <returns>일정 목록</returns>
-    [HttpGet("events/{eventId}/schedules")]
+    [HttpGet("events/schedules")]
     [ProducesResponseType(typeof(EventScheduleRespDto), 200)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> GetEventSchedules(int eventId)
+    public async Task<IActionResult> GetEventSchedules([FromQuery] int eventId)
     {
         var schedules = await _sellService.GetEventSchedulesAsync(eventId);
         return Ok(schedules);
@@ -73,10 +73,10 @@ public class SellController(ISellService sellService) : ControllerBase
     /// </summary>
     /// <param name="eventId">공연 ID</param>
     /// <returns>좌석 옵션 목록</returns>
-    [HttpGet("events/{eventId}/seat-options")]
+    [HttpGet("events/seat-options")]
     [ProducesResponseType(typeof(SeatOptionRespDto), 200)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> GetSeatOptions(int eventId)
+    public async Task<IActionResult> GetSeatOptions([FromQuery] int eventId)
     {
         var options = await _sellService.GetSeatOptionsAsync(eventId);
         return Ok(options);
@@ -118,11 +118,11 @@ public class SellController(ISellService sellService) : ControllerBase
     /// </summary>
     /// <param name="ticketId">티켓 ID</param>
     /// <returns>취소 결과</returns>
-    [HttpDelete("tickets/{ticketId}")]
+    [HttpDelete("tickets")]
     [ProducesResponseType(typeof(CancelSellTicketRespDto), 200)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> CancelTicket(int ticketId)
+    public async Task<IActionResult> CancelTicket([FromQuery] int ticketId)
     {
         var userId = GetUserId();
         var result = await _sellService.CancelTicketAsync(userId, ticketId);

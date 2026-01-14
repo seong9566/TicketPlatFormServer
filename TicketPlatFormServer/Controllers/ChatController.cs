@@ -56,8 +56,8 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 채팅방 상세 조회
     /// </summary>
-    [HttpGet("rooms/{roomId}")]
-    public async Task<IActionResult> GetChatRoomDetail(long roomId)
+    [HttpGet("rooms/detail")]
+    public async Task<IActionResult> GetChatRoomDetail([FromQuery] long roomId)
     {
         var userId = User.GetUserId();
         if (userId == null)
@@ -111,9 +111,9 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 메시지 목록 조회 (페이지네이션)
     /// </summary>
-    [HttpGet("rooms/{roomId}/messages")]
+    [HttpGet("messages")]
     public async Task<IActionResult> GetMessages(
-        long roomId,
+        [FromQuery] long roomId,
         [FromQuery] long? lastMessageId = null,
         [FromQuery] int limit = 50)
     {
@@ -141,14 +141,14 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 메시지 읽음 처리
     /// </summary>
-    [HttpPost("rooms/{roomId}/read")]
-    public async Task<IActionResult> MarkMessagesAsRead(long roomId)
+    [HttpPost("rooms/read")]
+    public async Task<IActionResult> MarkMessagesAsRead([FromBody] MarkMessagesAsReadReqDto req)
     {
         var userId = User.GetUserId();
         if (userId == null)
             throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
 
-        await chatService.MarkMessagesAsRead(roomId, userId.Value);
+        await chatService.MarkMessagesAsRead(req.RoomId, userId.Value);
         var resp = new ApiResponse<object>(
             message: "메시지 읽음 처리 완료",
             data: null,
@@ -160,20 +160,20 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 결제 요청 (판매자가 구매자에게)
     /// </summary>
-    [HttpPost("rooms/{roomId}/request-payment")]
-    public async Task<IActionResult> RequestPayment(long roomId, [FromBody] RequestPaymentReqDto req)
+    [HttpPost("rooms/request-payment")]
+    public async Task<IActionResult> RequestPayment([FromBody] RequestPaymentReqDto req)
     {
         var userId = User.GetUserId();
         if (userId == null)
             throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
 
-        var result = await chatService.RequestPayment(roomId, req.TransactionId, userId.Value);
+        var result = await chatService.RequestPayment(req.RoomId, req.TransactionId, userId.Value);
 
         // SignalR로 채팅방에 결제 요청 알림
-        await hubContext.Clients.Group($"room_{roomId}")
+        await hubContext.Clients.Group($"room_{req.RoomId}")
             .SendAsync("RoomUpdated", new RoomUpdatedSignalDto
             {
-                RoomId = roomId,
+                RoomId = req.RoomId,
                 Event = "PaymentRequested",
                 TransactionId = req.TransactionId,
                 Message = "결제가 요청되었습니다."
@@ -190,23 +190,22 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 구매 확정 (구매자가 확정)
     /// </summary>
-    [HttpPost("rooms/{roomId}/confirm-purchase")]
-    public async Task<IActionResult> ConfirmPurchase(long roomId, [FromBody] ConfirmPurchaseReqDto req)
+    [HttpPost("rooms/confirm-purchase")]
+    public async Task<IActionResult> ConfirmPurchase([FromBody] ConfirmPurchaseReqDto req)
     {
         var userId = User.GetUserId();
         if (userId == null)
             throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
 
         req.UserId = userId.Value;
-        req.RoomId = roomId;
 
         var result = await chatService.ConfirmPurchase(req);
 
         // SignalR로 채팅방에 구매 확정 알림
-        await hubContext.Clients.Group($"room_{roomId}")
+        await hubContext.Clients.Group($"room_{req.RoomId}")
             .SendAsync("RoomUpdated", new RoomUpdatedSignalDto
             {
-                RoomId = roomId,
+                RoomId = req.RoomId,
                 Event = "PurchaseConfirmed",
                 TransactionId = result.TransactionId,
                 Message = "구매가 확정되었습니다."
@@ -223,23 +222,22 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 거래 취소
     /// </summary>
-    [HttpPost("rooms/{roomId}/cancel")]
-    public async Task<IActionResult> CancelTransaction(long roomId, [FromBody] CancelTransactionReqDto req)
+    [HttpPost("rooms/cancel")]
+    public async Task<IActionResult> CancelTransaction([FromBody] CancelTransactionReqDto req)
     {
         var userId = User.GetUserId();
         if (userId == null)
             throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
 
         req.UserId = userId.Value;
-        req.RoomId = roomId;
 
         await chatService.CancelTransaction(req);
 
         // SignalR로 채팅방에 거래 취소 알림
-        await hubContext.Clients.Group($"room_{roomId}")
+        await hubContext.Clients.Group($"room_{req.RoomId}")
             .SendAsync("RoomUpdated", new RoomUpdatedSignalDto
             {
-                RoomId = roomId,
+                RoomId = req.RoomId,
                 Event = "TransactionCancelled",
                 TransactionId = req.TransactionId,
                 StatusCode = "cancelled",
@@ -257,8 +255,8 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     /// <summary>
     /// 메시지 이미지 URL 재발급
     /// </summary>
-    [HttpGet("messages/{messageId}/image-url")]
-    public async Task<IActionResult> RefreshImageUrl(long messageId)
+    [HttpGet("messages/image-url")]
+    public async Task<IActionResult> RefreshImageUrl([FromQuery] long messageId)
     {
         var userId = User.GetUserId();
         if (userId == null)

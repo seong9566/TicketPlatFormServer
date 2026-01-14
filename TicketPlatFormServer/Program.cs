@@ -128,6 +128,7 @@ builder.Services
 
 builder.Services.AddAuthorization();
 #endregion
+
 #region Chat 설정
 var chatSettings = new ChatSettings();
 builder.Configuration.GetSection("ChatSettings").Bind(chatSettings);
@@ -158,21 +159,8 @@ builder.Services.AddHttpClient<SupabaseStorageUploader>()
     .AddPolicyHandler(GetRetryPolicy(resilienceSettings))
     .AddPolicyHandler(GetCircuitBreakerPolicy(resilienceSettings));
 
-// S3 Storage Uploader
-builder.Services.AddScoped<S3StorageUploader>();
-
-// IStorageUploader - Provider 선택
-builder.Services.AddScoped<IStorageUploader>(sp =>
-{
-    var providerSettings = sp.GetRequiredService<StorageProviderSettings>();
-
-    return providerSettings.ActiveProvider.ToLower() switch
-    {
-        "supabase" => sp.GetRequiredService<SupabaseStorageUploader>(),
-        "s3" => sp.GetRequiredService<S3StorageUploader>(),
-        _ => sp.GetRequiredService<SupabaseStorageUploader>()
-    };
-});
+// IStorageUploader - Supabase로 설정
+builder.Services.AddScoped<IStorageUploader>(sp => sp.GetRequiredService<SupabaseStorageUploader>());
 
 static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(ResilienceSettings settings)
 {
