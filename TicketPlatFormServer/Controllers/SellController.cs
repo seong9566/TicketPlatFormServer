@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.DTO.Sell;
 using TicketPlatFormServer.Services.Sell;
 
@@ -34,11 +35,16 @@ public class SellController(ISellService sellService) : ControllerBase
     /// </summary>
     /// <returns>카테고리 목록</returns>
     [HttpGet("categories")]
-    [ProducesResponseType(typeof(List<CategoryRespDto>), 200)]
+    [ProducesResponseType(typeof(ApiResponse<List<CategoryRespDto>>), 200)]
     public async Task<IActionResult> GetCategories()
     {
         var categories = await _sellService.GetCategoriesAsync();
-        return Ok(categories);
+        var resp = new ApiResponse<List<CategoryRespDto>>(
+            message: "카테고리 목록 조회 성공",
+            data: categories,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 
     /// <summary>
@@ -47,11 +53,16 @@ public class SellController(ISellService sellService) : ControllerBase
     /// <param name="request">조회 조건</param>
     /// <returns>공연 목록 (페이징)</returns>
     [HttpGet("events")]
-    [ProducesResponseType(typeof(SellEventListRespDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<SellEventListRespDto>), 200)]
     public async Task<IActionResult> GetEvents([FromQuery] SellEventListReqDto request)
     {
         var events = await _sellService.GetEventsAsync(request);
-        return Ok(events);
+        var resp = new ApiResponse<SellEventListRespDto>(
+            message: "공연 목록 조회 성공",
+            data: events,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 
     /// <summary>
@@ -60,12 +71,17 @@ public class SellController(ISellService sellService) : ControllerBase
     /// <param name="eventId">공연 ID</param>
     /// <returns>일정 목록</returns>
     [HttpGet("events/schedules")]
-    [ProducesResponseType(typeof(EventScheduleRespDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<EventScheduleRespDto>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetEventSchedules([FromQuery] int eventId)
     {
         var schedules = await _sellService.GetEventSchedulesAsync(eventId);
-        return Ok(schedules);
+        var resp = new ApiResponse<EventScheduleRespDto>(
+            message: "일정 목록 조회 성공",
+            data: schedules,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 
     /// <summary>
@@ -74,12 +90,17 @@ public class SellController(ISellService sellService) : ControllerBase
     /// <param name="eventId">공연 ID</param>
     /// <returns>좌석 옵션 목록</returns>
     [HttpGet("events/seat-options")]
-    [ProducesResponseType(typeof(SeatOptionRespDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<SeatOptionRespDto>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetSeatOptions([FromQuery] int eventId)
     {
         var options = await _sellService.GetSeatOptionsAsync(eventId);
-        return Ok(options);
+        var resp = new ApiResponse<SeatOptionRespDto>(
+            message: "좌석 옵션 조회 성공",
+            data: options,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 
     /// <summary>
@@ -89,14 +110,19 @@ public class SellController(ISellService sellService) : ControllerBase
     /// <returns>등록 결과</returns>
     [HttpPost("tickets")]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(CreateSellTicketRespDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<CreateSellTicketRespDto>), 200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> CreateTicket([FromForm] CreateSellTicketReqDto request)
     {
         var userId = GetUserId();
         var result = await _sellService.CreateTicketAsync(userId, request);
-        return Ok(result);
+        var resp = new ApiResponse<CreateSellTicketRespDto>(
+            message: "티켓 판매 등록 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 
     /// <summary>
@@ -105,12 +131,17 @@ public class SellController(ISellService sellService) : ControllerBase
     /// <param name="request">조회 조건</param>
     /// <returns>내 티켓 목록 (페이징)</returns>
     [HttpGet("my-tickets")]
-    [ProducesResponseType(typeof(MyTicketListRespDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<MyTicketListRespDto>), 200)]
     public async Task<IActionResult> GetMyTickets([FromQuery] MyTicketListReqDto request)
     {
         var userId = GetUserId();
         var result = await _sellService.GetMyTicketsAsync(userId, request);
-        return Ok(result);
+        var resp = new ApiResponse<MyTicketListRespDto>(
+            message: "내 판매 티켓 목록 조회 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 
     /// <summary>
@@ -119,13 +150,18 @@ public class SellController(ISellService sellService) : ControllerBase
     /// <param name="ticketId">티켓 ID</param>
     /// <returns>취소 결과</returns>
     [HttpDelete("tickets")]
-    [ProducesResponseType(typeof(CancelSellTicketRespDto), 200)]
+    [ProducesResponseType(typeof(ApiResponse<CancelSellTicketRespDto>), 200)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> CancelTicket([FromQuery] int ticketId)
     {
         var userId = GetUserId();
         var result = await _sellService.CancelTicketAsync(userId, ticketId);
-        return Ok(result);
+        var resp = new ApiResponse<CancelSellTicketRespDto>(
+            message: "티켓 판매 취소 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
     }
 }
