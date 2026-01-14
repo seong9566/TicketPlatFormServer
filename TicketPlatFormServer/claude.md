@@ -1,0 +1,13 @@
+# 프로젝트 개요
+- **프로젝트명**: TicketHub
+- **목적**: 중고티켓의 가격을 원가 이하로만 판매 가능하게 하기 위한, 티켓 중고 거래 플랫폼
+- **디렉토리 위치**: ../TicketPlatFormServer
+- **기술 스택**:
+  - **Backend**: ASP.NET Core 9 (C#, net9.0)
+  - **DB**: MySQL
+  - **ORM/Query**: EF Core 9 (Pomelo.EntityFrameworkCore.MySql), Dapper
+  - **Auth/Security**: JWT Bearer, BCrypt.Net-Next
+  - **Realtime**: SignalR
+  - **Storage**: Supabase Storage (커스텀 업로더)
+  - **API Docs**: Swagger (Swashbuckle.AspNetCore)
+  - **Resilience**: Polly
