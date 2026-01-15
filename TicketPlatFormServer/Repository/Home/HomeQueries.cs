@@ -47,7 +47,7 @@ internal static class HomeQueries
             MIN(t.original_price) AS OriginalMinTicketPrice,
             ROUND((MIN(t.original_price) - MIN(t.price)) / MIN(t.original_price) * 100) AS TicketDiscountRate,
             e.poster_image_url AS PosterImageUrl,
-            SUM(t.remaining_quantity) AS AvailableTicketCount,
+            COUNT(t.id) AS AvailableTicketCount,
             e.category_id AS CategoryId
         FROM events e
         INNER JOIN tickets t ON e.id = t.event_id
@@ -146,7 +146,7 @@ internal static class HomeQueries
             MIN(t.original_price) AS OriginalMinTicketPrice,
             ROUND((MIN(t.original_price) - MIN(t.price)) / MIN(t.original_price) * 100) AS TicketDiscountRate,
             e.poster_image_url AS PosterImageUrl,
-            SUM(t.remaining_quantity) AS AvailableTicketCount,
+            COUNT(t.id) AS AvailableTicketCount,
             e.category_id AS CategoryId,
             TRUE AS IsWishedByMe,
             -- 하이브리드 추천 점수 계산
@@ -228,7 +228,7 @@ internal static class HomeQueries
             MIN(t.original_price) AS OriginalMinTicketPrice,
             ROUND((MIN(t.original_price) - MIN(t.price)) / MIN(t.original_price) * 100) AS TicketDiscountRate,
             e.poster_image_url AS PosterImageUrl,
-            SUM(t.remaining_quantity) AS AvailableTicketCount,
+            COUNT(t.id) AS AvailableTicketCount,
             e.category_id AS CategoryId,
             FALSE AS IsWishedByMe,
             -- 추천 점수 계산
