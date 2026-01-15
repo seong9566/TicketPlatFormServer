@@ -4,6 +4,7 @@ using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.ReadModels;
 using TicketPlatFormServer.Repository.Ticket;
+using TicketPlatFormServer.Services.FileUpload;
 
 namespace TicketPlatFormServer.Services.Ticket;
 
@@ -14,12 +15,17 @@ public class TicketService : ITicketService
 {
     private readonly ITicketRepository _repo;
     private readonly IFavoriteRepository _favoriteRepo;
+    private readonly IFileUploadService _fileUploadService;
     private const int FAVORITE_TYPE_TICKET = 2;
 
-    public TicketService(ITicketRepository repo, IFavoriteRepository favoriteRepo)
+    public TicketService(
+        ITicketRepository repo, 
+        IFavoriteRepository favoriteRepo,
+        IFileUploadService fileUploadService)
     {
         _repo = repo;
         _favoriteRepo = favoriteRepo;
+        _fileUploadService = fileUploadService;
     }
 
     public async Task<TicketListRespDto> GetTicketDetailById(int ticketId, int? userId = null)
@@ -43,6 +49,28 @@ public class TicketService : ITicketService
             isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
         }
 
+        // 티켓 이미지 URL 변환 (Signed URL)
+        var ticketImages = new List<string>();
+        if (readModel.TicketImages != null && readModel.TicketImages.Count > 0)
+        {
+            // 배치 요청으로 Signed URL 획득 (캐시 활용)
+            var signedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(readModel.TicketImages);
+            
+            // 순서 보장하며 URL 매핑
+            foreach (var objectKey in readModel.TicketImages)
+            {
+                if (signedUrls.TryGetValue(objectKey, out var result))
+                {
+                    ticketImages.Add(result.SignedUrl);
+                }
+                else
+                {
+                    // 변환 실패 시 원본 키 반환 (또는 제외)
+                    ticketImages.Add(objectKey);
+                }
+            }
+        }
+
         // ReadModel → RespDto 변환
         return new TicketListRespDto
         {
@@ -62,7 +90,7 @@ public class TicketService : ITicketService
             Quantity = readModel.Quantity,
             RemainingQuantity = readModel.RemainingQuantity,
             IsSingleTicket = readModel.IsSingleTicket,
-            TicketImages = readModel.TicketImages,
+            TicketImages = ticketImages, // 변환된 Signed URL 리스트 사용
             IsFavorited = isFavorited,
             Seller = new SellerInfoDto
             {
