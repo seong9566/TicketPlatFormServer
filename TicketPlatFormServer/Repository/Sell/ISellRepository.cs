@@ -52,6 +52,16 @@ public interface ISellRepository
     Task CreateTicketImagesAsync(List<TicketImage> images);
 
     /// <summary>
+    /// 티켓 이미지 목록 조회 (배치 - N+1 방지)
+    /// </summary>
+    Task<Dictionary<int, List<TicketImage>>> GetTicketImagesByTicketIdsAsync(List<int> ticketIds);
+
+    /// <summary>
+    /// 특정 티켓의 이미지 목록 조회
+    /// </summary>
+    Task<List<TicketImage>> GetTicketImagesByTicketIdAsync(int ticketId);
+
+    /// <summary>
     /// 사용자의 판매 티켓 목록 조회 (페이징)
     /// </summary>
     Task<(List<DBModel.Ticket> Tickets, int TotalCount)> GetMyTicketsAsync(

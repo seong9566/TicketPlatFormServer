@@ -41,4 +41,9 @@ public interface ISellService
     /// 티켓 판매 취소
     /// </summary>
     Task<CancelSellTicketRespDto> CancelTicketAsync(int userId, int ticketId);
+
+    /// <summary>
+    /// 티켓 이미지 URL 재발급
+    /// </summary>
+    Task<RefreshTicketImageUrlRespDto> RefreshTicketImageUrlsAsync(int ticketId, int userId);
 }

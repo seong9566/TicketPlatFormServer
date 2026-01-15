@@ -23,12 +23,27 @@ public interface IFileUploadService
     /// Signed URL 배치 재발급
     /// </summary>
     Task<Dictionary<string, SignedUrlResult>> RefreshSignedUrlsBatchAsync(IEnumerable<string> objectKeys);
+
+    /// <summary>
+    /// 티켓 이미지 배치 업로드 (최대 5개)
+    /// </summary>
+    Task<List<TicketImageUploadResult>> UploadTicketImagesAsync(
+        List<IFormFile> files,
+        int ticketId,
+        int userId);
 }
 
 public record ChatImageUploadResult(
     string ObjectKey,
     string SignedUrl,
     DateTime ExpiresAt
+);
+
+public record TicketImageUploadResult(
+    long ImageId,          // DB insert 전에는 0
+    string ObjectKey,      // tickets/{ticketId}/{guid}.{ext}
+    string SignedUrl,      // 임시 접근 URL
+    DateTime ExpiresAt     // URL 만료 시간
 );
 
 public record SignedUrlResult(

@@ -120,6 +120,35 @@ public class SellRepository(TicketContext context) : ISellRepository
     }
 
     /// <summary>
+    /// 티켓 이미지 목록 조회 (배치 - N+1 방지)
+    /// </summary>
+    public async Task<Dictionary<int, List<TicketImage>>> GetTicketImagesByTicketIdsAsync(List<int> ticketIds)
+    {
+        if (!ticketIds.Any())
+            return new Dictionary<int, List<TicketImage>>();
+
+        var images = await _context.TicketImages
+            .Where(ti => ticketIds.Contains((int)ti.TicketId))
+            .OrderBy(ti => ti.Id) // 첫 번째 이미지 = 썸네일
+            .ToListAsync();
+
+        return images
+            .GroupBy(ti => (int)ti.TicketId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    /// <summary>
+    /// 특정 티켓의 이미지 목록 조회
+    /// </summary>
+    public async Task<List<TicketImage>> GetTicketImagesByTicketIdAsync(int ticketId)
+    {
+        return await _context.TicketImages
+            .Where(ti => ti.TicketId == ticketId)
+            .OrderBy(ti => ti.Id)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// 사용자의 판매 티켓 목록 조회 (페이징)
     /// </summary>
     public async Task<(List<DBModel.Ticket> Tickets, int TotalCount)> GetMyTicketsAsync(

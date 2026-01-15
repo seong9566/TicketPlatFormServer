@@ -19,4 +19,9 @@ public class CreateSellTicketRespDto
     /// 메시지
     /// </summary>
     public string Message { get; set; } = null!;
+
+    /// <summary>
+    /// 업로드된 이미지 목록 (Signed URL 포함)
+    /// </summary>
+    public List<TicketImageDto>? Images { get; set; }
 }

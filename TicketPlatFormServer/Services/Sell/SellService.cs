@@ -4,6 +4,7 @@ using TicketPlatFormServer.DTO.Sell;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Services.Storage;
+using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.DBModel;
 
 namespace TicketPlatFormServer.Services.Sell;
@@ -11,10 +12,11 @@ namespace TicketPlatFormServer.Services.Sell;
 /// <summary>
 /// 티켓 판매 Service 구현체
 /// </summary>
-public class SellService(ISellRepository sellRepository, IStorageUploader storageUploader) : ISellService
+public class SellService(ISellRepository sellRepository, IStorageUploader storageUploader, IFileUploadService fileUploadService) : ISellService
 {
     private readonly ISellRepository _sellRepository = sellRepository;
     private readonly IStorageUploader _storageUploader = storageUploader;
+    private readonly IFileUploadService _fileUploadService = fileUploadService;
 
     /// <summary>
     /// 판매 가능한 카테고리 목록 조회
@@ -184,35 +186,39 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         var ticketId = await _sellRepository.CreateTicketAsync(ticket);
 
         // 9. 이미지 업로드
+        List<TicketImageDto>? uploadedImages = null;
         if (request.Images != null && request.Images.Any())
         {
-            var ticketImages = new List<TicketImage>();
+            // FileUploadService를 통해 배치 업로드 (검증 포함)
+            var uploadResults = await _fileUploadService.UploadTicketImagesAsync(
+                request.Images,
+                ticketId,
+                userId);
 
-            foreach (var image in request.Images.Take(5)) // 최대 5개
+            // DB에 저장 (object key만)
+            var ticketImages = uploadResults.Select(r => new TicketImage
             {
-                using var stream = image.OpenReadStream();
-                var objectKey = $"tickets/{ticketId}/{Guid.NewGuid()}{Path.GetExtension(image.FileName)}";
-
-                await _storageUploader.UploadAsync(
-                    stream,
-                    objectKey,
-                    image.ContentType);
-
-                ticketImages.Add(new TicketImage
-                {
-                    TicketId = ticketId,
-                    ImageUrl = objectKey // 실제 URL은 조회 시 GetSignedUrlAsync로 생성
-                });
-            }
-
+                TicketId = ticketId,
+                ImageUrl = r.ObjectKey
+            }).ToList();
             await _sellRepository.CreateTicketImagesAsync(ticketImages);
+
+            // DB insert 후 실제 Id를 가져와 매핑
+            var savedImages = await _sellRepository.GetTicketImagesByTicketIdAsync(ticketId);
+            uploadedImages = uploadResults.Zip(savedImages, (upload, saved) => new TicketImageDto
+            {
+                ImageId = saved.Id,
+                ImageUrl = upload.SignedUrl,
+                ExpiresAt = upload.ExpiresAt
+            }).ToList();
         }
 
         return new CreateSellTicketRespDto
         {
             TicketId = ticketId,
             Status = "pending_review",
-            Message = "티켓 판매 등록이 완료되었습니다. 검수 후 판매가 시작됩니다."
+            Message = "티켓 판매 등록이 완료되었습니다. 검수 후 판매가 시작됩니다.",
+            Images = uploadedImages
         };
     }
 
@@ -293,13 +299,41 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
     }
 
     /// <summary>
-    /// 티켓 이미지 조회 (대표 이미지만)
+    /// 티켓 이미지 조회 (대표 이미지만 - 썸네일용)
     /// </summary>
     private async Task<Dictionary<int, string>> GetTicketImagesAsync(List<int> ticketIds)
     {
-        // TODO: 실제로는 TicketImageRepository를 통해 조회해야 하지만,
-        // 여기서는 간단히 빈 딕셔너리 반환
-        return new Dictionary<int, string>();
+        if (!ticketIds.Any())
+            return new Dictionary<int, string>();
+
+        // 1. DB에서 이미지 조회 (배치)
+        var ticketImagesDict = await _sellRepository.GetTicketImagesByTicketIdsAsync(ticketIds);
+
+        // 2. 첫 번째 이미지의 object key만 추출
+        var firstImageKeys = ticketImagesDict
+            .Where(kvp => kvp.Value.Any())
+            .ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.First().ImageUrl);
+
+        if (!firstImageKeys.Any())
+            return new Dictionary<int, string>();
+
+        // 3. Signed URL 배치 생성 (FileUploadService 사용)
+        var signedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(
+            firstImageKeys.Values);
+
+        // 4. TicketId -> SignedUrl 매핑
+        var result = new Dictionary<int, string>();
+        foreach (var (ticketId, objectKey) in firstImageKeys)
+        {
+            if (signedUrls.TryGetValue(objectKey, out var urlResult))
+            {
+                result[ticketId] = urlResult.SignedUrl;
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -319,5 +353,48 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             DayOfWeek.Saturday => "토",
             _ => ""
         };
+    }
+
+    /// <summary>
+    /// 티켓 이미지 URL 재발급
+    /// </summary>
+    public async Task<RefreshTicketImageUrlRespDto> RefreshTicketImageUrlsAsync(int ticketId, int userId)
+    {
+        // 1. 티켓 조회 및 소유권 확인
+        var ticket = await _sellRepository.GetTicketByIdAsync(ticketId);
+        if (ticket == null)
+        {
+            throw new AppException("티켓을 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        if (ticket.SellerId != userId)
+        {
+            throw new AppException("티켓에 접근할 권한이 없습니다.", HttpStatusCode.Forbidden);
+        }
+
+        // 2. 이미지 조회
+        var images = await _sellRepository.GetTicketImagesByTicketIdAsync(ticketId);
+        if (!images.Any())
+        {
+            return new RefreshTicketImageUrlRespDto { Images = new() };
+        }
+
+        // 3. Signed URL 배치 생성
+        var objectKeys = images.Select(img => img.ImageUrl).ToList();
+        var signedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(objectKeys);
+
+        // 4. DTO 매핑
+        var imageDtos = images.Select(img =>
+        {
+            signedUrls.TryGetValue(img.ImageUrl, out var urlResult);
+            return new TicketImageDto
+            {
+                ImageId = img.Id,
+                ImageUrl = urlResult?.SignedUrl ?? "",
+                ExpiresAt = urlResult?.ExpiresAt ?? DateTime.UtcNow
+            };
+        }).ToList();
+
+        return new RefreshTicketImageUrlRespDto { Images = imageDtos };
     }
 }

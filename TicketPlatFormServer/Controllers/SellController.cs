@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.DTO.Sell;
 using TicketPlatFormServer.Services.Sell;
@@ -16,19 +16,6 @@ namespace TicketPlatFormServer.Controllers;
 public class SellController(ISellService sellService) : ControllerBase
 {
     private readonly ISellService _sellService = sellService;
-
-    /// <summary>
-    /// JWT에서 UserId 추출
-    /// </summary>
-    private int GetUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
-        {
-            throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
-        }
-        return userId;
-    }
 
     /// <summary>
     /// 판매 가능한 카테고리 목록 조회
@@ -115,7 +102,7 @@ public class SellController(ISellService sellService) : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> CreateTicket([FromForm] CreateSellTicketReqDto request)
     {
-        var userId = GetUserId();
+        var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
         var result = await _sellService.CreateTicketAsync(userId, request);
         var resp = new ApiResponse<CreateSellTicketRespDto>(
             message: "티켓 판매 등록 성공",
@@ -134,7 +121,7 @@ public class SellController(ISellService sellService) : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<MyTicketListRespDto>), 200)]
     public async Task<IActionResult> GetMyTickets([FromQuery] MyTicketListReqDto request)
     {
-        var userId = GetUserId();
+        var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
         var result = await _sellService.GetMyTicketsAsync(userId, request);
         var resp = new ApiResponse<MyTicketListRespDto>(
             message: "내 판매 티켓 목록 조회 성공",
@@ -155,10 +142,31 @@ public class SellController(ISellService sellService) : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> CancelTicket([FromQuery] int ticketId)
     {
-        var userId = GetUserId();
+        var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
         var result = await _sellService.CancelTicketAsync(userId, ticketId);
         var resp = new ApiResponse<CancelSellTicketRespDto>(
             message: "티켓 판매 취소 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
+
+    /// <summary>
+    /// 티켓 이미지 URL 재발급
+    /// </summary>
+    /// <param name="ticketId">티켓 ID</param>
+    /// <returns>갱신된 이미지 URL 목록</returns>
+    [HttpGet("tickets/images/refresh")]
+    [ProducesResponseType(typeof(ApiResponse<RefreshTicketImageUrlRespDto>), 200)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> RefreshTicketImageUrls([FromQuery] int ticketId)
+    {
+        var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
+        var result = await _sellService.RefreshTicketImageUrlsAsync(ticketId, userId);
+        var resp = new ApiResponse<RefreshTicketImageUrlRespDto>(
+            message: "티켓 이미지 URL 재발급 성공",
             data: result,
             statusCode: 200
         );

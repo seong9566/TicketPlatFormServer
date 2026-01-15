@@ -98,6 +98,91 @@ public class FileUploadService(
     }
 
     /// <summary>
+    /// 티켓 이미지 배치 업로드 (최대 5개)
+    /// </summary>
+    public async Task<List<TicketImageUploadResult>> UploadTicketImagesAsync(
+        List<IFormFile> files,
+        int ticketId,
+        int userId)
+    {
+        // 1. 최대 개수 검증
+        const int maxImages = 5;
+        if (files.Count > maxImages)
+        {
+            throw new AppException($"티켓 이미지는 최대 {maxImages}개까지 업로드 가능합니다.", HttpStatusCode.BadRequest);
+        }
+
+        var results = new List<TicketImageUploadResult>();
+
+        foreach (var file in files)
+        {
+            // 2. 기본 검증 (null, empty, size)
+            if (file == null || file.Length == 0)
+            {
+                throw new AppException("파일이 비어 있습니다.", HttpStatusCode.BadRequest);
+            }
+
+            var maxSizeBytes = supabaseSettings.MaxFileSizeMB * 1024 * 1024;
+            if (file.Length > maxSizeBytes)
+            {
+                throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
+            }
+
+            // 3. 확장자 검증
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!supabaseSettings.AllowedExtensions.Contains(fileExtension))
+            {
+                throw new AppException(
+                    $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
+                    HttpStatusCode.BadRequest);
+            }
+
+            // 4. Magic bytes 검증
+            using var stream = file.OpenReadStream();
+            var isMagicBytesValid = await MagicBytesValidator.ValidateAsync(stream, fileExtension);
+            if (!isMagicBytesValid)
+            {
+                logger.LogWarning("[FileUploadService.UploadTicketImagesAsync] Magic bytes mismatch for ticket: Extension={Ext}, ContentType={ContentType}",
+                    fileExtension, file.ContentType);
+                throw new AppException("파일 내용이 확장자와 일치하지 않습니다.", HttpStatusCode.BadRequest);
+            }
+
+            // 5. Object key 생성
+            var guid = Guid.NewGuid().ToString("N");
+            var objectKey = $"tickets/{ticketId}/{guid}{fileExtension}";
+
+            try
+            {
+                // 6. 업로드
+                stream.Position = 0;
+                await storageUploader.UploadAsync(stream, objectKey, file.ContentType);
+
+                // 7. Signed URL 생성 (업로드 직후용: 긴 만료)
+                var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec);
+                var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
+
+                // 8. 캐시에 저장
+                await cacheService.SetAsync(objectKey, signedUrl, supabaseSettings.UploadSignedUrlExpirySec);
+
+                results.Add(new TicketImageUploadResult(0, objectKey, signedUrl, expiresAt));
+
+                logger.LogInformation("[FileUploadService.UploadTicketImagesAsync] Success: ObjectKey={ObjectKey}, Provider={Provider}",
+                    objectKey, storageUploader.ProviderName);
+            }
+            catch (Exception ex) when (ex is not AppException)
+            {
+                logger.LogError(ex, "[FileUploadService.UploadTicketImagesAsync] Upload failed: ObjectKey={ObjectKey}", objectKey);
+                throw new AppException("파일 업로드 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
+            }
+        }
+
+        logger.LogInformation("[FileUploadService.UploadTicketImagesAsync] Batch upload complete: TicketId={TicketId}, Count={Count}",
+            ticketId, results.Count);
+
+        return results;
+    }
+
+    /// <summary>
     /// Signed URL 재발급 (단일)
     /// </summary>
     public async Task<SignedUrlResult> RefreshSignedUrlAsync(string objectKey)
