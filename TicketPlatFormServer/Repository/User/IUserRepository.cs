@@ -43,4 +43,32 @@ public interface IUserRepository
     /// <param name="code">Role Code</param>
     /// <returns></returns>
     Task<AuthRole?> GetRoleByCode(string code);
+
+    /// <summary>
+    /// 사용자 및 기본 프로필 생성 (원자적 트랜잭션)
+    /// </summary>
+    /// <param name="user">User 엔티티</param>
+    /// <param name="profile">UserProfile 엔티티</param>
+    /// <returns>생성된 User (Id 포함)</returns>
+    Task<User> CreateUserWithProfile(User user, UserProfile profile);
+
+    /// <summary>
+    /// 닉네임 중복 확인
+    /// </summary>
+    /// <param name="nickname">확인할 닉네임</param>
+    /// <returns>이미 존재하면 true, 아니면 false</returns>
+    Task<bool> IsNicknameExistsAsync(string nickname);
+
+    /// <summary>
+    /// 사용자 프로필 조회
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <returns>UserProfile 엔티티 (없으면 null)</returns>
+    Task<UserProfile?> GetUserProfileByIdAsync(int userId);
+
+    /// <summary>
+    /// 사용자 프로필 업데이트
+    /// </summary>
+    /// <param name="profile">업데이트할 UserProfile 엔티티</param>
+    Task UpdateUserProfileAsync(UserProfile profile);
 }

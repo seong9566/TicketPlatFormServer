@@ -1,28 +1,32 @@
 using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.DTO.User;
 using TicketPlatFormServer.Enum;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Users;
+using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Token;
 
 namespace TicketPlatFormServer.Services.User;
 
 public class UserService : IUserService
-
 {
     private readonly IUserRepository _repo;
     private readonly ITokenService _tokenService;
     private readonly IRefreshTokenRepository _refreshTokenRepo;
+    private readonly IFileUploadService _fileUploadService;
 
     public UserService(
         IUserRepository repo,
         ITokenService tokenService,
-        IRefreshTokenRepository refreshTokenRepo)
+        IRefreshTokenRepository refreshTokenRepo,
+        IFileUploadService fileUploadService)
     {
         _repo = repo;
         _tokenService = tokenService;
         _refreshTokenRepo = refreshTokenRepo;
+        _fileUploadService = fileUploadService;
     }
     public async Task<RegisterUserRespDto> RegisterUser(RegisterUserReqDto dto)
     {
@@ -70,7 +74,7 @@ public class UserService : IUserService
             ? BCrypt.Net.BCrypt.HashPassword(dto.Password)
             : null)!;
          
-        // 5. Dto -> Entity 
+        // 5. Dto -> Entity
         var reqEntity = new DBModel.User
         {
             Email = dto.Email,
@@ -80,17 +84,32 @@ public class UserService : IUserService
             RoleId = role.Id
         };
 
-        // 6. DB에 저장 
-        var saved = await _repo.Sign(reqEntity);
-        
-        // 저장 후 Provider와 Role을 다시 로드하기 위해 조회
+        // 6. 랜덤 닉네임 생성 (중복되지 않을 때까지)
+        var randomNickname = await NicknameGenerator.GenerateUniqueAsync(
+            async (nickname) => await _repo.IsNicknameExistsAsync(nickname)
+        );
+
+        // 7. UserProfile 기본값 생성 (UserId는 Repo에서 세팅)
+        var userProfile = new DBModel.UserProfile
+        {
+            Nickname = randomNickname,        // 랜덤 닉네임 자동 생성 (형용사 + 명사)
+            ProfileImageUrl = null,           // null이면 Supabase 업로드 안 함
+            Bio = null,
+            MannerTemperature = 36.5f,
+            TotalTradeCount = 0
+        };
+
+        // 8. User + UserProfile 저장 (원자적 트랜잭션)
+        var saved = await _repo.CreateUserWithProfile(reqEntity, userProfile);
+
+        // 9. 저장 후 Provider와 Role을 다시 로드하기 위해 조회
         var savedWithRelations = await _repo.GetByEmail(saved.Email);
         if (savedWithRelations == null)
         {
             throw new AppException(message: "회원가입 후 사용자 정보를 조회할 수 없습니다.", statusCode: HttpStatusCode.InternalServerError);
         }
-        
-        // 7. Entity -> Dto (DB 코드 값을 그대로 내려줌: role -> "user", provider -> "email")
+
+        // 10. Entity -> Dto (DB 코드 값을 그대로 내려줌: role -> "user", provider -> "email")
         return new RegisterUserRespDto
         { 
             Email = savedWithRelations.Email,
@@ -160,5 +179,75 @@ public class UserService : IUserService
             TokenType = tokenResponse.TokenType,
             ExpiresAt = tokenResponse.ExpiresAt
         };
+    }
+
+    public async Task<UserProfileDto> GetMyProfileAsync(int userId)
+    {
+        // 1. 프로필 조회
+        var profile = await _repo.GetUserProfileByIdAsync(userId);
+        if (profile == null)
+        {
+            throw new AppException(message: "프로필을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
+        }
+
+        // 2. ProfileImageUrl 처리
+        string? profileImageUrl = profile.ProfileImageUrl;
+
+        // Supabase object key인 경우에만 Signed URL로 변환
+        // object key는 http(s)로 시작하지 않음 (예: "profiles/user_12/image.jpg")
+        if (!string.IsNullOrWhiteSpace(profile.ProfileImageUrl) &&
+            !profile.ProfileImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !profile.ProfileImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            var signedUrlResult = await _fileUploadService.RefreshSignedUrlAsync(profile.ProfileImageUrl);
+            profileImageUrl = signedUrlResult.SignedUrl;
+        }
+
+        // 3. Entity -> Dto
+        return new UserProfileDto
+        {
+            UserId = profile.UserId,
+            Nickname = profile.Nickname ?? "",
+            ProfileImageUrl = profileImageUrl,
+            Bio = profile.Bio,
+            MannerTemperature = profile.MannerTemperature,
+            TotalTradeCount = profile.TotalTradeCount
+        };
+    }
+
+    public async Task<UserProfileDto> GetUserProfileAsync(int userId)
+    {
+        // 내 프로필 조회와 동일 (공개 프로필이므로 같은 정보 반환)
+        return await GetMyProfileAsync(userId);
+    }
+
+    public async Task UpdateMyProfileAsync(int userId, UpdateUserProfileReqDto dto)
+    {
+        // 1. 프로필 조회
+        var profile = await _repo.GetUserProfileByIdAsync(userId);
+        if (profile == null)
+        {
+            throw new AppException(message: "프로필을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
+        }
+
+        // 2. 닉네임 변경 시 중복 체크
+        if (!string.IsNullOrEmpty(dto.Nickname) && dto.Nickname != profile.Nickname)
+        {
+            var nicknameExists = await _repo.IsNicknameExistsAsync(dto.Nickname);
+            if (nicknameExists)
+            {
+                throw new AppException(message: "이미 사용 중인 닉네임입니다.", statusCode: HttpStatusCode.Conflict);
+            }
+            profile.Nickname = dto.Nickname;
+        }
+
+        // 3. Bio 업데이트
+        if (dto.Bio != null)
+        {
+            profile.Bio = dto.Bio;
+        }
+
+        // 4. 프로필 저장
+        await _repo.UpdateUserProfileAsync(profile);
     }
 }

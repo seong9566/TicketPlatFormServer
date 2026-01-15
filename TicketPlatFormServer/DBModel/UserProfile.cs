@@ -11,9 +11,9 @@ public partial class UserProfile
     public int UserId { get; set; }
 
     /// <summary>
-    /// 닉네임
+    /// 닉네임 (추후 랜덤 닉네임 자동 생성 예정)
     /// </summary>
-    public string Nickname { get; set; } = null!;
+    public string? Nickname { get; set; }
 
     /// <summary>
     /// 프로필 이미지 URL
