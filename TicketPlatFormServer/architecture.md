@@ -41,3 +41,29 @@ Client → API Controller → Service → Repository/DB
    v
 [SignalR Hub] ---> [Client UI Update]
 ```
+
+## 7. 스토리지 아키텍처 (Supabase)
+
+### 버킷 구조
+- **Bucket Name**: `chat-images` (단일 버킷 통합 사용)
+- **접근 제어**: Signed URL 사용 (Private Bucket 권장)
+
+### 디렉토리 구조 (Object Key)
+| 용도 | 경로 패턴 | 예시 |
+|------|-----------|------|
+| 채팅 이미지 | `chat/{roomId}/{filename}` | `chat/101/abc_123.jpg` |
+| 프로필 이미지 | `profiles/{userId}/{filename}` | `profiles/12/def_456.jpg` |
+| 티켓 이미지 | `tickets/{ticketId}/{filename}` | `tickets/55/ghi_789.jpg` |
+
+> **Note**: `profiles/` 경로는 기존 `user-profile-images/`에서 단순화됨 (2026.01.15)
+
+### Signed URL 처리 규칙
+1. **URL 생성**: Supabase API (`/storage/v1/object/sign/{bucket}/{key}`) 사용
+2. **Access URL 수정**:
+   - API 반환값: `/object/sign/{bucket}/...`
+   - 실제 접근값: `/storage/v1/object/sign/{bucket}/...` (`/storage/v1` 접두사 필수)
+3. **만료 정책**:
+   - 업로드 직후: 1시간
+   - 조회 시 (갱신): 30분
+   - 클라이언트 캐싱 적극 활용 권장
+
