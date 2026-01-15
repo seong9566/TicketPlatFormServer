@@ -60,7 +60,11 @@ public class SupabaseStorageUploader : IStorageUploader
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<SignUrlResponse>(ct);
-        var signedUrl = $"{_settings.ProjectUrl}{result!.SignedUrl}";
+        
+        // Supabase API가 반환하는 SignedUrl은 "/object/sign/..." 형태이므로 "/storage/v1" 접두사가 필요함
+        // 만약 API 응답에 "/storage/v1"이 포함되어 있다면 중복 방지 로직 필요하겠지만, 현재 확인된 바로는 포함되지 않음
+        var signedPath = result!.SignedUrl.StartsWith("/storage/v1") ? result!.SignedUrl : $"/storage/v1{result!.SignedUrl}";
+        var signedUrl = $"{_settings.ProjectUrl}{signedPath}";
 
         return signedUrl;
     }
@@ -83,7 +87,11 @@ public class SupabaseStorageUploader : IStorageUploader
 
         return results!.ToDictionary(
             r => r.Path,
-            r => $"{_settings.ProjectUrl}{r.SignedUrl}"
+            r => 
+            {
+                var signedPath = r.SignedUrl.StartsWith("/storage/v1") ? r.SignedUrl : $"/storage/v1{r.SignedUrl}";
+                return $"{_settings.ProjectUrl}{signedPath}";
+            }
         );
     }
 

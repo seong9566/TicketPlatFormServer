@@ -246,4 +246,69 @@ public class FileUploadService(
 
         return result;
     }
+
+    /// <summary>
+    /// 프로필 이미지 업로드
+    /// </summary>
+    public async Task<ProfileImageUploadResult> UploadUserProfileImageAsync(IFormFile file, int userId)
+    {
+        // 1. 기본 검증 (null, empty, size)
+        if (file == null || file.Length == 0)
+        {
+            throw new AppException("파일이 비어 있습니다.", HttpStatusCode.BadRequest);
+        }
+
+        var maxSizeBytes = supabaseSettings.MaxFileSizeMB * 1024 * 1024;
+        if (file.Length > maxSizeBytes)
+        {
+            throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 2. 확장자 검증
+        var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!supabaseSettings.AllowedExtensions.Contains(fileExtension))
+        {
+            throw new AppException(
+                $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
+                HttpStatusCode.BadRequest);
+        }
+
+        // 3. Magic bytes 검증
+        using var stream = file.OpenReadStream();
+        var isMagicBytesValid = await MagicBytesValidator.ValidateAsync(stream, fileExtension);
+        if (!isMagicBytesValid)
+        {
+            logger.LogWarning("[FileUploadService.UploadUserProfileImageAsync] Magic bytes mismatch: Extension={Ext}, ContentType={ContentType}",
+                fileExtension, file.ContentType);
+            throw new AppException("파일 내용이 확장자와 일치하지 않습니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 4. Object key 생성 (profiles/{userId}/{guid}.{ext})
+        var guid = Guid.NewGuid().ToString("N");
+        var objectKey = $"profiles/{userId}/{guid}{fileExtension}";
+
+        try
+        {
+            // 5. 업로드
+            stream.Position = 0;
+            await storageUploader.UploadAsync(stream, objectKey, file.ContentType);
+
+            // 6. Signed URL 생성
+            var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec);
+            var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
+
+            // 7. 캐시에 저장
+            await cacheService.SetAsync(objectKey, signedUrl, supabaseSettings.UploadSignedUrlExpirySec);
+
+            logger.LogInformation("[FileUploadService.UploadUserProfileImageAsync] Success: ObjectKey={ObjectKey}, UserId={UserId}",
+                objectKey, userId);
+
+            return new ProfileImageUploadResult(objectKey, signedUrl, expiresAt);
+        }
+        catch (Exception ex) when (ex is not AppException)
+        {
+            logger.LogError(ex, "[FileUploadService.UploadUserProfileImageAsync] Upload failed: ObjectKey={ObjectKey}", objectKey);
+            throw new AppException("파일 업로드 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
+        }
+    }
 }

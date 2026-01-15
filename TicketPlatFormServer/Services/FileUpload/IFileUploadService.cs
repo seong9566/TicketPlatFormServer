@@ -31,6 +31,14 @@ public interface IFileUploadService
         List<IFormFile> files,
         int ticketId,
         int userId);
+
+    /// <summary>
+    /// 프로필 이미지 업로드
+    /// </summary>
+    /// <param name="file">프로필 이미지 파일</param>
+    /// <param name="userId">사용자 ID</param>
+    /// <returns>업로드된 이미지 정보</returns>
+    Task<ProfileImageUploadResult> UploadUserProfileImageAsync(IFormFile file, int userId);
 }
 
 public record ChatImageUploadResult(
@@ -49,4 +57,10 @@ public record TicketImageUploadResult(
 public record SignedUrlResult(
     string SignedUrl,
     DateTime ExpiresAt
+);
+
+public record ProfileImageUploadResult(
+    string ObjectKey,      // profiles/{userId}/{guid}.{ext}
+    string SignedUrl,      // 임시 접근 URL
+    DateTime ExpiresAt     // URL 만료 시간
 );
