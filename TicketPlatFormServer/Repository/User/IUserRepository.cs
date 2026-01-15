@@ -18,6 +18,13 @@ public interface IUserRepository
     Task<User?> GetByEmail(string email);
 
     /// <summary>
+    /// ID로 User 조회
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <returns>User 엔티티 (없으면 null)</returns>
+    Task<User?> GetByIdAsync(int userId);
+
+    /// <summary>
     /// 회원가입
     /// </summary>
     /// DB에서 가져온 객체가 되어야함.

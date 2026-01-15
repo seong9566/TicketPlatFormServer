@@ -11,7 +11,7 @@ public class UserRepository(TicketContext db, IDbConnection dapper) : IUserRepos
 {
     
     /// <summary>
-    /// 이메일로 사용자 찾기 
+    /// 이메일로 사용자 찾기
     /// </summary>
     /// <param name="email"></param>
     /// <returns></returns>
@@ -21,6 +21,20 @@ public class UserRepository(TicketContext db, IDbConnection dapper) : IUserRepos
             .Include(u => u.Provider)
             .Include(u => u.Role)
             .FirstOrDefaultAsync(x => x.Email == email && x.IsDeleted == false);
+        return user;
+    }
+
+    /// <summary>
+    /// ID로 사용자 조회
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <returns>User 엔티티 (없으면 null)</returns>
+    public async Task<User?> GetByIdAsync(int userId)
+    {
+        var user = await db.Users
+            .Include(u => u.Provider)
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(x => x.Id == userId && x.IsDeleted == false);
         return user;
     }
 

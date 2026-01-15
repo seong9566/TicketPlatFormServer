@@ -1,6 +1,6 @@
 # 프로젝트 목표
 
-업데이트 주기: Daily, Task 단위
+업데이트 주기: Daily, Task 단위 , Flutter만 고려할 것.
 
 ## 완료된 작업
 
@@ -48,23 +48,24 @@
 
 ## 다음 작업
 
-### 🎯 우선 1: 프로필 이미지 업로드/삭제 API
+### 🎯 우선 1: 프로필 수정 API 확장 (이미지 포함)
 
-**목표**: 사용자가 프로필 이미지를 업로드하고 삭제할 수 있는 기능
+**목표**: 프로필 정보 수정 시 이미지 업로드/교체/삭제를 함께 처리
 
 **구현 항목**:
-- `POST /api/users/profile/image` - 프로필 이미지 업로드
-  - Supabase Storage `user-profile-images/{userId}/` 경로에 저장
-  - 기존 이미지 있으면 삭제 후 업로드
-  - Signed URL 반환
-- `DELETE /api/users/profile/image` - 프로필 이미지 삭제
-  - Supabase Storage에서 삭제
-  - DB에서 profile_image_url을 NULL로 업데이트
+- `PUT /api/users/profile` - 프로필 수정 (닉네임, 자기소개, 프로필 이미지 포함)
+  - `multipart/form-data` 지원 (텍스트 필드 + 이미지 파일)
+  - `profileImage`가 있으면 Supabase Storage `user-profile-images/{userId}/` 경로에 업로드
+  - 기존 이미지가 있으면 교체 전 삭제
+  - `removeProfileImage=true`이면 Supabase에서 삭제하고 DB의 `profile_image_url`을 NULL로 업데이트
+  - 이미지가 없고 삭제 플래그가 없으면 기존 이미지 유지
+  - 응답은 Signed URL 반환 (object key는 DB에 저장)
 
 **예상 파일**:
-- `Services/User/IUserService.cs` - UploadProfileImage, DeleteProfileImage 추가
-- `Services/FileUpload/IFileUploadService.cs` - UploadUserProfileImage 추가
-- `Controllers/UserController.cs` - 이미지 업로드/삭제 엔드포인트 추가
+- `Services/User/IUserService.cs` - UpdateMyProfile 확장 (이미지 처리 포함)
+- `Services/FileUpload/IFileUploadService.cs` - UploadUserProfileImage, DeleteUserProfileImage 추가
+- `Controllers/UserController.cs` - `PUT /api/users/profile`에 form-data 처리 추가
+- `DTO/User/UpdateUserProfileReqDto.cs` - 이미지/삭제 플래그 필드 추가 (필요 시)
 
 ### 🎯 우선 2: 티켓 상세 조회 API 개선
 

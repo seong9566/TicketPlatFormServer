@@ -11,6 +11,11 @@ public class UserProfileDto
     public int UserId { get; set; }
 
     /// <summary>
+    /// 이메일
+    /// </summary>
+    public string Email { get; set; } = null!;
+
+    /// <summary>
     /// 닉네임
     /// </summary>
     public string? Nickname { get; set; }
