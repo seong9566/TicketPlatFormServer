@@ -183,14 +183,21 @@ public class UserService : IUserService
 
     public async Task<UserProfileDto> GetMyProfileAsync(int userId)
     {
-        // 1. 프로필 조회
+        // 1. User 조회 (이메일 정보 포함)
+        var user = await _repo.GetByIdAsync(userId);
+        if (user == null)
+        {
+            throw new AppException(message: "사용자를 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
+        }
+
+        // 2. 프로필 조회
         var profile = await _repo.GetUserProfileByIdAsync(userId);
         if (profile == null)
         {
             throw new AppException(message: "프로필을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
         }
 
-        // 2. ProfileImageUrl 처리
+        // 3. ProfileImageUrl 처리
         string? profileImageUrl = profile.ProfileImageUrl;
 
         // Supabase object key인 경우에만 Signed URL로 변환
@@ -203,10 +210,11 @@ public class UserService : IUserService
             profileImageUrl = signedUrlResult.SignedUrl;
         }
 
-        // 3. Entity -> Dto
+        // 4. Entity -> Dto
         return new UserProfileDto
         {
             UserId = profile.UserId,
+            Email = user.Email,
             Nickname = profile.Nickname ?? "",
             ProfileImageUrl = profileImageUrl,
             Bio = profile.Bio,
@@ -221,7 +229,7 @@ public class UserService : IUserService
         return await GetMyProfileAsync(userId);
     }
 
-    public async Task UpdateMyProfileAsync(int userId, UpdateUserProfileReqDto dto)
+    public async Task<UserProfileDto> UpdateMyProfileAsync(int userId, string? nickname, string? bio, IFormFile? profileImage, bool removeProfileImage)
     {
         // 1. 프로필 조회
         var profile = await _repo.GetUserProfileByIdAsync(userId);
@@ -230,24 +238,146 @@ public class UserService : IUserService
             throw new AppException(message: "프로필을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
         }
 
-        // 2. 닉네임 변경 시 중복 체크
-        if (!string.IsNullOrEmpty(dto.Nickname) && dto.Nickname != profile.Nickname)
+        // 2. 닉네임 검증 및 변경
+        if (!string.IsNullOrEmpty(nickname))
         {
-            var nicknameExists = await _repo.IsNicknameExistsAsync(dto.Nickname);
-            if (nicknameExists)
+            // 길이 검증
+            if (nickname.Length > 50)
             {
-                throw new AppException(message: "이미 사용 중인 닉네임입니다.", statusCode: HttpStatusCode.Conflict);
+                throw new AppException(message: "닉네임은 최대 50자까지 입력 가능합니다.", statusCode: HttpStatusCode.BadRequest);
             }
-            profile.Nickname = dto.Nickname;
+
+            // 중복 체크 (다른 닉네임으로 변경하는 경우만)
+            if (nickname != profile.Nickname)
+            {
+                var nicknameExists = await _repo.IsNicknameExistsAsync(nickname);
+                if (nicknameExists)
+                {
+                    throw new AppException(message: "이미 사용 중인 닉네임입니다.", statusCode: HttpStatusCode.Conflict);
+                }
+                profile.Nickname = nickname;
+            }
         }
 
-        // 3. Bio 업데이트
-        if (dto.Bio != null)
+        // 3. Bio 검증 및 업데이트
+        if (bio != null)
         {
-            profile.Bio = dto.Bio;
+            // 길이 검증
+            if (bio.Length > 500)
+            {
+                throw new AppException(message: "자기소개는 최대 500자까지 입력 가능합니다.", statusCode: HttpStatusCode.BadRequest);
+            }
+            profile.Bio = bio;
         }
 
-        // 4. 프로필 저장
-        await _repo.UpdateUserProfileAsync(profile);
+        // 4. 프로필 이미지 처리
+        string? oldImageKey = null;
+        string? newImageKey = null;
+
+        if (removeProfileImage)
+        {
+            // 4-1. 이미지 삭제 요청 (우선순위 높음: profileImage가 함께 오더라도 삭제 우선)
+            if (!string.IsNullOrEmpty(profile.ProfileImageUrl))
+            {
+                // Supabase object key인 경우에만 삭제 예약
+                if (!profile.ProfileImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !profile.ProfileImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    oldImageKey = profile.ProfileImageUrl;
+                }
+                profile.ProfileImageUrl = null;
+            }
+        }
+        else if (profileImage != null)
+        {
+            // 4-2. 새 이미지 업로드 (기존 이미지 삭제는 성공 후)
+            // 기존 이미지 키 백업
+            if (!string.IsNullOrEmpty(profile.ProfileImageUrl))
+            {
+                if (!profile.ProfileImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !profile.ProfileImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    oldImageKey = profile.ProfileImageUrl;
+                }
+            }
+
+            // 새 이미지 업로드
+            var uploadResult = await _fileUploadService.UploadUserProfileImageAsync(profileImage, userId);
+            newImageKey = uploadResult.ObjectKey;
+            profile.ProfileImageUrl = newImageKey; // object key를 DB에 저장
+        }
+
+        // 5. 프로필 저장 (트랜잭션)
+        try
+        {
+            await _repo.UpdateUserProfileAsync(profile);
+
+            // 6. DB 저장 성공 후 기존 이미지 삭제
+            if (oldImageKey != null)
+            {
+                try
+                {
+                    await _fileUploadService.DeleteFileAsync(oldImageKey);
+                }
+                catch (Exception ex)
+                {
+                    // 이미지 삭제 실패는 로그만 남기고 계속 진행 (DB는 이미 업데이트됨)
+                    // TODO: 주기적 정리 작업으로 고아 파일 제거 필요
+                    Console.WriteLine($"[Warning] Failed to delete old profile image: {oldImageKey}, Error: {ex.Message}");
+                }
+            }
+        }
+        catch
+        {
+            // 7. DB 저장 실패 시 보상 처리: 새로 업로드한 이미지 삭제
+            if (newImageKey != null)
+            {
+                try
+                {
+                    await _fileUploadService.DeleteFileAsync(newImageKey);
+                }
+                catch (Exception ex)
+                {
+                    // 보상 처리 실패도 로그만 남김
+                    Console.WriteLine($"[Warning] Failed to rollback uploaded image: {newImageKey}, Error: {ex.Message}");
+                }
+            }
+            throw;
+        }
+
+        // 8. 업데이트된 프로필 반환
+        return await GetMyProfileAsync(userId);
+    }
+
+    /// <summary>
+    /// 프로필 이미지 URL 갱신 (Signed URL 재발급)
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <returns>새로 발급된 Signed URL (이미지 없으면 null)</returns>
+    public async Task<string?> RefreshProfileImageUrlAsync(int userId)
+    {
+        // 1. 프로필 조회
+        var profile = await _repo.GetUserProfileByIdAsync(userId);
+        if (profile == null)
+        {
+            throw new AppException(message: "사용자를 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
+        }
+
+        // 2. 프로필 이미지가 없는 경우
+        if (string.IsNullOrWhiteSpace(profile.ProfileImageUrl))
+        {
+            return null;
+        }
+
+        // 3. 이미 URL인 경우 (http로 시작) 그대로 반환
+        if (profile.ProfileImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            profile.ProfileImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return profile.ProfileImageUrl;
+        }
+
+        // 4. Object Key인 경우: 새 Signed URL 발급
+        var signedUrlResult = await _fileUploadService.RefreshSignedUrlAsync(profile.ProfileImageUrl);
+        return signedUrlResult.SignedUrl;
     }
 }
