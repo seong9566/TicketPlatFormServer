@@ -49,14 +49,33 @@ public class TicketService : ITicketService
             isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
         }
 
-        // 티켓 이미지 URL 변환 (Signed URL)
-        var ticketImages = new List<string>();
-        if (readModel.TicketImages != null && readModel.TicketImages.Count > 0)
+        // Signed URL 변환 대상 키 수집 (티켓 이미지 + 판매자 프로필 이미지)
+        var keysToSign = new List<string>();
+        
+        if (readModel.TicketImages != null)
         {
-            // 배치 요청으로 Signed URL 획득 (캐시 활용)
-            var signedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(readModel.TicketImages);
-            
-            // 순서 보장하며 URL 매핑
+            keysToSign.AddRange(readModel.TicketImages);
+        }
+
+        var sellerProfileKey = readModel.Seller.ProfileImageUrl;
+        bool shouldSignSellerProfile = !string.IsNullOrEmpty(sellerProfileKey) && !sellerProfileKey.StartsWith("http");
+        
+        if (shouldSignSellerProfile)
+        {
+            keysToSign.Add(sellerProfileKey!);
+        }
+
+        // 배치 요청으로 Signed URL 획득 (캐시 활용)
+        var signedUrls = new Dictionary<string, SignedUrlResult>();
+        if (keysToSign.Count > 0)
+        {
+            signedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(keysToSign);
+        }
+
+        // 1. 티켓 이미지 URL 매핑
+        var ticketImages = new List<string>();
+        if (readModel.TicketImages != null)
+        {
             foreach (var objectKey in readModel.TicketImages)
             {
                 if (signedUrls.TryGetValue(objectKey, out var result))
@@ -65,10 +84,16 @@ public class TicketService : ITicketService
                 }
                 else
                 {
-                    // 변환 실패 시 원본 키 반환 (또는 제외)
                     ticketImages.Add(objectKey);
                 }
             }
+        }
+
+        // 2. 판매자 프로필 이미지 URL 매핑
+        string? finalSellerProfileUrl = sellerProfileKey;
+        if (shouldSignSellerProfile && signedUrls.TryGetValue(sellerProfileKey!, out var sellerResult))
+        {
+            finalSellerProfileUrl = sellerResult.SignedUrl;
         }
 
         // ReadModel → RespDto 변환
@@ -90,13 +115,13 @@ public class TicketService : ITicketService
             Quantity = readModel.Quantity,
             RemainingQuantity = readModel.RemainingQuantity,
             IsSingleTicket = readModel.IsSingleTicket,
-            TicketImages = ticketImages, // 변환된 Signed URL 리스트 사용
+            TicketImages = ticketImages, // 변환된 Signed URL 리스트
             IsFavorited = isFavorited,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,
                 Nickname = readModel.Seller.Nickname,
-                ProfileImageUrl = readModel.Seller.ProfileImageUrl,
+                ProfileImageUrl = finalSellerProfileUrl, // 변환된 Seller Profile URL
                 MannerTemperature = readModel.Seller.MannerTemperature,
                 TotalTradeCount = readModel.Seller.TotalTradeCount,
                 ResponseRate = readModel.Seller.ResponseRate,
