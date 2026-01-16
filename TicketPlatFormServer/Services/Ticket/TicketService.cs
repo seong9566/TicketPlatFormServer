@@ -42,6 +42,13 @@ public class TicketService : ITicketService
             throw new AppException(message: "티켓을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
         }
 
+        // 찜 여부 확인 (userId가 제공된 경우만)
+        bool? isFavorited = null;
+        if (userId.HasValue && userId.Value > 0)
+        {
+            isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
+        }
+
         // Signed URL 변환 대상 키 수집 (티켓 이미지 + 판매자 프로필 이미지)
         var keysToSign = new List<string>();
         
@@ -109,6 +116,7 @@ public class TicketService : ITicketService
             RemainingQuantity = readModel.RemainingQuantity,
             IsSingleTicket = readModel.IsSingleTicket,
             TicketImages = ticketImages,
+            IsFavorited = isFavorited,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,
