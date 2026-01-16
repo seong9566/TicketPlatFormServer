@@ -50,7 +50,6 @@ internal static class FavoriteQueries
     internal const string GetFavoriteTicketsByUserId = @"
         SELECT
             t.id AS TicketId,
-            t.title AS TicketTitle,
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
             t.area AS Area,

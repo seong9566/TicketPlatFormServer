@@ -62,7 +62,6 @@ public class FavoriteService(IFavoriteRepository repo) : IFavoriteService
         return readModels.Select(rm => new FavoriteTicketListRespDto
         {
             TicketId = rm.TicketId,
-            TicketTitle = rm.TicketTitle,
             SeatGradeId = rm.SeatGradeId,
             SeatGradeName = rm.SeatGradeName,
             Area = rm.Area,

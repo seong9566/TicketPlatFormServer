@@ -8,11 +8,6 @@ public class FavoriteTicketReadModel
     public int TicketId { get; set; }
 
     /// <summary>
-    /// 티켓 제목
-    /// </summary>
-    public string TicketTitle { get; set; } = null!;
-
-    /// <summary>
     /// 좌석 등급 ID FK
     /// </summary>
     public int? SeatGradeId { get; set; }

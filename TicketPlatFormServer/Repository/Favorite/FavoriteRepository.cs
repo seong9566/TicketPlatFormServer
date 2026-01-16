@@ -86,7 +86,6 @@ public class FavoriteRepository(
             result.Add(new FavoriteTicketReadModel
             {
                 TicketId = row.TicketId,
-                TicketTitle = row.TicketTitle,
                 SeatGradeId = row.SeatGradeId,
                 SeatGradeName = row.SeatGradeName,
                 Area = row.Area,
