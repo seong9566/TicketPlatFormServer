@@ -59,21 +59,20 @@ namespace TicketPlatFormServer.Controllers
         /// <summary>
         /// 내 프로필 수정 (닉네임, 자기소개, 프로필 이미지 포함)
         /// </summary>
-        /// <param name="nickname">닉네임 (선택)</param>
-        /// <param name="bio">자기소개 (선택)</param>
-        /// <param name="profileImage">프로필 이미지 파일 (선택)</param>
-        /// <param name="removeProfileImage">프로필 이미지 삭제 플래그 (기본값: false)</param>
+        /// <param name="request">프로필 수정 요청 DTO</param>
         /// <returns>업데이트된 프로필 정보</returns>
         [HttpPut("profile")]
-        public async Task<IActionResult> UpdateMyProfile(
-            [FromForm] string? nickname,
-            [FromForm] string? bio,
-            [FromForm] IFormFile? profileImage,
-            [FromForm] bool removeProfileImage = false)
+        public async Task<IActionResult> UpdateMyProfile([FromForm] UpdateUserProfileReqDto request)
         {
             var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
 
-            var result = await _userService.UpdateMyProfileAsync(userId, nickname, bio, profileImage, removeProfileImage);
+            var result = await _userService.UpdateMyProfileAsync(
+                userId,
+                request.Nickname,
+                request.Bio,
+                request.ProfileImage,
+                request.RemoveProfileImage);
+
             ApiResponse<UserProfileDto> resp = new ApiResponse<UserProfileDto>(
                 message: "프로필 수정 성공",
                 data: result,

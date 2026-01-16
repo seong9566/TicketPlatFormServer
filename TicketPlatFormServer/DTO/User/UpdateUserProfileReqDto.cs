@@ -18,4 +18,14 @@ public class UpdateUserProfileReqDto
     /// </summary>
     [MaxLength(500, ErrorMessage = "자기소개는 최대 500자까지 입력 가능합니다.")]
     public string? Bio { get; set; }
+
+    /// <summary>
+    /// 프로필 이미지 파일 (선택사항)
+    /// </summary>
+    public IFormFile? ProfileImage { get; set; }
+
+    /// <summary>
+    /// 프로필 이미지 삭제 플래그 (기본값: false)
+    /// </summary>
+    public bool RemoveProfileImage { get; set; } = false;
 }
