@@ -233,11 +233,12 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
     }
 
     /// <summary>
-    /// 메시지 ID로 조회
+    /// 메시지 ID로 조회 (발신자 정보 포함)
     /// </summary>
     public async Task<ChatMessage?> GetMessageById(long messageId)
     {
         return await db.ChatMessages
+            .Include(cm => cm.Sender).ThenInclude(u => u.UserProfile)
             .FirstOrDefaultAsync(cm => cm.Id == messageId);
     }
 

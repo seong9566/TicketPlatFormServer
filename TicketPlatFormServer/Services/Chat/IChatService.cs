@@ -21,4 +21,7 @@ public interface IChatService
 
     // Image URL Refresh
     Task<RefreshImageUrlRespDto> RefreshImageUrl(long messageId, int userId);
+
+    // SignalR Support
+    Task<(string Nickname, string? ProfileImageUrl)> GetSenderInfoForSignalR(long messageId);
 }

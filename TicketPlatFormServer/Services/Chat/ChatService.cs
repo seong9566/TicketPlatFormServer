@@ -40,7 +40,7 @@ public class ChatService(
         if (existingRoom != null)
         {
             var messages = await GetRecentMessages(existingRoom.Id, userId);
-            return MapToRoomDetailDto(existingRoom, userId, messages);
+            return await MapToRoomDetailDto(existingRoom, userId, messages);
         }
 
         // 새 채팅방 생성
@@ -51,7 +51,7 @@ public class ChatService(
             newRoom.Id, ticketId, userId, ticket.Seller.UserId);
 
         var newRoomMessages = await GetRecentMessages(newRoom.Id, userId);
-        return MapToRoomDetailDto(newRoom, userId, newRoomMessages);
+        return await MapToRoomDetailDto(newRoom, userId, newRoomMessages);
     }
 
     /// <summary>
@@ -61,29 +61,66 @@ public class ChatService(
     {
         var rooms = await chatRepo.GetChatRoomsByUserId(userId, page, pageSize);
 
-        return rooms.Select(room => new ChatRoomListRespDto
-        {
-            RoomId = room.Id,
-            TicketId = room.TicketId,
-            TicketTitle = room.Ticket?.Title ?? "",
-            OtherUser = new OtherUserInfo
+        // 1. 프로필 이미지 Object Key 수집
+        var profileKeys = rooms
+            .Select(room =>
             {
-                UserId = room.BuyerId == userId ? room.SellerId : room.BuyerId,
-                Nickname = room.BuyerId == userId
-                    ? room.Seller?.UserProfile?.Nickname ?? "Unknown"
-                    : room.Buyer?.UserProfile?.Nickname ?? "Unknown",
-                ProfileImageUrl = room.BuyerId == userId
+                var otherUserProfile = room.BuyerId == userId
                     ? room.Seller?.UserProfile?.ProfileImageUrl
-                    : room.Buyer?.UserProfile?.ProfileImageUrl
-            },
-            LastMessage = null, // 별도 쿼리 필요
-            LastMessageAt = room.LastMessageAt,
-            UnreadCount = room.BuyerId == userId ? (room.UnreadCountBuyer ?? 0) : (room.UnreadCountSeller ?? 0),
-            RoomStatusCode = room.Status?.Code ?? "",
-            RoomStatusName = room.Status?.NameKo ?? "",
-            TransactionId = room.TransactionId,
-            TransactionStatusCode = room.Transaction?.Status?.Code,
-            TransactionStatusName = room.Transaction?.Status?.NameKo
+                    : room.Buyer?.UserProfile?.ProfileImageUrl;
+                return otherUserProfile;
+            })
+            .Where(url => !string.IsNullOrEmpty(url) &&
+                          !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                          !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .Distinct()
+            .ToList();
+
+        // 2. 배치로 Signed URL 발급
+        var signedUrls = profileKeys.Count > 0
+            ? await fileUploadService.RefreshSignedUrlsBatchAsync(profileKeys!)
+            : new Dictionary<string, SignedUrlResult>();
+
+        // 3. 매핑
+        return rooms.Select(room =>
+        {
+            var otherUserProfileKey = room.BuyerId == userId
+                ? room.Seller?.UserProfile?.ProfileImageUrl
+                : room.Buyer?.UserProfile?.ProfileImageUrl;
+
+            string? otherUserProfileUrl = otherUserProfileKey;
+            if (!string.IsNullOrEmpty(otherUserProfileKey) &&
+                !otherUserProfileKey.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !otherUserProfileKey.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                if (signedUrls.TryGetValue(otherUserProfileKey, out var result))
+                {
+                    otherUserProfileUrl = result.SignedUrl;
+                }
+            }
+
+            return new ChatRoomListRespDto
+            {
+                RoomId = room.Id,
+                TicketId = room.TicketId,
+                TicketTitle = room.Ticket?.Title ?? "",
+                OtherUser = new OtherUserInfo
+                {
+                    UserId = room.BuyerId == userId ? room.SellerId : room.BuyerId,
+                    Nickname = room.BuyerId == userId
+                        ? room.Seller?.UserProfile?.Nickname ?? "Unknown"
+                        : room.Buyer?.UserProfile?.Nickname ?? "Unknown",
+                    ProfileImageUrl = otherUserProfileUrl
+                },
+                LastMessage = null, // 별도 쿼리 필요
+                LastMessageAt = room.LastMessageAt,
+                UnreadCount = room.BuyerId == userId ? (room.UnreadCountBuyer ?? 0) : (room.UnreadCountSeller ?? 0),
+                RoomStatusCode = room.Status?.Code ?? "",
+                RoomStatusName = room.Status?.NameKo ?? "",
+                TransactionId = room.TransactionId,
+                TransactionStatusCode = room.Transaction?.Status?.Code,
+                TransactionStatusName = room.Transaction?.Status?.NameKo
+            };
         }).ToList();
     }
 
@@ -103,7 +140,7 @@ public class ChatService(
         await ValidateUserInRoom(roomId, userId);
 
         var messages = await GetRecentMessages(roomId, userId);
-        return MapToRoomDetailDto(room, userId, messages);
+        return await MapToRoomDetailDto(room, userId, messages);
     }
 
     /// <summary>
@@ -421,25 +458,53 @@ public class ChatService(
     {
         var messageList = messages.ToList();
 
-        // 이미지가 있는 메시지의 object key 수집
-        var imageKeys = messageList
+        // 1. 이미지 Object Key 수집 (메시지 이미지)
+        var messageImageKeys = messageList
             .Where(m => !string.IsNullOrEmpty(m.ImageUrl))
             .Select(m => m.ImageUrl!)
             .Distinct()
             .ToList();
 
-        // 배치로 signed URL 발급
-        var signedUrls = imageKeys.Count > 0
-            ? await fileUploadService.RefreshSignedUrlsBatchAsync(imageKeys)
+        // 2. 프로필 이미지 Object Key 수집
+        var profileImageKeys = messageList
+            .Where(m => m.Sender?.UserProfile?.ProfileImageUrl != null)
+            .Select(m => m.Sender!.UserProfile!.ProfileImageUrl!)
+            .Where(url => !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                          !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .Distinct()
+            .ToList();
+
+        // 3. 모든 Object Key를 하나로 합침
+        var allKeys = messageImageKeys.Concat(profileImageKeys).Distinct().ToList();
+
+        // 4. 배치로 signed URL 발급
+        var signedUrls = allKeys.Count > 0
+            ? await fileUploadService.RefreshSignedUrlsBatchAsync(allKeys)
             : new Dictionary<string, SignedUrlResult>();
 
+        // 5. 매핑
         return messageList.Select(m =>
         {
+            // 메시지 이미지 처리
             var hasImage = !string.IsNullOrEmpty(m.ImageUrl);
-            SignedUrlResult? signedUrlResult = null;
-            if (hasImage && signedUrls.TryGetValue(m.ImageUrl!, out var result))
+            SignedUrlResult? imageSignedUrlResult = null;
+            if (hasImage && signedUrls.TryGetValue(m.ImageUrl!, out var imgResult))
             {
-                signedUrlResult = result;
+                imageSignedUrlResult = imgResult;
+            }
+
+            // 프로필 이미지 처리
+            var profileImageUrl = m.Sender?.UserProfile?.ProfileImageUrl;
+            string? finalProfileImageUrl = profileImageUrl;
+
+            if (!string.IsNullOrEmpty(profileImageUrl) &&
+                !profileImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !profileImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                if (signedUrls.TryGetValue(profileImageUrl, out var profileResult))
+                {
+                    finalProfileImageUrl = profileResult.SignedUrl;
+                }
             }
 
             return new ChatMessageRespDto
@@ -448,20 +513,48 @@ public class ChatService(
                 RoomId = m.RoomId,
                 SenderId = m.SenderId,
                 SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
-                SenderProfileImage = m.Sender?.UserProfile?.ProfileImageUrl,
+                SenderProfileImage = finalProfileImageUrl,
                 Message = m.Message,
-                ImageUrl = signedUrlResult?.SignedUrl,
-                ImageUrlExpiresAt = signedUrlResult?.ExpiresAt,
+                ImageUrl = imageSignedUrlResult?.SignedUrl,
+                ImageUrlExpiresAt = imageSignedUrlResult?.ExpiresAt,
                 CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
                 IsMyMessage = m.SenderId == userId
             };
         }).ToList();
     }
 
-    private ChatRoomDetailRespDto MapToRoomDetailDto(DBModel.ChatRoom room, int userId, List<ChatMessageRespDto> messages)
+    private async Task<ChatRoomDetailRespDto> MapToRoomDetailDto(DBModel.ChatRoom room, int userId, List<ChatMessageRespDto> messages)
     {
         var isBuyer = room.BuyerId == userId;
         var transaction = room.Transaction;
+
+        // 프로필 이미지 배치 처리
+        var profileKeys = new List<string>();
+
+        var buyerProfileKey = room.Buyer?.UserProfile?.ProfileImageUrl;
+        var sellerProfileKey = room.Seller?.UserProfile?.ProfileImageUrl;
+
+        if (!string.IsNullOrEmpty(buyerProfileKey) && !buyerProfileKey.StartsWith("http"))
+            profileKeys.Add(buyerProfileKey);
+
+        if (!string.IsNullOrEmpty(sellerProfileKey) && !sellerProfileKey.StartsWith("http"))
+            profileKeys.Add(sellerProfileKey);
+
+        var signedUrls = profileKeys.Count > 0
+            ? await fileUploadService.RefreshSignedUrlsBatchAsync(profileKeys)
+            : new Dictionary<string, SignedUrlResult>();
+
+        string? buyerProfileUrl = buyerProfileKey;
+        if (!string.IsNullOrEmpty(buyerProfileKey) && signedUrls.TryGetValue(buyerProfileKey, out var buyerResult))
+        {
+            buyerProfileUrl = buyerResult.SignedUrl;
+        }
+
+        string? sellerProfileUrl = sellerProfileKey;
+        if (!string.IsNullOrEmpty(sellerProfileKey) && signedUrls.TryGetValue(sellerProfileKey, out var sellerResult))
+        {
+            sellerProfileUrl = sellerResult.SignedUrl;
+        }
 
         return new ChatRoomDetailRespDto
         {
@@ -477,14 +570,14 @@ public class ChatService(
             {
                 UserId = room.BuyerId,
                 Nickname = room.Buyer?.UserProfile?.Nickname ?? "Unknown",
-                ProfileImageUrl = room.Buyer?.UserProfile?.ProfileImageUrl,
+                ProfileImageUrl = buyerProfileUrl,
                 MannerTemperature = room.Buyer?.UserProfile?.MannerTemperature ?? 36.5
             },
             Seller = new UserInfo
             {
                 UserId = room.SellerId,
                 Nickname = room.Seller?.UserProfile?.Nickname ?? "Unknown",
-                ProfileImageUrl = room.Seller?.UserProfile?.ProfileImageUrl,
+                ProfileImageUrl = sellerProfileUrl,
                 MannerTemperature = room.Seller?.UserProfile?.MannerTemperature ?? 36.5
             },
             StatusCode = room.Status?.Code ?? "",
@@ -503,5 +596,33 @@ public class ChatService(
             CanCancelTransaction = transaction != null && transaction.ConfirmedAt == null && transaction.CancelledAt == null,
             Messages = messages
         };
+    }
+
+    /// <summary>
+    /// SignalR용 발신자 정보 조회 (닉네임, 프로필 이미지 Signed URL)
+    /// </summary>
+    public async Task<(string Nickname, string? ProfileImageUrl)> GetSenderInfoForSignalR(long messageId)
+    {
+        var message = await chatRepo.GetMessageById(messageId);
+        if (message?.Sender?.UserProfile == null)
+        {
+            logger.LogWarning("[ChatService.GetSenderInfoForSignalR] Sender info not found for messageId: {MessageId}", messageId);
+            return ("Unknown", null);
+        }
+
+        var nickname = message.Sender.UserProfile.Nickname ?? "Unknown";
+        var profileImageKey = message.Sender.UserProfile.ProfileImageUrl;
+
+        // Signed URL 변환
+        string? profileImageUrl = profileImageKey;
+        if (!string.IsNullOrEmpty(profileImageKey) &&
+            !profileImageKey.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !profileImageKey.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            var signedUrlResult = await fileUploadService.RefreshSignedUrlAsync(profileImageKey);
+            profileImageUrl = signedUrlResult.SignedUrl;
+        }
+
+        return (nickname, profileImageUrl);
     }
 }
