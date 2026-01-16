@@ -39,7 +39,7 @@ public class EventController : Controller
     }
     
     /// <summary>
-    /// 이벤트 상세 정보 및 티켓 목록 조회
+    /// 이벤트의 티켓 목록 조회
     /// </summary>
     /// <param name="eventId">이벤트 ID</param>
     /// <returns>이벤트 상세 정보 및 티켓 목록</returns>
