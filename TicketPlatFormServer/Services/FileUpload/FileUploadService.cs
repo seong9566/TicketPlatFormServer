@@ -56,12 +56,12 @@ public class FileUploadService(
 
         try
         {
-            // 5. 업로드
+            // 5. 업로드 (chat-image 버킷 사용)
             stream.Position = 0;
-            await storageUploader.UploadAsync(stream, objectKey, file.ContentType);
+            await storageUploader.UploadAsync(stream, objectKey, file.ContentType, supabaseSettings.BucketNames.ChatImage);
 
             // 6. Signed URL 생성 (업로드 직후용: 긴 만료)
-            var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec);
+            var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec, supabaseSettings.BucketNames.ChatImage);
             var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
 
             // 7. 캐시에 저장
@@ -153,12 +153,12 @@ public class FileUploadService(
 
             try
             {
-                // 6. 업로드
+                // 6. 업로드 (ticket-image 버킷 사용)
                 stream.Position = 0;
-                await storageUploader.UploadAsync(stream, objectKey, file.ContentType);
+                await storageUploader.UploadAsync(stream, objectKey, file.ContentType, supabaseSettings.BucketNames.TicketImage);
 
                 // 7. Signed URL 생성 (업로드 직후용: 긴 만료)
-                var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec);
+                var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec, supabaseSettings.BucketNames.TicketImage);
                 var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
 
                 // 8. 캐시에 저장
@@ -187,6 +187,8 @@ public class FileUploadService(
     /// </summary>
     public async Task<SignedUrlResult> RefreshSignedUrlAsync(string objectKey)
     {
+        var bucketName = InferBucketNameFromKey(objectKey);
+
         // 캐시 확인
         var cached = await cacheService.GetAsync(objectKey);
         if (cached != null)
@@ -195,7 +197,7 @@ public class FileUploadService(
         }
 
         // 새로 발급
-        var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.ReadSignedUrlExpirySec);
+        var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.ReadSignedUrlExpirySec, bucketName);
         var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.ReadSignedUrlExpirySec);
 
         await cacheService.SetAsync(objectKey, signedUrl, supabaseSettings.ReadSignedUrlExpirySec);
@@ -204,7 +206,7 @@ public class FileUploadService(
     }
 
     /// <summary>
-    /// Signed URL 배치 재발급
+    /// Signed URL 배치 재발급 (버킷별 그룹화)
     /// </summary>
     public async Task<Dictionary<string, SignedUrlResult>> RefreshSignedUrlsBatchAsync(IEnumerable<string> objectKeys)
     {
@@ -227,18 +229,30 @@ public class FileUploadService(
             }
         }
 
-        // 2. 캐시 미스된 키들은 배치 요청
+        // 2. 캐시 미스된 키들을 버킷별로 그룹화
         if (cacheMissKeys.Count > 0)
         {
-            var freshUrls = await storageUploader.GetSignedUrlsBatchAsync(cacheMissKeys, supabaseSettings.ReadSignedUrlExpirySec);
+            var keysByBucket = cacheMissKeys
+                .GroupBy(k => InferBucketNameFromKey(k))
+                .ToList();
+
             var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.ReadSignedUrlExpirySec);
 
-            foreach (var (key, url) in freshUrls)
+            // 3. 버킷별로 배치 요청
+            foreach (var group in keysByBucket)
             {
-                result[key] = new SignedUrlResult(url, expiresAt);
-            }
+                var bucketName = group.Key;
+                var keysInBucket = group.ToList();
 
-            await cacheService.SetBatchAsync(freshUrls, supabaseSettings.ReadSignedUrlExpirySec);
+                var freshUrls = await storageUploader.GetSignedUrlsBatchAsync(keysInBucket, supabaseSettings.ReadSignedUrlExpirySec, bucketName);
+
+                foreach (var (key, url) in freshUrls)
+                {
+                    result[key] = new SignedUrlResult(url, expiresAt);
+                }
+
+                await cacheService.SetBatchAsync(freshUrls, supabaseSettings.ReadSignedUrlExpirySec);
+            }
         }
 
         logger.LogInformation("[FileUploadService.RefreshSignedUrlsBatchAsync] Total={Total}, CacheHit={Hit}, CacheMiss={Miss}",
@@ -289,12 +303,12 @@ public class FileUploadService(
 
         try
         {
-            // 5. 업로드
+            // 5. 업로드 (profile-image 버킷 사용)
             stream.Position = 0;
-            await storageUploader.UploadAsync(stream, objectKey, file.ContentType);
+            await storageUploader.UploadAsync(stream, objectKey, file.ContentType, supabaseSettings.BucketNames.ProfileImage);
 
             // 6. Signed URL 생성
-            var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec);
+            var signedUrl = await storageUploader.GetSignedUrlAsync(objectKey, supabaseSettings.UploadSignedUrlExpirySec, supabaseSettings.BucketNames.ProfileImage);
             var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
 
             // 7. 캐시에 저장
@@ -310,5 +324,26 @@ public class FileUploadService(
             logger.LogError(ex, "[FileUploadService.UploadUserProfileImageAsync] Upload failed: ObjectKey={ObjectKey}", objectKey);
             throw new AppException("파일 업로드 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
         }
+    }
+
+    /// <summary>
+    /// Object Key 패턴으로 버킷명 추론
+    /// </summary>
+    private string InferBucketNameFromKey(string objectKey)
+    {
+        if (objectKey.StartsWith("profiles/"))
+            return supabaseSettings.BucketNames.ProfileImage;
+
+        if (objectKey.StartsWith("chat/"))
+            return supabaseSettings.BucketNames.ChatImage;
+
+        if (objectKey.StartsWith("tickets/"))
+            return supabaseSettings.BucketNames.TicketImage;
+
+        // Fallback: 기존 단일 버킷
+        logger.LogWarning("[FileUploadService.InferBucketNameFromKey] Cannot infer bucket for key: {Key}, using default bucket", objectKey);
+#pragma warning disable CS0618 // BucketName is obsolete
+        return supabaseSettings.BucketName;
+#pragma warning restore CS0618
     }
 }
