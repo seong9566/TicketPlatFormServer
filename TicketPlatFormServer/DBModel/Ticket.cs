@@ -35,9 +35,9 @@ public partial class Ticket
     public DateTime EventDatetime { get; set; }
 
     /// <summary>
-    /// 좌석 정보
+    /// 좌석 등급 FK
     /// </summary>
-    public string? SeatInfo { get; set; }
+    public int? SeatGradeId { get; set; }
 
     /// <summary>
     /// 좌석 위치 FK
@@ -96,9 +96,19 @@ public partial class Ticket
     public DateTime? DeletedAt { get; set; }
 
     /// <summary>
-    /// 좌석 특징 키워드 (JSON 배열)
+    /// 거래 방법 FK
     /// </summary>
-    public string? SeatFeatures { get; set; }
+    public int? TradeMethodId { get; set; }
+
+    /// <summary>
+    /// 거래 방법 상세 설명
+    /// </summary>
+    public string? TradeDescription { get; set; }
+
+    /// <summary>
+    /// 티켓 보유 여부 (1=보유, 0=미보유)
+    /// </summary>
+    public bool? HasTicket { get; set; }
 
     public virtual TicketCategory Category { get; set; } = null!;
 
@@ -109,4 +119,10 @@ public partial class Ticket
     public virtual SeatLocation? Location { get; set; }
 
     public virtual TicketStatus Status { get; set; } = null!;
+
+    public virtual SeatGrade? SeatGrade { get; set; }
+
+    public virtual TradeMethod? TradeMethod { get; set; }
+
+    public virtual ICollection<TicketTicketFeature> TicketTicketFeatures { get; set; } = new List<TicketTicketFeature>();
 }

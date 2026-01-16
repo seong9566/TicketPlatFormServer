@@ -86,20 +86,20 @@ public class EventService : IEventService
             }
         }
 
-        // 좌석 타입 필터 생성 및 매진 임박 여부 계산
-        var seatTypeCounts = new Dictionary<string, int>();
+        // 좌석 등급 필터 생성 및 매진 임박 여부 계산
+        var seatGradeCounts = new Dictionary<string, int>();
         bool isSoldOutImminent = false;
 
         foreach (var ticket in ticketReadModels)
         {
-            // 좌석 타입별 개수 집계
-            if (!string.IsNullOrEmpty(ticket.SeatType))
+            // 좌석 등급별 개수 집계
+            if (!string.IsNullOrEmpty(ticket.SeatGradeName))
             {
-                if (!seatTypeCounts.ContainsKey(ticket.SeatType))
+                if (!seatGradeCounts.ContainsKey(ticket.SeatGradeName))
                 {
-                    seatTypeCounts[ticket.SeatType] = 0;
+                    seatGradeCounts[ticket.SeatGradeName] = 0;
                 }
-                seatTypeCounts[ticket.SeatType]++;
+                seatGradeCounts[ticket.SeatGradeName]++;
             }
 
             // 매진 임박 체크 (remaining_quantity가 5개 이하인 티켓이 있는지)
@@ -109,7 +109,7 @@ public class EventService : IEventService
             }
         }
 
-        // 좌석 타입 필터 생성
+        // 좌석 등급 필터 생성
         var seatTypeFilters = new List<SeatTypeFilterDto>();
 
         // 전체좌석 추가
@@ -119,8 +119,8 @@ public class EventService : IEventService
             TicketCount = ticketReadModels.Count
         });
 
-        // 각 좌석 타입별 필터 추가
-        foreach (var kvp in seatTypeCounts.OrderBy(x => x.Key))
+        // 각 좌석 등급별 필터 추가
+        foreach (var kvp in seatGradeCounts.OrderBy(x => x.Key))
         {
             seatTypeFilters.Add(new SeatTypeFilterDto
             {
@@ -147,17 +147,30 @@ public class EventService : IEventService
             {
                 TicketId = tm.TicketId,
                 TicketTitle = tm.TicketTitle,
-                SeatInfo = tm.SeatInfo,
-                SeatType = tm.SeatType,
+                SeatGradeId = tm.SeatGradeId,
+                SeatGradeName = tm.SeatGradeName,
+                Area = tm.Area,
+                Row = tm.Row,
                 Price = tm.Price,
                 OriginalPrice = tm.OriginalPrice,
-                SeatFeatures = tm.SeatFeatures,
+                IsConsecutive = tm.IsConsecutive,
+                TradeMethodId = tm.TradeMethodId,
+                TradeMethodName = tm.TradeMethodName,
+                HasTicket = tm.HasTicket,
                 Description = tm.Description,
                 CreatedAt = tm.CreatedAt,
                 Quantity = tm.Quantity,
                 RemainingQuantity = tm.RemainingQuantity,
                 IsSingleTicket = tm.IsSingleTicket,
                 TicketImages = tm.TicketImages,
+                TicketFeatures = tm.TicketFeatures.Select(f => new TicketFeatureDto
+                {
+                    FeatureId = f.FeatureId,
+                    Code = f.Code,
+                    NameKo = f.NameKo,
+                    NameEn = f.NameEn,
+                    Icon = f.Icon
+                }).ToList(),
                 IsFavorited = userId.HasValue ? favoritedTicketIds.Contains(tm.TicketId) : null,
                 Seller = new SellerInfoDto
                 {
@@ -173,4 +186,3 @@ public class EventService : IEventService
         };
     }
 }
-

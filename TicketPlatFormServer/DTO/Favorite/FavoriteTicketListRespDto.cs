@@ -13,14 +13,24 @@ public class FavoriteTicketListRespDto
     public string TicketTitle { get; set; } = null!;
 
     /// <summary>
-    /// 좌석 정보
+    /// 좌석 등급 ID FK
     /// </summary>
-    public string? SeatInfo { get; set; }
+    public int? SeatGradeId { get; set; }
 
     /// <summary>
-    /// 좌석 타입
+    /// 좌석 등급 이름 (예: "VIP석", "일반석")
     /// </summary>
-    public string? SeatType { get; set; }
+    public string? SeatGradeName { get; set; }
+
+    /// <summary>
+    /// 구역 (예: "A구역")
+    /// </summary>
+    public string? Area { get; set; }
+
+    /// <summary>
+    /// 열 (예: "5열")
+    /// </summary>
+    public string? Row { get; set; }
 
     /// <summary>
     /// 판매가
@@ -36,6 +46,26 @@ public class FavoriteTicketListRespDto
     /// 남은 수량
     /// </summary>
     public int RemainingQuantity { get; set; }
+
+    /// <summary>
+    /// 연석 여부
+    /// </summary>
+    public bool? IsConsecutive { get; set; }
+
+    /// <summary>
+    /// 거래 방법 ID FK
+    /// </summary>
+    public int? TradeMethodId { get; set; }
+
+    /// <summary>
+    /// 거래 방법 이름 (예: "PIN거래", "배송거래")
+    /// </summary>
+    public string? TradeMethodName { get; set; }
+
+    /// <summary>
+    /// 티켓 보유 여부
+    /// </summary>
+    public bool? HasTicket { get; set; }
 
     /// <summary>
     /// 티켓 등록 날짜

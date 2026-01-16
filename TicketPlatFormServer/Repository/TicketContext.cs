@@ -121,6 +121,14 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
+    public virtual DbSet<SeatGrade> SeatGrades { get; set; }
+
+    public virtual DbSet<TradeMethod> TradeMethods { get; set; }
+
+    public virtual DbSet<TicketFeature> TicketFeatures { get; set; }
+
+    public virtual DbSet<TicketTicketFeature> TicketTicketFeatures { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
         => optionsBuilder.UseMySql("server=localhost;port=3306;database=TicketPlatFormDB;user=root;password=stecdev1234!", Microsoft.EntityFrameworkCore.ServerVersion.Parse("9.4.0-mysql"));
@@ -1483,14 +1491,19 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.RemainingQuantity)
                 .HasComment("남은 수량")
                 .HasColumnName("remaining_quantity");
-            entity.Property(e => e.SeatFeatures)
-                .HasComment("좌석 특징 키워드 (JSON 배열)")
-                .HasColumnType("json")
-                .HasColumnName("seat_features");
-            entity.Property(e => e.SeatInfo)
-                .HasMaxLength(255)
-                .HasComment("좌석 정보")
-                .HasColumnName("seat_info");
+            entity.Property(e => e.SeatGradeId)
+                .HasComment("좌석 등급 FK")
+                .HasColumnName("seat_grade_id");
+            entity.Property(e => e.TradeMethodId)
+                .HasComment("거래 방법 FK")
+                .HasColumnName("trade_method_id");
+            entity.Property(e => e.TradeDescription)
+                .HasComment("거래 방법 상세 설명")
+                .HasColumnType("text")
+                .HasColumnName("trade_description");
+            entity.Property(e => e.HasTicket)
+                .HasComment("티켓 보유 여부 (1=보유, 0=미보유)")
+                .HasColumnName("has_ticket");
             entity.Property(e => e.LocationId)
                 .HasMaxLength(36)
                 .HasComment("좌석 위치 FK")
@@ -1541,6 +1554,14 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.StatusId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_tickets_status");
+
+            entity.HasOne(d => d.SeatGrade).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.SeatGradeId)
+                .HasConstraintName("fk_tickets_seat_grade");
+
+            entity.HasOne(d => d.TradeMethod).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.TradeMethodId)
+                .HasConstraintName("fk_tickets_trade_method");
         });
 
         modelBuilder.Entity<TicketCategory>(entity =>

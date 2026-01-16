@@ -13,14 +13,24 @@ public class TicketListReadModel
     public string TicketTitle { get; set; } = null!;
 
     /// <summary>
-    /// 좌석 정보 (예: "1층 5구역 3열")
+    /// 좌석 등급 ID FK
     /// </summary>
-    public string? SeatInfo { get; set; }
+    public int? SeatGradeId { get; set; }
 
     /// <summary>
-    /// 좌석 타입 (예: "VIP석", "R석", "S석")
+    /// 좌석 등급 이름 (예: "VIP석", "일반석")
     /// </summary>
-    public string? SeatType { get; set; }
+    public string? SeatGradeName { get; set; }
+
+    /// <summary>
+    /// 구역 (예: "A구역")
+    /// </summary>
+    public string? Area { get; set; }
+
+    /// <summary>
+    /// 열 (예: "5열")
+    /// </summary>
+    public string? Row { get; set; }
 
     /// <summary>
     /// 판매가
@@ -33,9 +43,29 @@ public class TicketListReadModel
     public int OriginalPrice { get; set; }
 
     /// <summary>
-    /// 좌석 특징 (예: "연석", "통로석", "시야제한 없음")
+    /// 연석 여부
     /// </summary>
-    public List<string> SeatFeatures { get; set; } = new();
+    public bool? IsConsecutive { get; set; }
+
+    /// <summary>
+    /// 거래 방법 ID FK
+    /// </summary>
+    public int? TradeMethodId { get; set; }
+
+    /// <summary>
+    /// 거래 방법 이름 (예: "PIN거래", "배송거래")
+    /// </summary>
+    public string? TradeMethodName { get; set; }
+
+    /// <summary>
+    /// 거래 방법 상세 설명
+    /// </summary>
+    public string? TradeDescription { get; set; }
+
+    /// <summary>
+    /// 티켓 보유 여부
+    /// </summary>
+    public bool? HasTicket { get; set; }
 
     /// <summary>
     /// 판매 사유/설명
@@ -48,7 +78,7 @@ public class TicketListReadModel
     public string? EventTitle { get; set; }
 
     /// <summary>
-    /// 공연 날짜
+    /// 공연 날짜 (포맷: YYYY.MM.DD)
     /// </summary>
     public string? EventDate { get; set; }
 
@@ -88,7 +118,24 @@ public class TicketListReadModel
     public List<string> TicketImages { get; set; } = new();
 
     /// <summary>
+    /// 티켓 특징 목록 (예: "예매처 ID로 전달", "현장발권")
+    /// </summary>
+    public List<TicketFeatureReadModel> TicketFeatures { get; set; } = new();
+
+    /// <summary>
     /// 판매자 정보
     /// </summary>
     public SellerInfoReadModel Seller { get; set; } = null!;
+}
+
+/// <summary>
+/// 티켓 특징 ReadModel
+/// </summary>
+public class TicketFeatureReadModel
+{
+    public int FeatureId { get; set; }
+    public string Code { get; set; } = null!;
+    public string NameKo { get; set; } = null!;
+    public string NameEn { get; set; } = null!;
+    public string? Icon { get; set; }
 }

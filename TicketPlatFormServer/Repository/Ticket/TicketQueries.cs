@@ -12,12 +12,18 @@ internal static class TicketQueries
         SELECT
             t.id AS TicketId,
             t.title AS TicketTitle,
-            t.seat_info AS SeatInfo,
+            t.seat_grade_id AS SeatGradeId,
+            sg.name_ko AS SeatGradeName,
+            t.area AS Area,
+            t.row AS Row,
             t.price AS Price,
             t.original_price AS OriginalPrice,
-            t.seat_features AS SeatFeatures,
             t.quantity AS Quantity,
             t.remaining_quantity AS RemainingQuantity,
+            t.is_consecutive AS IsConsecutive,
+            t.trade_method_id AS TradeMethodId,
+            tm.name_ko AS TradeMethodName,
+            t.has_ticket AS HasTicket,
             t.description AS Description,
             t.created_at AS CreatedAt,
             up.user_id AS UserId,
@@ -26,6 +32,8 @@ internal static class TicketQueries
             up.manner_temperature AS MannerTemperature
         FROM tickets t
         INNER JOIN user_profile up ON t.seller_id = up.user_id
+        LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
+        LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE t.event_id = @EventId
           AND t.status_id = 1
           AND t.deleted_at IS NULL
@@ -39,13 +47,20 @@ internal static class TicketQueries
         SELECT
             t.id AS TicketId,
             t.title AS TicketTitle,
-            t.seat_info AS SeatInfo,
+            t.seat_grade_id AS SeatGradeId,
+            sg.name_ko AS SeatGradeName,
+            t.area AS Area,
+            t.row AS Row,
             t.price AS Price,
             t.original_price AS OriginalPrice,
-            t.seat_features AS SeatFeatures,
-            t.description AS Description,
-            t.remaining_quantity AS RemainingQuantity,
             t.quantity AS Quantity,
+            t.remaining_quantity AS RemainingQuantity,
+            t.is_consecutive AS IsConsecutive,
+            t.trade_method_id AS TradeMethodId,
+            tm.name_ko AS TradeMethodName,
+            t.trade_description AS TradeDescription,
+            t.has_ticket AS HasTicket,
+            t.description AS Description,
             t.created_at AS CreatedAt,
             e.title AS EventTitle,
             DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
@@ -82,6 +97,8 @@ internal static class TicketQueries
         INNER JOIN user_profile up ON t.seller_id = up.user_id
         LEFT JOIN events e ON t.event_id = e.id
         LEFT JOIN user_verification uv ON t.seller_id = uv.user_id
+        LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
+        LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE t.id = @TicketId
           AND t.status_id = 1
           AND t.deleted_at IS NULL
@@ -95,4 +112,19 @@ internal static class TicketQueries
         FROM ticket_images
         WHERE ticket_id = @TicketId
         ORDER BY created_at ASC";
+
+    /// <summary>
+    /// 티켓 특징 조회 SQL (Many-to-Many 관계)
+    /// </summary>
+    internal const string GetTicketFeatures = @"
+        SELECT
+            tf.id AS FeatureId,
+            tf.code AS Code,
+            tf.name_ko AS NameKo,
+            tf.name_en AS NameEn,
+            tf.icon AS Icon
+        FROM ticket_ticket_features ttf
+        INNER JOIN ticket_features tf ON ttf.feature_id = tf.id
+        WHERE ttf.ticket_id = @TicketId
+        ORDER BY tf.sort_order ASC";
 }

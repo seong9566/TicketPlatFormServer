@@ -26,6 +26,12 @@ public class CreateSellTicketReqDto
     public string? LocationId { get; set; }
 
     /// <summary>
+    /// 좌석 등급 ID (필수)
+    /// </summary>
+    [Required(ErrorMessage = "좌석 등급은 필수입니다.")]
+    public int SeatGradeId { get; set; }
+
+    /// <summary>
     /// 구역 (예: A구역)
     /// </summary>
     public string? Area { get; set; }
@@ -36,15 +42,26 @@ public class CreateSellTicketReqDto
     public string? Row { get; set; }
 
     /// <summary>
-    /// 좌석 정보 (필수)
-    /// </summary>
-    [Required(ErrorMessage = "좌석 정보는 필수입니다.")]
-    public string SeatInfo { get; set; } = null!;
-
-    /// <summary>
     /// 연석 여부
     /// </summary>
     public bool IsConsecutive { get; set; } = false;
+
+    /// <summary>
+    /// 거래 방법 ID (필수)
+    /// </summary>
+    [Required(ErrorMessage = "거래 방법은 필수입니다.")]
+    public int TradeMethodId { get; set; }
+
+    /// <summary>
+    /// 거래 방법 상세 설명 (선택)
+    /// </summary>
+    public string? TradeDescription { get; set; }
+
+    /// <summary>
+    /// 티켓 보유 여부 (필수)
+    /// </summary>
+    [Required(ErrorMessage = "티켓 보유 여부는 필수입니다.")]
+    public bool HasTicket { get; set; }
 
     /// <summary>
     /// 수량 (필수)
@@ -76,4 +93,9 @@ public class CreateSellTicketReqDto
     /// 티켓 이미지 파일들 (최대 5개)
     /// </summary>
     public List<IFormFile>? Images { get; set; }
+
+    /// <summary>
+    /// 티켓 특징 ID 목록 (선택, 다중 선택 가능)
+    /// </summary>
+    public List<int>? FeatureIds { get; set; }
 }

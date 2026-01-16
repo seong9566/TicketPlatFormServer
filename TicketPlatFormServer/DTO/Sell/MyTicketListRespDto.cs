@@ -52,9 +52,19 @@ public class MyTicketItem
     public DateTime EventDatetime { get; set; }
 
     /// <summary>
-    /// 좌석 정보
+    /// 좌석 등급 이름 (예: "VIP석", "일반석")
     /// </summary>
-    public string? SeatInfo { get; set; }
+    public string? SeatGradeName { get; set; }
+
+    /// <summary>
+    /// 구역 (예: "A구역")
+    /// </summary>
+    public string? Area { get; set; }
+
+    /// <summary>
+    /// 열 (예: "5열")
+    /// </summary>
+    public string? Row { get; set; }
 
     /// <summary>
     /// 수량

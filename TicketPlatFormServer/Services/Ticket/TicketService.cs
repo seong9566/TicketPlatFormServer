@@ -101,11 +101,17 @@ public class TicketService : ITicketService
         {
             TicketId = readModel.TicketId,
             TicketTitle = readModel.TicketTitle,
-            SeatInfo = readModel.SeatInfo,
-            SeatType = readModel.SeatType,
+            SeatGradeId = readModel.SeatGradeId,
+            SeatGradeName = readModel.SeatGradeName,
+            Area = readModel.Area,
+            Row = readModel.Row,
             Price = readModel.Price,
             OriginalPrice = readModel.OriginalPrice,
-            SeatFeatures = readModel.SeatFeatures,
+            IsConsecutive = readModel.IsConsecutive,
+            TradeMethodId = readModel.TradeMethodId,
+            TradeMethodName = readModel.TradeMethodName,
+            TradeDescription = readModel.TradeDescription,
+            HasTicket = readModel.HasTicket,
             Description = readModel.Description,
             EventTitle = readModel.EventTitle,
             EventDate = readModel.EventDate,
@@ -115,13 +121,21 @@ public class TicketService : ITicketService
             Quantity = readModel.Quantity,
             RemainingQuantity = readModel.RemainingQuantity,
             IsSingleTicket = readModel.IsSingleTicket,
-            TicketImages = ticketImages, // 변환된 Signed URL 리스트
+            TicketImages = ticketImages,
+            TicketFeatures = readModel.TicketFeatures.Select(f => new TicketFeatureDto
+            {
+                FeatureId = f.FeatureId,
+                Code = f.Code,
+                NameKo = f.NameKo,
+                NameEn = f.NameEn,
+                Icon = f.Icon
+            }).ToList(),
             IsFavorited = isFavorited,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,
                 Nickname = readModel.Seller.Nickname,
-                ProfileImageUrl = finalSellerProfileUrl, // 변환된 Seller Profile URL
+                ProfileImageUrl = finalSellerProfileUrl,
                 MannerTemperature = readModel.Seller.MannerTemperature,
                 TotalTradeCount = readModel.Seller.TotalTradeCount,
                 ResponseRate = readModel.Seller.ResponseRate,
