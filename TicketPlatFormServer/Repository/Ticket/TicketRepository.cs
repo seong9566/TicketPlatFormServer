@@ -28,7 +28,6 @@ public class TicketRepository(
             tickets.Add(new TicketListReadModel
             {
                 TicketId = row.TicketId,
-                TicketTitle = row.TicketTitle,
                 SeatGradeId = row.SeatGradeId,
                 SeatGradeName = row.SeatGradeName,
                 Area = row.Area,
@@ -44,9 +43,8 @@ public class TicketRepository(
                 Quantity = row.Quantity,
                 IsSingleTicket = row.Quantity == 1,
                 RemainingQuantity = row.RemainingQuantity,
-                // 목록에서는 이미지, 특징 생략
+                // 목록에서는 이미지 생략
                 TicketImages = new List<string>(),
-                TicketFeatures = new List<TicketFeatureReadModel>(),
                 Seller = new SellerInfoReadModel
                 {
                     UserId = row.UserId,
@@ -83,16 +81,9 @@ public class TicketRepository(
             new { TicketId = ticketId }
         );
 
-        // 티켓 특징 조회 (Many-to-Many)
-        var ticketFeatures = await dapper.QueryAsync<TicketFeatureReadModel>(
-            TicketQueries.GetTicketFeatures,
-            new { TicketId = ticketId }
-        );
-
         return new TicketListReadModel
         {
             TicketId = ticketRow.TicketId,
-            TicketTitle = ticketRow.TicketTitle,
             SeatGradeId = ticketRow.SeatGradeId,
             SeatGradeName = ticketRow.SeatGradeName,
             Area = ticketRow.Area,
@@ -102,19 +93,13 @@ public class TicketRepository(
             IsConsecutive = ticketRow.IsConsecutive,
             TradeMethodId = ticketRow.TradeMethodId,
             TradeMethodName = ticketRow.TradeMethodName,
-            TradeDescription = ticketRow.TradeDescription,
             HasTicket = ticketRow.HasTicket,
             Description = ticketRow.Description,
-            EventTitle = ticketRow.EventTitle,
-            EventDate = ticketRow.EventDate,
-            VenueName = ticketRow.VenueName,
-            EventPosterImageUrl = ticketRow.EventPosterImageUrl,
             CreatedAt = ticketRow.CreatedAt,
             Quantity = ticketRow.Quantity,
             IsSingleTicket = ticketRow.Quantity == 1,
             RemainingQuantity = ticketRow.RemainingQuantity,
             TicketImages = ticketImages.ToList(),
-            TicketFeatures = ticketFeatures.ToList(),
             Seller = new SellerInfoReadModel
             {
                 UserId = ticketRow.UserId,

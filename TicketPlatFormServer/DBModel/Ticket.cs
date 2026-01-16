@@ -24,10 +24,7 @@ public partial class Ticket
 
     public int CategoryId { get; set; }
 
-    /// <summary>
-    /// 티켓 제목
-    /// </summary>
-    public string Title { get; set; } = null!;
+
 
     /// <summary>
     /// 공연 일시
@@ -100,10 +97,7 @@ public partial class Ticket
     /// </summary>
     public int? TradeMethodId { get; set; }
 
-    /// <summary>
-    /// 거래 방법 상세 설명
-    /// </summary>
-    public string? TradeDescription { get; set; }
+
 
     /// <summary>
     /// 티켓 보유 여부 (1=보유, 0=미보유)

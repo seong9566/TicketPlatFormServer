@@ -52,10 +52,7 @@ public class CreateSellTicketReqDto
     [Required(ErrorMessage = "거래 방법은 필수입니다.")]
     public int TradeMethodId { get; set; }
 
-    /// <summary>
-    /// 거래 방법 상세 설명 (선택)
-    /// </summary>
-    public string? TradeDescription { get; set; }
+
 
     /// <summary>
     /// 티켓 보유 여부 (필수)

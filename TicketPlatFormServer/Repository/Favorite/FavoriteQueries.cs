@@ -54,7 +54,7 @@ internal static class FavoriteQueries
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
             t.area AS Area,
-            t.`row` AS Row,
+            t.`row` AS `Row`,
             t.price AS Price,
             t.original_price AS OriginalPrice,
             t.remaining_quantity AS RemainingQuantity,

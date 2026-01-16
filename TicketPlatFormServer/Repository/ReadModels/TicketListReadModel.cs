@@ -7,10 +7,7 @@ public class TicketListReadModel
 {
     public int TicketId { get; set; }
 
-    /// <summary>
-    /// 티켓 제목
-    /// </summary>
-    public string TicketTitle { get; set; } = null!;
+
 
     /// <summary>
     /// 좌석 등급 ID FK
@@ -57,10 +54,7 @@ public class TicketListReadModel
     /// </summary>
     public string? TradeMethodName { get; set; }
 
-    /// <summary>
-    /// 거래 방법 상세 설명
-    /// </summary>
-    public string? TradeDescription { get; set; }
+
 
     /// <summary>
     /// 티켓 보유 여부
@@ -72,25 +66,7 @@ public class TicketListReadModel
     /// </summary>
     public string? Description { get; set; }
 
-    /// <summary>
-    /// 이벤트 제목
-    /// </summary>
-    public string? EventTitle { get; set; }
 
-    /// <summary>
-    /// 공연 날짜 (포맷: YYYY.MM.DD)
-    /// </summary>
-    public string? EventDate { get; set; }
-
-    /// <summary>
-    /// 장소명
-    /// </summary>
-    public string? VenueName { get; set; }
-
-    /// <summary>
-    /// 이벤트 포스터 이미지 URL
-    /// </summary>
-    public string? EventPosterImageUrl { get; set; }
 
     /// <summary>
     /// 티켓 등록 날짜
@@ -117,10 +93,7 @@ public class TicketListReadModel
     /// </summary>
     public List<string> TicketImages { get; set; } = new();
 
-    /// <summary>
-    /// 티켓 특징 목록 (예: "예매처 ID로 전달", "현장발권")
-    /// </summary>
-    public List<TicketFeatureReadModel> TicketFeatures { get; set; } = new();
+
 
     /// <summary>
     /// 판매자 정보

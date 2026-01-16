@@ -1497,10 +1497,7 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.TradeMethodId)
                 .HasComment("거래 방법 FK")
                 .HasColumnName("trade_method_id");
-            entity.Property(e => e.TradeDescription)
-                .HasComment("거래 방법 상세 설명")
-                .HasColumnType("text")
-                .HasColumnName("trade_description");
+
             entity.Property(e => e.HasTicket)
                 .HasComment("티켓 보유 여부 (1=보유, 0=미보유)")
                 .HasColumnName("has_ticket");
@@ -1523,10 +1520,7 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.StatusId)
                 .HasDefaultValueSql("'1'")
                 .HasColumnName("status_id");
-            entity.Property(e => e.Title)
-                .HasMaxLength(255)
-                .HasComment("티켓 제목")
-                .HasColumnName("title");
+
             entity.Property(e => e.UpdatedAt)
                 .ValueGeneratedOnAddOrUpdate()
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")

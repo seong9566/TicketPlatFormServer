@@ -42,13 +42,6 @@ public class TicketService : ITicketService
             throw new AppException(message: "티켓을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
         }
 
-        // 찜 여부 확인 (userId가 제공된 경우만)
-        bool? isFavorited = null;
-        if (userId.HasValue && userId.Value > 0)
-        {
-            isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
-        }
-
         // Signed URL 변환 대상 키 수집 (티켓 이미지 + 판매자 프로필 이미지)
         var keysToSign = new List<string>();
         
@@ -100,7 +93,6 @@ public class TicketService : ITicketService
         return new TicketListRespDto
         {
             TicketId = readModel.TicketId,
-            TicketTitle = readModel.TicketTitle,
             SeatGradeId = readModel.SeatGradeId,
             SeatGradeName = readModel.SeatGradeName,
             Area = readModel.Area,
@@ -110,27 +102,13 @@ public class TicketService : ITicketService
             IsConsecutive = readModel.IsConsecutive,
             TradeMethodId = readModel.TradeMethodId,
             TradeMethodName = readModel.TradeMethodName,
-            TradeDescription = readModel.TradeDescription,
             HasTicket = readModel.HasTicket,
             Description = readModel.Description,
-            EventTitle = readModel.EventTitle,
-            EventDate = readModel.EventDate,
-            VenueName = readModel.VenueName,
-            EventPosterImageUrl = readModel.EventPosterImageUrl,
             CreatedAt = readModel.CreatedAt,
             Quantity = readModel.Quantity,
             RemainingQuantity = readModel.RemainingQuantity,
             IsSingleTicket = readModel.IsSingleTicket,
             TicketImages = ticketImages,
-            TicketFeatures = readModel.TicketFeatures.Select(f => new TicketFeatureDto
-            {
-                FeatureId = f.FeatureId,
-                Code = f.Code,
-                NameKo = f.NameKo,
-                NameEn = f.NameEn,
-                Icon = f.Icon
-            }).ToList(),
-            IsFavorited = isFavorited,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,

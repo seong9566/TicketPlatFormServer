@@ -11,11 +11,10 @@ internal static class TicketQueries
     internal const string GetTicketsByEventId = @"
         SELECT
             t.id AS TicketId,
-            t.title AS TicketTitle,
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
             t.area AS Area,
-            t.`row` AS Row,
+            t.`row` AS `Row`,
             t.price AS Price,
             t.original_price AS OriginalPrice,
             t.quantity AS Quantity,
@@ -46,11 +45,10 @@ internal static class TicketQueries
     internal const string GetTicketDetailById = @"
         SELECT
             t.id AS TicketId,
-            t.title AS TicketTitle,
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
             t.area AS Area,
-            t.`row` AS Row,
+            t.`row` AS `Row`,
             t.price AS Price,
             t.original_price AS OriginalPrice,
             t.quantity AS Quantity,
@@ -58,14 +56,9 @@ internal static class TicketQueries
             t.is_consecutive AS IsConsecutive,
             t.trade_method_id AS TradeMethodId,
             tm.name_ko AS TradeMethodName,
-            t.trade_description AS TradeDescription,
             t.has_ticket AS HasTicket,
             t.description AS Description,
             t.created_at AS CreatedAt,
-            e.title AS EventTitle,
-            DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
-            e.venue_name AS VenueName,
-            e.poster_image_url AS EventPosterImageUrl,
             up.user_id AS UserId,
             up.nickname AS Nickname,
             up.profile_image_url AS ProfileImageUrl,
@@ -95,7 +88,6 @@ internal static class TicketQueries
             ) AS ResponseRate
         FROM tickets t
         INNER JOIN user_profile up ON t.seller_id = up.user_id
-        LEFT JOIN events e ON t.event_id = e.id
         LEFT JOIN user_verification uv ON t.seller_id = uv.user_id
         LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
         LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id

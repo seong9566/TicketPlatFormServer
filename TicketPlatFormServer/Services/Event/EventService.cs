@@ -68,24 +68,6 @@ public class EventService : IEventService
         // 티켓 목록 조회
         var ticketReadModels = await _ticketRepo.GetTicketsByEventId(eventId);
 
-        // 찜 목록 조회 (userId가 있는 경우)
-        HashSet<int> favoritedTicketIds = new HashSet<int>();
-        if (userId.HasValue)
-        {
-            // 찜 타입 
-            // Ticket : 2
-            // Event : 1
-            const int ticketFavoriteTypeId = 2; // 티켓 찜 타입 ID
-            foreach (var ticket in ticketReadModels)
-            {
-                var isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, ticketFavoriteTypeId, ticket.TicketId);
-                if (isFavorited)
-                {
-                    favoritedTicketIds.Add(ticket.TicketId);
-                }
-            }
-        }
-
         // 좌석 등급 필터 생성 및 매진 임박 여부 계산
         var seatGradeCounts = new Dictionary<string, int>();
         bool isSoldOutImminent = false;
@@ -146,7 +128,6 @@ public class EventService : IEventService
             Tickets = ticketReadModels.Select(tm => new TicketListRespDto
             {
                 TicketId = tm.TicketId,
-                TicketTitle = tm.TicketTitle,
                 SeatGradeId = tm.SeatGradeId,
                 SeatGradeName = tm.SeatGradeName,
                 Area = tm.Area,
@@ -163,15 +144,6 @@ public class EventService : IEventService
                 RemainingQuantity = tm.RemainingQuantity,
                 IsSingleTicket = tm.IsSingleTicket,
                 TicketImages = tm.TicketImages,
-                TicketFeatures = tm.TicketFeatures.Select(f => new TicketFeatureDto
-                {
-                    FeatureId = f.FeatureId,
-                    Code = f.Code,
-                    NameKo = f.NameKo,
-                    NameEn = f.NameEn,
-                    Icon = f.Icon
-                }).ToList(),
-                IsFavorited = userId.HasValue ? favoritedTicketIds.Contains(tm.TicketId) : null,
                 Seller = new SellerInfoDto
                 {
                     UserId = tm.Seller.UserId,

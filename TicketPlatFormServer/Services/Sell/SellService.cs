@@ -141,8 +141,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             throw new AppException("판매가는 정가를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 4. 티켓 제목 생성
-        var title = $"{eventEntity.Title} - {schedule.ScheduleDate:yyyy-MM-dd}";
+
 
         // 5. pending_review 상태 ID 조회
         var pendingReviewStatusId = await _sellRepository.GetTicketStatusIdByCodeAsync("pending_review");
@@ -160,14 +159,13 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             schedule.ScheduleTime.Minute,
             schedule.ScheduleTime.Second);
 
-        // 7. 티켓 엔티티 생성
+        // 6. 티켓 엔티티 생성
         var ticket = new DBModel.Ticket
         {
             SellerId = userId,
             EventId = request.EventId,
             ScheduleId = request.ScheduleId,
             CategoryId = eventEntity.CategoryId,
-            Title = title,
             EventDatetime = eventDatetime,
             SeatGradeId = request.SeatGradeId,
             LocationId = request.LocationId,
@@ -179,7 +177,6 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             Price = request.Price,
             OriginalPrice = request.OriginalPrice,
             TradeMethodId = request.TradeMethodId,
-            TradeDescription = request.TradeDescription,
             HasTicket = request.HasTicket,
             Description = request.Description,
             StatusId = pendingReviewStatusId.Value
@@ -247,7 +244,8 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             Tickets = tickets.Select(t => new MyTicketItem
             {
                 TicketId = t.Id,
-                Title = t.Title,
+                // Title 필드가 제거되었으므로 Event Title 사용
+                Title = t.Event?.Title ?? "",
                 EventDatetime = t.EventDatetime,
                 SeatGradeName = t.SeatGrade?.NameKo,
                 Area = t.Area,

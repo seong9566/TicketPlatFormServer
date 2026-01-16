@@ -103,7 +103,7 @@ public class ChatService(
             {
                 RoomId = room.Id,
                 TicketId = room.TicketId,
-                TicketTitle = room.Ticket?.Title ?? "",
+                TicketTitle = room.Ticket?.Event?.Title ?? "",
                 OtherUser = new OtherUserInfo
                 {
                     UserId = room.BuyerId == userId ? room.SellerId : room.BuyerId,
@@ -562,7 +562,7 @@ public class ChatService(
             Ticket = new TicketInfo
             {
                 TicketId = room.TicketId,
-                Title = room.Ticket?.Title ?? "",
+                Title = room.Ticket?.Event?.Title ?? "",
                 Price = room.Ticket?.Price ?? 0,
                 ThumbnailUrl = null // TODO: 티켓 이미지 추가
             },
