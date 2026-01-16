@@ -86,6 +86,9 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
 
         var result = await chatService.SendMessage(req);
 
+        // 발신자 정보 로드
+        var senderInfo = await chatService.GetSenderInfoForSignalR(result.MessageId);
+
         // SignalR을 통해 실시간으로 메시지 브로드캐스트
         await hubContext.Clients.Group($"room_{req.RoomId}")
             .SendAsync("ReceiveMessage", new NewMessageSignalDto
@@ -93,8 +96,8 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
                 MessageId = result.MessageId,
                 RoomId = result.RoomId,
                 SenderId = userId.Value,
-                SenderNickname = "", // TODO: 사용자 정보 추가
-                SenderProfileImage = null,
+                SenderNickname = senderInfo.Nickname,
+                SenderProfileImage = senderInfo.ProfileImageUrl,
                 Message = result.Message,
                 ImageUrl = result.ImageUrl,
                 CreatedAt = result.CreatedAt
