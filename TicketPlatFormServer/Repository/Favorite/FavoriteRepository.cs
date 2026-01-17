@@ -85,18 +85,18 @@ public class FavoriteRepository(
         {
             result.Add(new FavoriteTicketReadModel
             {
-                TicketId = row.TicketId,
-                SeatGradeId = row.SeatGradeId,
+                TicketId = Convert.ToInt32(row.TicketId),
+                SeatGradeId = row.SeatGradeId != null ? (int?)Convert.ToInt32(row.SeatGradeId) : null,
                 SeatGradeName = row.SeatGradeName,
                 Area = row.Area,
                 Row = row.Row,
-                Price = row.Price,
-                OriginalPrice = row.OriginalPrice,
-                RemainingQuantity = row.RemainingQuantity,
-                IsConsecutive = row.IsConsecutive,
-                TradeMethodId = row.TradeMethodId,
+                Price = Convert.ToInt32(row.Price),
+                OriginalPrice = Convert.ToInt32(row.OriginalPrice),
+                RemainingQuantity = Convert.ToInt32(row.RemainingQuantity),
+                IsConsecutive = row.IsConsecutive != null ? (bool?)Convert.ToBoolean(row.IsConsecutive) : null,
+                TradeMethodId = row.TradeMethodId != null ? (int?)Convert.ToInt32(row.TradeMethodId) : null,
                 TradeMethodName = row.TradeMethodName,
-                HasTicket = row.HasTicket,
+                HasTicket = row.HasTicket != null ? (bool?)Convert.ToBoolean(row.HasTicket) : null,
                 CreatedAt = row.CreatedAt,
                 FavoritedAt = row.FavoritedAt,
                 EventTitle = row.EventTitle,
@@ -105,13 +105,13 @@ public class FavoriteRepository(
                 EventPosterImageUrl = row.EventPosterImageUrl,
                 Seller = new SellerInfoReadModel
                 {
-                    UserId = row.SellerId,
+                    UserId = Convert.ToInt32(row.SellerId),
                     Nickname = row.Nickname,
                     ProfileImageUrl = row.ProfileImageUrl,
                     MannerTemperature = row.MannerTemperature != null ? (float?)Convert.ToDouble(row.MannerTemperature) : null,
-                    TotalTradeCount = row.TotalTradeCount ?? 0,
+                    TotalTradeCount = Convert.ToInt32(row.TotalTradeCount),
                     ResponseRate = row.ResponseRate != null ? (float?)Convert.ToDouble(row.ResponseRate) : null,
-                    IsSecurePayment = row.IsSecurePayment == 1
+                    IsSecurePayment = Convert.ToInt32(row.IsSecurePayment) == 1
                 }
             });
         }
