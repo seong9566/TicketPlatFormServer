@@ -168,14 +168,14 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             CategoryId = eventEntity.CategoryId,
             EventDatetime = eventDatetime,
             SeatGradeId = request.SeatGradeId,
-            LocationId = request.LocationId,
-            Area = request.Area,
+            SeatLocationId = request.LocationId,  // LocationId → SeatLocationId
+            AreaId = request.AreaId,  // Area string → AreaId FK
             Row = request.Row,
             Quantity = request.Quantity,
             IsConsecutive = request.IsConsecutive,
             RemainingQuantity = request.Quantity,
             Price = request.Price,
-            OriginalPrice = request.OriginalPrice,
+            // OriginalPrice는 event_seat_prices 테이블에서 조회
             TradeMethodId = request.TradeMethodId,
             HasTicket = request.HasTicket,
             Description = request.Description,
@@ -248,12 +248,13 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                 Title = t.Event?.Title ?? "",
                 EventDatetime = t.EventDatetime,
                 SeatGradeName = t.SeatGrade?.NameKo,
-                Area = t.Area,
+                Area = t.SeatArea?.AreaName,  // Area string → SeatArea.AreaName
                 Row = t.Row,
                 Quantity = t.Quantity,
                 RemainingQuantity = t.RemainingQuantity,
                 Price = t.Price,
-                OriginalPrice = t.OriginalPrice,
+                // OriginalPrice는 event_seat_prices에서 조회 필요
+                OriginalPrice = 0,  // TODO: event_seat_prices JOIN 또는 별도 조회
                 Status = t.Status.NameKo ?? t.Status.Code,
                 CreatedAt = t.CreatedAt,
                 ThumbnailUrl = ticketImages.ContainsKey(t.Id) ? ticketImages[t.Id] : null

@@ -21,9 +21,9 @@ public class CreateSellTicketReqDto
     public string ScheduleId { get; set; } = null!;
 
     /// <summary>
-    /// 좌석 위치 ID (선택)
+    /// 좌석 위치 ID (선택, event_seat_locations FK)
     /// </summary>
-    public string? LocationId { get; set; }
+    public int? LocationId { get; set; }
 
     /// <summary>
     /// 좌석 등급 ID (필수)
@@ -32,9 +32,9 @@ public class CreateSellTicketReqDto
     public int SeatGradeId { get; set; }
 
     /// <summary>
-    /// 구역 (예: A구역)
+    /// 좌석 구역 ID (선택, seat_areas FK)
     /// </summary>
-    public string? Area { get; set; }
+    public int? AreaId { get; set; }
 
     /// <summary>
     /// 열 (예: 5열)

@@ -37,14 +37,9 @@ public partial class Ticket
     public int? SeatGradeId { get; set; }
 
     /// <summary>
-    /// 좌석 위치 FK
+    /// 좌석 위치 FK (event_seat_locations 테이블)
     /// </summary>
-    public string? LocationId { get; set; }
-
-    /// <summary>
-    /// 구역 (예: A구역) - 레거시, 직접 입력용
-    /// </summary>
-    public string? Area { get; set; }
+    public int? SeatLocationId { get; set; }
 
     /// <summary>
     /// 좌석 구역 FK (seat_areas 테이블)
@@ -75,11 +70,6 @@ public partial class Ticket
     /// 판매가
     /// </summary>
     public int Price { get; set; }
-
-    /// <summary>
-    /// 정가
-    /// </summary>
-    public int OriginalPrice { get; set; }
 
     /// <summary>
     /// 상세 설명
@@ -115,7 +105,10 @@ public partial class Ticket
 
     public virtual EventSchedule? Schedule { get; set; }
 
-    public virtual SeatLocation? Location { get; set; }
+    /// <summary>
+    /// 좌석 위치 Navigation 속성 (event_seat_locations)
+    /// </summary>
+    public virtual EventSeatLocation? SeatLocation { get; set; }
 
     public virtual TicketStatus Status { get; set; } = null!;
 

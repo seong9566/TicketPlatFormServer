@@ -1491,9 +1491,6 @@ public partial class TicketContext : DbContext
                 .HasComment("공연 일시")
                 .HasColumnType("datetime")
                 .HasColumnName("event_datetime");
-            entity.Property(e => e.OriginalPrice)
-                .HasComment("정가")
-                .HasColumnName("original_price");
             entity.Property(e => e.Price)
                 .HasComment("판매가")
                 .HasColumnName("price");
@@ -1513,14 +1510,12 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.HasTicket)
                 .HasComment("티켓 보유 여부 (1=보유, 0=미보유)")
                 .HasColumnName("has_ticket");
-            entity.Property(e => e.LocationId)
-                .HasMaxLength(36)
-                .HasComment("좌석 위치 FK")
-                .HasColumnName("location_id");
-            entity.Property(e => e.Area)
-                .HasMaxLength(50)
-                .HasComment("구역 (예: A구역)")
-                .HasColumnName("area");
+            entity.Property(e => e.SeatLocationId)
+                .HasComment("좌석 위치 FK (event_seat_locations)")
+                .HasColumnName("seat_location_id");
+            entity.Property(e => e.AreaId)
+                .HasComment("좌석 구역 FK (seat_areas)")
+                .HasColumnName("area_id");
             entity.Property(e => e.Row)
                 .HasMaxLength(20)
                 .HasComment("열 (예: 5열)")
@@ -1552,9 +1547,13 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.ScheduleId)
                 .HasConstraintName("fk_tickets_schedule");
 
-            entity.HasOne(d => d.Location).WithMany(p => p.Tickets)
-                .HasForeignKey(d => d.LocationId)
-                .HasConstraintName("fk_tickets_location");
+            entity.HasOne(d => d.SeatLocation).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.SeatLocationId)
+                .HasConstraintName("fk_tickets_seat_location");
+
+            entity.HasOne(d => d.SeatArea).WithMany(p => p.Tickets)
+                .HasForeignKey(d => d.AreaId)
+                .HasConstraintName("fk_tickets_area");
 
             entity.HasOne(d => d.Status).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.StatusId)
