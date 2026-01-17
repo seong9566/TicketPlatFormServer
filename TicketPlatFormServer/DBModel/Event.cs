@@ -77,4 +77,13 @@ public partial class Event
     public virtual ICollection<SeatLocation> SeatLocations { get; set; } = new List<SeatLocation>();
 
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
+    // 공연별 좌석 정보 Navigation 속성
+    public virtual ICollection<EventSeatGrade> EventSeatGrades { get; set; } = new List<EventSeatGrade>();
+
+    public virtual ICollection<EventSeatLocation> EventSeatLocations { get; set; } = new List<EventSeatLocation>();
+
+    public virtual ICollection<SeatArea> SeatAreas { get; set; } = new List<SeatArea>();
+
+    public virtual ICollection<EventSeatPrice> EventSeatPrices { get; set; } = new List<EventSeatPrice>();
 }

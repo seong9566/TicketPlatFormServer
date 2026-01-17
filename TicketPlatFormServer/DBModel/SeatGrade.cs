@@ -34,4 +34,9 @@ public partial class SeatGrade
     public DateTime UpdatedAt { get; set; }
 
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+
+    // 공연별 좌석 등급/정가 Navigation 속성
+    public virtual ICollection<EventSeatGrade> EventSeatGrades { get; set; } = new List<EventSeatGrade>();
+
+    public virtual ICollection<EventSeatPrice> EventSeatPrices { get; set; } = new List<EventSeatPrice>();
 }

@@ -129,6 +129,15 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<TicketTicketFeature> TicketTicketFeatures { get; set; }
 
+    // 공연별 좌석 정보 테이블
+    public virtual DbSet<EventSeatGrade> EventSeatGrades { get; set; }
+
+    public virtual DbSet<EventSeatLocation> EventSeatLocations { get; set; }
+
+    public virtual DbSet<SeatArea> SeatAreas { get; set; }
+
+    public virtual DbSet<EventSeatPrice> EventSeatPrices { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
         // Connection string is configured in Program.cs using appsettings.json

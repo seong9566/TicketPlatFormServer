@@ -42,9 +42,14 @@ public partial class Ticket
     public string? LocationId { get; set; }
 
     /// <summary>
-    /// 구역 (예: A구역)
+    /// 구역 (예: A구역) - 레거시, 직접 입력용
     /// </summary>
     public string? Area { get; set; }
+
+    /// <summary>
+    /// 좌석 구역 FK (seat_areas 테이블)
+    /// </summary>
+    public int? AreaId { get; set; }
 
     /// <summary>
     /// 열 (예: 5열)
@@ -117,6 +122,11 @@ public partial class Ticket
     public virtual SeatGrade? SeatGrade { get; set; }
 
     public virtual TradeMethod? TradeMethod { get; set; }
+
+    /// <summary>
+    /// 좌석 구역 Navigation 속성
+    /// </summary>
+    public virtual SeatArea? SeatArea { get; set; }
 
     public virtual ICollection<TicketTicketFeature> TicketTicketFeatures { get; set; } = new List<TicketTicketFeature>();
 }
