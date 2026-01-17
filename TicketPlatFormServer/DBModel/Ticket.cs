@@ -42,7 +42,7 @@ public partial class Ticket
     public int? SeatLocationId { get; set; }
 
     /// <summary>
-    /// 좌석 구역 FK (seat_areas 테이블)
+    /// 좌석 구역 FK (event_seat_areas 테이블)
     /// </summary>
     public int? AreaId { get; set; }
 
@@ -119,7 +119,7 @@ public partial class Ticket
     /// <summary>
     /// 좌석 구역 Navigation 속성
     /// </summary>
-    public virtual SeatArea? SeatArea { get; set; }
+    public virtual EventSeatArea? EventSeatArea { get; set; }
 
     public virtual ICollection<TicketTicketFeature> TicketTicketFeatures { get; set; } = new List<TicketTicketFeature>();
 }

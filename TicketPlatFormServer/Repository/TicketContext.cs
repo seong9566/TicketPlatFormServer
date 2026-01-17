@@ -133,9 +133,7 @@ public partial class TicketContext : DbContext
     public virtual DbSet<EventSeatGrade> EventSeatGrades { get; set; }
 
     public virtual DbSet<EventSeatLocation> EventSeatLocations { get; set; }
-
-    public virtual DbSet<SeatArea> SeatAreas { get; set; }
-
+    public virtual DbSet<EventSeatArea> EventSeatAreas { get; set; }
     public virtual DbSet<EventSeatPrice> EventSeatPrices { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -917,6 +915,37 @@ public partial class TicketContext : DbContext
                 .HasConstraintName("fk_locations_event");
         });
 
+        modelBuilder.Entity<EventSeatArea>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("event_seat_areas");
+
+            entity.HasIndex(e => e.EventId, "event_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AreaName)
+                .HasMaxLength(50)
+                .HasColumnName("area_name");
+            entity.Property(e => e.CreatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.IsActive)
+                .HasDefaultValueSql("'1'")
+                .HasColumnName("is_active");
+            entity.Property(e => e.SortOrder)
+                .HasDefaultValueSql("'0'")
+                .HasColumnName("sort_order");
+
+            entity.HasOne(d => d.Event).WithMany(p => p.EventSeatAreas)
+                .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("event_seat_areas_ibfk_1");
+        });
+
         modelBuilder.Entity<FavoriteType>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
@@ -1514,7 +1543,7 @@ public partial class TicketContext : DbContext
                 .HasComment("좌석 위치 FK (event_seat_locations)")
                 .HasColumnName("seat_location_id");
             entity.Property(e => e.AreaId)
-                .HasComment("좌석 구역 FK (seat_areas)")
+                .HasComment("좌석 구역 FK (event_seat_areas)")
                 .HasColumnName("area_id");
             entity.Property(e => e.Row)
                 .HasMaxLength(20)
@@ -1551,9 +1580,9 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.SeatLocationId)
                 .HasConstraintName("fk_tickets_seat_location");
 
-            entity.HasOne(d => d.SeatArea).WithMany(p => p.Tickets)
+            entity.HasOne(d => d.EventSeatArea).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.AreaId)
-                .HasConstraintName("fk_tickets_area");
+                .HasConstraintName("fk_tickets_event_seat_area");
 
             entity.HasOne(d => d.Status).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.StatusId)

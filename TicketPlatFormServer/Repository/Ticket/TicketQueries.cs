@@ -32,7 +32,7 @@ internal static class TicketQueries
         FROM tickets t
         INNER JOIN user_profile up ON t.seller_id = up.user_id
         LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
-        LEFT JOIN seat_areas sa ON t.area_id = sa.id
+        LEFT JOIN event_seat_areas sa ON t.area_id = sa.id
         LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE t.event_id = @EventId
@@ -92,7 +92,7 @@ internal static class TicketQueries
         INNER JOIN user_profile up ON t.seller_id = up.user_id
         LEFT JOIN user_verification uv ON t.seller_id = uv.user_id
         LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
-        LEFT JOIN seat_areas sa ON t.area_id = sa.id
+        LEFT JOIN event_seat_areas sa ON t.area_id = sa.id
         LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE t.id = @TicketId

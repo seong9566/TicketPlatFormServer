@@ -4,9 +4,9 @@ using System.Collections.Generic;
 namespace TicketPlatFormServer.DBModel;
 
 /// <summary>
-/// 공연별 좌석 구역 테이블
+/// 공연별 좌석 구역 테이블 (예: A구역, B구역)
 /// </summary>
-public partial class SeatArea
+public partial class EventSeatArea
 {
     public int Id { get; set; }
 

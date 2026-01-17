@@ -248,7 +248,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                 Title = t.Event?.Title ?? "",
                 EventDatetime = t.EventDatetime,
                 SeatGradeName = t.SeatGrade?.NameKo,
-                Area = t.SeatArea?.AreaName,  // Area string → SeatArea.AreaName
+                Area = t.EventSeatArea?.AreaName,  // Area string → EventSeatArea.AreaName
                 Row = t.Row,
                 Quantity = t.Quantity,
                 RemainingQuantity = t.RemainingQuantity,
