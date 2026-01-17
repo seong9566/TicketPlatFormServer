@@ -29,7 +29,7 @@ public interface ISellRepository
     /// <summary>
     /// 특정 공연의 좌석 위치 옵션 조회
     /// </summary>
-    Task<List<SeatLocation>> GetSeatLocationsAsync(int eventId);
+    Task<List<EventSeatLocation>> GetSeatLocationsAsync(int eventId);
 
     /// <summary>
     /// 공연 조회

@@ -79,7 +79,7 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<ReputationRatingType> ReputationRatingTypes { get; set; }
 
-    public virtual DbSet<SeatLocation> SeatLocations { get; set; }
+
 
     public virtual DbSet<Settlement> Settlements { get; set; }
 
@@ -885,35 +885,7 @@ public partial class TicketContext : DbContext
                 .HasConstraintName("fk_schedules_event");
         });
 
-        modelBuilder.Entity<SeatLocation>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
 
-            entity.ToTable("seat_locations", tb => tb.HasComment("좌석 위치 옵션 테이블"));
-
-            entity.HasIndex(e => e.EventId, "idx_locations_event");
-
-            entity.Property(e => e.Id)
-                .HasMaxLength(36)
-                .HasComment("위치 ID (예: LOC_1F)")
-                .HasColumnName("id");
-            entity.Property(e => e.EventId)
-                .HasComment("공연 FK (NULL이면 전역 사용)")
-                .HasColumnName("event_id");
-            entity.Property(e => e.LocationName)
-                .HasMaxLength(100)
-                .HasComment("위치명")
-                .HasColumnName("location_name");
-            entity.Property(e => e.IsActive)
-                .HasDefaultValueSql("'1'")
-                .HasColumnName("is_active");
-            entity.Property(e => e.SortOrder)
-                .HasColumnName("sort_order");
-
-            entity.HasOne(d => d.Event).WithMany(p => p.SeatLocations)
-                .HasForeignKey(d => d.EventId)
-                .HasConstraintName("fk_locations_event");
-        });
 
         modelBuilder.Entity<EventSeatArea>(entity =>
         {

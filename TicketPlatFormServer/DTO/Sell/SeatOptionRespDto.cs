@@ -24,7 +24,7 @@ public class SeatLocationOption
     /// <summary>
     /// 위치 ID
     /// </summary>
-    public string LocationId { get; set; } = null!;
+    public int LocationId { get; set; }
 
     /// <summary>
     /// 위치명

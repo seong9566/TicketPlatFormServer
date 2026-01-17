@@ -70,11 +70,11 @@ public class SellRepository(TicketContext context) : ISellRepository
     /// <summary>
     /// 특정 공연의 좌석 위치 옵션 조회
     /// </summary>
-    public async Task<List<SeatLocation>> GetSeatLocationsAsync(int eventId)
+    public async Task<List<EventSeatLocation>> GetSeatLocationsAsync(int eventId)
     {
-        // 해당 공연 전용 좌석 위치 + 전역 좌석 위치
-        return await _context.SeatLocations
-            .Where(sl => (sl.EventId == eventId || sl.EventId == null) && sl.IsActive == true)
+        // 해당 공연 전용 좌석 위치
+        return await _context.EventSeatLocations
+            .Where(sl => sl.EventId == eventId && sl.IsActive == true)
             .OrderBy(sl => sl.SortOrder)
             .ToListAsync();
     }
