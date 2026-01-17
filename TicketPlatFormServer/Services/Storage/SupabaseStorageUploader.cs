@@ -55,11 +55,22 @@ public class SupabaseStorageUploader : IStorageUploader
         var url = $"/storage/v1/object/sign/{effectiveBucket}/{objectKey}";
         var body = new { expiresIn = expirySec };
 
+        _logger.LogInformation("[SupabaseStorageUploader.GetSignedUrlAsync] Requesting signed URL: Bucket={Bucket}, ObjectKey={ObjectKey}, ExpiresIn={ExpiresIn}",
+            effectiveBucket, objectKey, expirySec);
+
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(_settings.SignUrlTimeoutSec));
 
         var response = await _httpClient.PostAsJsonAsync(url, body, cts.Token);
-        response.EnsureSuccessStatusCode();
+        
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("[SupabaseStorageUploader.GetSignedUrlAsync] Failed: StatusCode={StatusCode}, Bucket={Bucket}, ObjectKey={ObjectKey}, Error={Error}",
+                response.StatusCode, effectiveBucket, objectKey, errorContent);
+            
+            throw new HttpRequestException($"Supabase signed URL 요청 실패 (Bucket: {effectiveBucket}, Key: {objectKey}): {response.StatusCode} - {errorContent}");
+        }
 
         var result = await response.Content.ReadFromJsonAsync<SignUrlResponse>(ct);
 

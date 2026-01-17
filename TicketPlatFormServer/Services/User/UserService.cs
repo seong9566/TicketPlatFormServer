@@ -206,8 +206,18 @@ public class UserService : IUserService
             !profile.ProfileImageUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
             !profile.ProfileImageUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
-            var signedUrlResult = await _fileUploadService.RefreshSignedUrlAsync(profile.ProfileImageUrl);
-            profileImageUrl = signedUrlResult.SignedUrl;
+            try
+            {
+                var signedUrlResult = await _fileUploadService.RefreshSignedUrlAsync(profile.ProfileImageUrl);
+                profileImageUrl = signedUrlResult.SignedUrl;
+            }
+            catch (Exception ex)
+            {
+                // Signed URL 생성 실패 시 로그만 남기고 null 반환 (프로필 조회 자체는 성공)
+                // 파일이 Supabase에 없거나 버킷 설정이 잘못된 경우 발생 가능
+                Console.WriteLine($"[Warning] Failed to generate signed URL for profile image: {profile.ProfileImageUrl}, Error: {ex.Message}");
+                profileImageUrl = null;
+            }
         }
 
         // 4. Entity -> Dto
