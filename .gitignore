@@ -275,3 +275,10 @@ __pycache__/
 
 # Local secrets
 TicketPlatFormServer/appsettings.SupabaseStorage.json
+
+# Environment-specific settings (개발 환경별로 다름)
+.mcp.json
+TicketPlatFormServer/appsettings.Development.json
+
+# macOS system files
+.DS_Store
