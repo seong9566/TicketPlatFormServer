@@ -44,13 +44,14 @@ internal static class HomeQueries
             DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
             e.venue_name AS Venue,
             MIN(t.price) AS MinTicketPrice,
-            MIN(t.original_price) AS OriginalMinTicketPrice,
-            ROUND((MIN(t.original_price) - MIN(t.price)) / MIN(t.original_price) * 100) AS TicketDiscountRate,
+            COALESCE(MIN(esp.original_price), MIN(t.price)) AS OriginalMinTicketPrice,
+            ROUND((COALESCE(MIN(esp.original_price), MIN(t.price)) - MIN(t.price)) / COALESCE(MIN(esp.original_price), MIN(t.price)) * 100) AS TicketDiscountRate,
             e.poster_image_url AS PosterImageUrl,
             COUNT(t.id) AS AvailableTicketCount,
             e.category_id AS CategoryId
         FROM events e
         INNER JOIN tickets t ON e.id = t.event_id
+        LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN (
             SELECT target_id, COUNT(*) as favorite_count
             FROM user_favorites
@@ -143,8 +144,8 @@ internal static class HomeQueries
             DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
             e.venue_name AS Venue,
             MIN(t.price) AS MinTicketPrice,
-            MIN(t.original_price) AS OriginalMinTicketPrice,
-            ROUND((MIN(t.original_price) - MIN(t.price)) / MIN(t.original_price) * 100) AS TicketDiscountRate,
+            COALESCE(MIN(esp.original_price), MIN(t.price)) AS OriginalMinTicketPrice,
+            ROUND((COALESCE(MIN(esp.original_price), MIN(t.price)) - MIN(t.price)) / COALESCE(MIN(esp.original_price), MIN(t.price)) * 100) AS TicketDiscountRate,
             e.poster_image_url AS PosterImageUrl,
             COUNT(t.id) AS AvailableTicketCount,
             e.category_id AS CategoryId,
@@ -170,6 +171,7 @@ internal static class HomeQueries
             ) AS RecommendationScore
         FROM events e
         INNER JOIN tickets t ON e.id = t.event_id
+        LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN CollaborativeScores cs ON e.id = cs.event_id
         LEFT JOIN EventPopularity ep ON e.id = ep.event_id
         WHERE e.is_active = 1
@@ -225,8 +227,8 @@ internal static class HomeQueries
             DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
             e.venue_name AS Venue,
             MIN(t.price) AS MinTicketPrice,
-            MIN(t.original_price) AS OriginalMinTicketPrice,
-            ROUND((MIN(t.original_price) - MIN(t.price)) / MIN(t.original_price) * 100) AS TicketDiscountRate,
+            COALESCE(MIN(esp.original_price), MIN(t.price)) AS OriginalMinTicketPrice,
+            ROUND((COALESCE(MIN(esp.original_price), MIN(t.price)) - MIN(t.price)) / COALESCE(MIN(esp.original_price), MIN(t.price)) * 100) AS TicketDiscountRate,
             e.poster_image_url AS PosterImageUrl,
             COUNT(t.id) AS AvailableTicketCount,
             e.category_id AS CategoryId,
@@ -239,7 +241,7 @@ internal static class HomeQueries
                     COALESCE(fav.favorite_count, 0) * 0.5
                 ) * 0.6 +
                 -- 할인율 점수 (20%): 할인율이 높을수록 매력적
-                AVG(ROUND((t.original_price - t.price) / t.original_price * 100)) * 0.2 +
+                AVG(ROUND((COALESCE(esp.original_price, t.price) - t.price) / COALESCE(esp.original_price, t.price) * 100)) * 0.2 +
                 -- 최신도 점수 (20%): 최근 30일 이내 가산점
                 GREATEST(0, 30 - DATEDIFF(NOW(), e.created_at)) * 0.2 +
                 -- 카테고리 다양성 보너스: 각 카테고리의 상위 이벤트에 가산점
@@ -247,6 +249,7 @@ internal static class HomeQueries
             ) AS RecommendationScore
         FROM events e
         INNER JOIN tickets t ON e.id = t.event_id
+        LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN (
             SELECT target_id, COUNT(*) as favorite_count
             FROM user_favorites

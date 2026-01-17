@@ -13,10 +13,10 @@ internal static class TicketQueries
             t.id AS TicketId,
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
-            t.area AS Area,
+            sa.area_name AS Area,
             t.`row` AS `Row`,
             t.price AS Price,
-            t.original_price AS OriginalPrice,
+            COALESCE(esp.original_price, t.price) AS OriginalPrice,
             t.quantity AS Quantity,
             t.remaining_quantity AS RemainingQuantity,
             t.is_consecutive AS IsConsecutive,
@@ -32,6 +32,8 @@ internal static class TicketQueries
         FROM tickets t
         INNER JOIN user_profile up ON t.seller_id = up.user_id
         LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
+        LEFT JOIN seat_areas sa ON t.area_id = sa.id
+        LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE t.event_id = @EventId
           AND t.status_id = 1
@@ -47,10 +49,10 @@ internal static class TicketQueries
             t.id AS TicketId,
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
-            t.area AS Area,
+            sa.area_name AS Area,
             t.`row` AS `Row`,
             t.price AS Price,
-            t.original_price AS OriginalPrice,
+            COALESCE(esp.original_price, t.price) AS OriginalPrice,
             t.quantity AS Quantity,
             t.remaining_quantity AS RemainingQuantity,
             t.is_consecutive AS IsConsecutive,
@@ -90,6 +92,8 @@ internal static class TicketQueries
         INNER JOIN user_profile up ON t.seller_id = up.user_id
         LEFT JOIN user_verification uv ON t.seller_id = uv.user_id
         LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
+        LEFT JOIN seat_areas sa ON t.area_id = sa.id
+        LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE t.id = @TicketId
           AND t.status_id = 1

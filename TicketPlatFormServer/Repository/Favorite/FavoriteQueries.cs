@@ -52,10 +52,10 @@ internal static class FavoriteQueries
             t.id AS TicketId,
             t.seat_grade_id AS SeatGradeId,
             sg.name_ko AS SeatGradeName,
-            t.area AS Area,
+            sa.area_name AS Area,
             t.`row` AS `Row`,
             t.price AS Price,
-            t.original_price AS OriginalPrice,
+            COALESCE(esp.original_price, t.price) AS OriginalPrice,
             t.remaining_quantity AS RemainingQuantity,
             t.is_consecutive AS IsConsecutive,
             t.trade_method_id AS TradeMethodId,
@@ -100,6 +100,8 @@ internal static class FavoriteQueries
         INNER JOIN user_profile up ON t.seller_id = up.user_id
         LEFT JOIN user_verification uv ON t.seller_id = uv.user_id
         LEFT JOIN seat_grades sg ON t.seat_grade_id = sg.id
+        LEFT JOIN seat_areas sa ON t.area_id = sa.id
+        LEFT JOIN event_seat_prices esp ON t.event_id = esp.event_id AND t.seat_grade_id = esp.seat_grade_id
         LEFT JOIN trade_methods tm ON t.trade_method_id = tm.id
         WHERE uf.user_id = @UserId
           AND uf.favorite_type_id = @FavoriteTypeId
