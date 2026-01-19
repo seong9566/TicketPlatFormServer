@@ -215,6 +215,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                     Quantity = request.Quantity,
                     RemainingQuantity = request.Quantity,
                     Price = request.Price,
+                    TradeMethodId = request.TradeMethodId,
                     IsConsecutive = request.IsConsecutive,
                     HasTicket = request.HasTicket,
                     Description = request.Description,
