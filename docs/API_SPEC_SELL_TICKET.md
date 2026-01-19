@@ -17,6 +17,7 @@
 | 4단계 | `GET /api/sell/events/seat-options` | 좌석 옵션 조회 (등급/위치/구역) |
 | 5단계 | `GET /api/sell/events/original-price` | **좌석 정가 조회 (신규)** |
 | 6단계 | `GET /api/sell/features` | 특이사항 목록 조회 |
+| 7단계 | `GET /api/sell/trade-methods` | **거래 방식 목록 조회 (신규)** |
 | 최종 | `POST /api/sell/tickets` | **티켓 판매 등록** |
 
 ---
@@ -174,7 +175,30 @@ GET /api/sell/features
 
 ---
 
-## 7. 티켓 판매 등록 ⭐
+## 7. 거래 방식 목록 조회 (신규)
+
+```
+GET /api/sell/trade-methods
+```
+
+### Response
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "거래 방식 목록 조회 성공",
+  "data": [
+    { "id": 1, "code": "pin_trade", "nameKo": "PIN거래", "nameEn": "PIN Trade", "description": "예매 PIN 번호를 전달하는 방식입니다" },
+    { "id": 2, "code": "delivery", "nameKo": "배송거래", "nameEn": "Delivery", "description": "실물 티켓을 배송하는 방식입니다" },
+    { "id": 3, "code": "on_site", "nameKo": "현장거래", "nameEn": "On-site Trade", "description": "현장에서 직접 만나 거래하는 방식입니다" },
+    { "id": 4, "code": "other", "nameKo": "기타거래", "nameEn": "Other", "description": "기타 방식의 거래입니다" }
+  ]
+}
+```
+
+---
+
+## 8. 티켓 판매 등록 ⭐
 
 ```
 POST /api/sell/tickets

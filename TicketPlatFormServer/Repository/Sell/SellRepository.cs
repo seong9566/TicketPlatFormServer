@@ -333,5 +333,15 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
                                      && esg.SeatGradeId == seatGradeId
                                      && esg.IsActive == true);
     }
+
+    /// <summary>
+    /// 활성화된 거래 방식 목록 조회
+    /// </summary>
+    public async Task<List<TradeMethod>> GetActiveTradeMethodsAsync()
+    {
+        return await _context.TradeMethods
+            .OrderBy(tm => tm.SortOrder)
+            .ToListAsync();
+    }
 }
 

@@ -330,7 +330,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                 Quantity = t.Quantity,
                 RemainingQuantity = t.RemainingQuantity,
                 Price = t.Price,
-                OriginalPrice = 0,
+                OriginalPrice = t.SeatGrade?.OriginalPrice ?? 0,
                 Status = t.Status.NameKo ?? t.Status.Code,
                 CreatedAt = t.CreatedAt,
                 ThumbnailUrl = ticketImages.ContainsKey(t.Id) ? ticketImages[t.Id] : null
@@ -503,5 +503,22 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         // 현재는 GradeId 기준으로만 정가를 조회하지만, 필요 시 LocationId/AreaId 검증 로직 추가 가능
         var grade = await _sellRepository.GetSeatPriceAsync(request.EventId, request.GradeId);
         return grade?.OriginalPrice;
+    }
+
+    /// <summary>
+    /// 활성화된 거래 방식 목록 조회
+    /// </summary>
+    public async Task<List<TradeMethodRespDto>> GetTradeMethodsAsync()
+    {
+        var tradeMethods = await _sellRepository.GetActiveTradeMethodsAsync();
+
+        return tradeMethods.Select(tm => new TradeMethodRespDto
+        {
+            Id = tm.Id,
+            Code = tm.Code,
+            NameKo = tm.NameKo,
+            NameEn = tm.NameEn,
+            Description = tm.Description
+        }).ToList();
     }
 }

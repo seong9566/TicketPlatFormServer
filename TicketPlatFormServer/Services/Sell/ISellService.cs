@@ -56,5 +56,10 @@ public interface ISellService
     /// 활성화된 티켓 특이사항 목록 조회
     /// </summary>
     Task<List<TicketFeatureRespDto>> GetTicketFeaturesAsync();
+
+    /// <summary>
+    /// 활성화된 거래 방식 목록 조회
+    /// </summary>
+    Task<List<TradeMethodRespDto>> GetTradeMethodsAsync();
 }
 

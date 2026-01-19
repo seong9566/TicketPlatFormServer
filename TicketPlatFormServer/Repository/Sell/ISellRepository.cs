@@ -122,5 +122,10 @@ public interface ISellRepository
     /// 공연별 좌석 정가 조회 (통합된 EventSeatGrade 사용)
     /// </summary>
     Task<EventSeatGrade?> GetSeatPriceAsync(int eventId, int seatGradeId);
+
+    /// <summary>
+    /// 활성화된 거래 방식 목록 조회
+    /// </summary>
+    Task<List<TradeMethod>> GetActiveTradeMethodsAsync();
 }
 

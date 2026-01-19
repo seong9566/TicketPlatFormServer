@@ -209,5 +209,22 @@ public class SellController(ISellService sellService) : ControllerBase
         );
         return Ok(resp);
     }
+
+    /// <summary>
+    /// 거래 방식 목록 조회 (판매 등록 시 선택 가능한 거래 방식)
+    /// </summary>
+    /// <returns>거래 방식 목록</returns>
+    [HttpGet("trade-methods")]
+    [ProducesResponseType(typeof(ApiResponse<List<TradeMethodRespDto>>), 200)]
+    public async Task<IActionResult> GetTradeMethods()
+    {
+        var tradeMethods = await _sellService.GetTradeMethodsAsync();
+        var resp = new ApiResponse<List<TradeMethodRespDto>>(
+            message: "거래 방식 목록 조회 성공",
+            data: tradeMethods,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
 }
 
