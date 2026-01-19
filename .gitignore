@@ -275,6 +275,8 @@ __pycache__/
 
 # Local secrets
 TicketPlatFormServer/appsettings.SupabaseStorage.json
+TicketPlatFormServer/.env
+TicketPlatFormServer/db_connect.env
 
 # Environment-specific settings (개발 환경별로 다름)
 .mcp.json
