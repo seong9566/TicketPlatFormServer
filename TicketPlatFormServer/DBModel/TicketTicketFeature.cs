@@ -1,27 +1,24 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
 /// <summary>
-/// 티켓-특징 매핑 테이블 (Many-to-Many)
+/// 티켓-특이사항 연결 테이블
 /// </summary>
 public partial class TicketTicketFeature
 {
     public int Id { get; set; }
 
     /// <summary>
-    /// 티켓 FK
+    /// 티켓 ID
     /// </summary>
     public int TicketId { get; set; }
 
     /// <summary>
-    /// 특징 FK
+    /// 특이사항 ID
     /// </summary>
     public int FeatureId { get; set; }
 
-    public DateTime CreatedAt { get; set; }
-
-    public virtual Ticket Ticket { get; set; } = null!;
-
-    public virtual TicketFeature TicketFeature { get; set; } = null!;
+    public DateTime? CreatedAt { get; set; }
 }

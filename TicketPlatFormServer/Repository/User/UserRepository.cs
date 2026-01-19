@@ -1,4 +1,3 @@
-using System.Data;
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.DBModel;
 
@@ -7,7 +6,7 @@ namespace TicketPlatFormServer.Repository.Users;
 /// <summary>
 /// 사용자 Repository 구현체 (Primary Constructor 사용)
 /// </summary>
-public class UserRepository(TicketContext db, IDbConnection dapper) : IUserRepository
+public class UserRepository(TicketContext db) : IUserRepository
 {
     
     /// <summary>

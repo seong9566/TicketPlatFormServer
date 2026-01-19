@@ -8,7 +8,7 @@ namespace TicketPlatFormServer.Repository.Events;
 /// <summary>
 /// 이벤트 관련 Repository 구현체 (Primary Constructor + Static Class 패턴)
 /// </summary>
-public class EventRepository(TicketContext db, IDbConnection dapper) : IEventRepository
+public class EventRepository(IDbConnection dapper) : IEventRepository
 {
     public async Task<List<EventListReadModel>> GetEventsByCategoryId(int categoryId)
     {
@@ -30,4 +30,3 @@ public class EventRepository(TicketContext db, IDbConnection dapper) : IEventRep
         return result;
     }
 }
-

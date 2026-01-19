@@ -1,18 +1,15 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
 /// <summary>
-/// 공연별 좌석 구역 테이블 (예: A구역, B구역)
+/// 공연별 좌석 구역
 /// </summary>
 public partial class EventSeatArea
 {
     public int Id { get; set; }
 
-    /// <summary>
-    /// 공연 FK
-    /// </summary>
     public int EventId { get; set; }
 
     /// <summary>
@@ -20,15 +17,9 @@ public partial class EventSeatArea
     /// </summary>
     public string AreaName { get; set; } = null!;
 
-    /// <summary>
-    /// 활성화 여부
-    /// </summary>
-    public bool IsActive { get; set; }
+    public bool? IsActive { get; set; }
 
-    /// <summary>
-    /// 정렬 순서
-    /// </summary>
-    public int SortOrder { get; set; }
+    public int? SortOrder { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 

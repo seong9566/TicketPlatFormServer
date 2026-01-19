@@ -12,9 +12,6 @@ public partial class Event
 
     public int CategoryId { get; set; }
 
-    /// <summary>
-    /// 아티스트 FK (콘서트 카테고리만)
-    /// </summary>
     public int? ArtistId { get; set; }
 
     /// <summary>
@@ -74,16 +71,15 @@ public partial class Event
 
     public virtual ICollection<EventSchedule> EventSchedules { get; set; } = new List<EventSchedule>();
 
+    public virtual ICollection<EventSeatArea> EventSeatAreas { get; set; } = new List<EventSeatArea>();
 
-
-    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
-
-    // 공연별 좌석 정보 Navigation 속성
     public virtual ICollection<EventSeatGrade> EventSeatGrades { get; set; } = new List<EventSeatGrade>();
 
     public virtual ICollection<EventSeatLocation> EventSeatLocations { get; set; } = new List<EventSeatLocation>();
 
-    public virtual ICollection<EventSeatArea> EventSeatAreas { get; set; } = new List<EventSeatArea>();
-
     public virtual ICollection<EventSeatPrice> EventSeatPrices { get; set; } = new List<EventSeatPrice>();
+
+    public virtual ICollection<SeatLocation> SeatLocations { get; set; } = new List<SeatLocation>();
+
+    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 }

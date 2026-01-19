@@ -1,6 +1,5 @@
 using System.Data;
 using Dapper;
-using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Ticket;
@@ -9,9 +8,7 @@ namespace TicketPlatFormServer.Repository.Ticket;
 /// 티켓 관련 Repository 구현체
 /// </summary>
 public class TicketRepository(
-    TicketContext db,
-    IDbConnection dapper,
-    ILogger<TicketRepository> logger) : ITicketRepository
+    IDbConnection dapper) : ITicketRepository
 {
     public async Task<List<TicketListReadModel>> GetTicketsByEventId(int eventId)
     {

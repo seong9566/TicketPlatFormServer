@@ -43,7 +43,9 @@ public partial class User
 
     public virtual AuthProvider Provider { get; set; } = null!;
 
-    public virtual AuthRole Role { get; set; } = null!;
+    public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
     public virtual UserProfile? UserProfile { get; set; }
+
+    public virtual AuthRole Role { get; set; } = null!;
 }

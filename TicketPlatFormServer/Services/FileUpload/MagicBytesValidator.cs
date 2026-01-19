@@ -54,8 +54,13 @@ public static class MagicBytesValidator
         var webpSignature = new byte[4];
         var originalPosition = stream.Position;
         stream.Position = 8;
-        await stream.ReadAsync(webpSignature.AsMemory(0, 4));
+        var bytesRead = await stream.ReadAsync(webpSignature.AsMemory(0, 4));
         stream.Position = originalPosition;
+
+        if (bytesRead < webpSignature.Length)
+        {
+            return false;
+        }
 
         return webpSignature.SequenceEqual(new byte[] { 0x57, 0x45, 0x42, 0x50 });
     }

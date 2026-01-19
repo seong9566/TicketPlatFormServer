@@ -10,9 +10,6 @@ public partial class UserProfile
 {
     public int UserId { get; set; }
 
-    /// <summary>
-    /// 닉네임 (추후 랜덤 닉네임 자동 생성 예정)
-    /// </summary>
     public string? Nickname { get; set; }
 
     /// <summary>

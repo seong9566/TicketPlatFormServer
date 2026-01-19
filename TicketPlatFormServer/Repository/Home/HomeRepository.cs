@@ -1,6 +1,5 @@
 using System.Data;
 using Dapper;
-using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.DTO.Home;
 
 namespace TicketPlatFormServer.Repository.Home;
@@ -8,7 +7,7 @@ namespace TicketPlatFormServer.Repository.Home;
 /// <summary>
 /// 홈 화면 Repository 구현체 (Primary Constructor + Static Class 패턴)
 /// </summary>
-public class HomeRepository(TicketContext context, IDbConnection dapper) : IHomeRepository
+public class HomeRepository(IDbConnection dapper) : IHomeRepository
 {
     public async Task<List<BannerDto>> GetBanners()
     {
@@ -66,4 +65,3 @@ public class HomeRepository(TicketContext context, IDbConnection dapper) : IHome
         _ => "event"
     };
 }
-

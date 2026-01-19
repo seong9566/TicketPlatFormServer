@@ -6,16 +6,16 @@ namespace TicketPlatFormServer.DTO;
 public class LoginUserRespDto
 {
     public int Id { get; set; }
-    public string Email { get; set; }
+    public string Email { get; set; } = null!;
     public string? Phone { get; set; }
     /// <summary>
     /// 역할 코드 (예: "user", "admin")
     /// </summary>
-    public string Role { get; set; }
+    public string Role { get; set; } = null!;
     /// <summary>
     /// 가입 유형 코드 (예: "email", "kakao")
     /// </summary>
-    public string Provider { get; set; }
+    public string Provider { get; set; } = null!;
     public DateTime? LastLoginAt { get; set; }
 
     /// <summary>
@@ -43,4 +43,3 @@ public class LoginUserRespDto
     /// </summary>
     public DateTime? ExpiresAt { get; set; }
 }
-

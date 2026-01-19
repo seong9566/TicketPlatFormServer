@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
@@ -28,11 +28,9 @@ public partial class EventSchedule
     /// </summary>
     public TimeOnly ScheduleTime { get; set; }
 
-    public bool IsActive { get; set; }
+    public bool? IsActive { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
     public virtual Event Event { get; set; } = null!;
-
-    public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 }

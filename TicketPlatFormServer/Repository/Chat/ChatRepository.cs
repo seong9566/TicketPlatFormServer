@@ -1,5 +1,3 @@
-using System.Data;
-using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.DBModel;
@@ -9,7 +7,7 @@ namespace TicketPlatFormServer.Repository.Chat;
 /// <summary>
 /// 채팅 Repository 구현체 (Primary Constructor 사용)
 /// </summary>
-public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<ChatRepository> logger) : IChatRepository
+public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : IChatRepository
 {
     /// <summary>
     /// 채팅방 ID로 조회
@@ -21,7 +19,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
             .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Status)
-            .Include(cr => cr.Transaction).ThenInclude(t => t.Status)
+            .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
             .FirstOrDefaultAsync(cr => cr.Id == roomId && cr.DeletedAt == null);
     }
 
@@ -35,7 +33,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
             .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Status)
-            .Include(cr => cr.Transaction).ThenInclude(t => t.Status)
+            .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
             .FirstOrDefaultAsync(cr => cr.TicketId == ticketId && cr.BuyerId == buyerId && cr.DeletedAt == null);
     }
 
@@ -51,7 +49,7 @@ public class ChatRepository(TicketContext db, IDbConnection dapper, ILogger<Chat
             .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Status)
-            .Include(cr => cr.Transaction).ThenInclude(t => t.Status)
+            .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
             .Where(cr => (cr.BuyerId == userId || cr.SellerId == userId) && cr.DeletedAt == null)
             .OrderByDescending(cr => cr.LastMessageAt)
             .Skip(offset)

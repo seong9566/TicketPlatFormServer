@@ -9,7 +9,6 @@ namespace TicketPlatFormServer.Repository.Favorite;
 /// 찜 관련 Repository 구현체 (Primary Constructor 패턴)
 /// </summary>
 public class FavoriteRepository(
-    TicketContext db,
     IDbConnection dapper,
     ILogger<FavoriteRepository> logger) : IFavoriteRepository
 {
