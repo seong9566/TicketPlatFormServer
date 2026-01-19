@@ -28,6 +28,11 @@ public interface ISellService
     Task<SeatOptionRespDto> GetSeatOptionsAsync(int eventId);
 
     /// <summary>
+    /// 공연 좌석 정가 조회 (등급/위치/구역 기반)
+    /// </summary>
+    Task<int?> GetOriginalPriceAsync(GetOriginalPriceReqDto request);
+
+    /// <summary>
     /// 티켓 판매 등록
     /// </summary>
     Task<CreateSellTicketRespDto> CreateTicketAsync(int userId, CreateSellTicketReqDto request);
@@ -46,4 +51,10 @@ public interface ISellService
     /// 티켓 이미지 URL 재발급
     /// </summary>
     Task<RefreshTicketImageUrlRespDto> RefreshTicketImageUrlsAsync(int ticketId, int userId);
+
+    /// <summary>
+    /// 활성화된 티켓 특이사항 목록 조회
+    /// </summary>
+    Task<List<TicketFeatureRespDto>> GetTicketFeaturesAsync();
 }
+

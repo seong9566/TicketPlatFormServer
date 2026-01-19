@@ -49,6 +49,9 @@ public class TicketService : ITicketService
             isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
         }
 
+        // 티켓 특이사항 조회
+        var ticketFeatures = await _repo.GetTicketFeaturesAsync(ticketId);
+
         // Signed URL 변환 대상 키 수집 (티켓 이미지 + 판매자 프로필 이미지)
         var keysToSign = new List<string>();
         
@@ -96,6 +99,16 @@ public class TicketService : ITicketService
             finalSellerProfileUrl = sellerResult.SignedUrl;
         }
 
+        // 3. 특이사항 DTO 변환
+        var features = ticketFeatures.Select(f => new TicketFeatureDto
+        {
+            FeatureId = f.FeatureId,
+            Code = f.Code,
+            NameKo = f.NameKo,
+            NameEn = f.NameEn ?? "",
+            Icon = f.Icon
+        }).ToList();
+
         // ReadModel → RespDto 변환
         return new TicketListRespDto
         {
@@ -117,6 +130,7 @@ public class TicketService : ITicketService
             IsSingleTicket = readModel.IsSingleTicket,
             TicketImages = ticketImages,
             IsFavorited = isFavorited,
+            Features = features.Any() ? features : null,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,
@@ -130,3 +144,4 @@ public class TicketService : ITicketService
         };
     }
 }
+

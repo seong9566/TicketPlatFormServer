@@ -18,6 +18,9 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
     private readonly IStorageUploader _storageUploader = storageUploader;
     private readonly IFileUploadService _fileUploadService = fileUploadService;
 
+    // 티켓 상태 코드 상수
+    private const int SALE_STATUS_ID = 1; // 판매 중
+
     /// <summary>
     /// 판매 가능한 카테고리 목록 조회
     /// </summary>
@@ -92,7 +95,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
     }
 
     /// <summary>
-    /// 특정 공연의 좌석 옵션 조회
+    /// 특정 공연의 좌석 옵션 조회 (등급, 위치, 구역)
     /// </summary>
     public async Task<SeatOptionRespDto> GetSeatOptionsAsync(int eventId)
     {
@@ -103,14 +106,32 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             throw new AppException("해당 공연을 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
+        // 좌석 등급 조회 (정가 포함)
+        var grades = await _sellRepository.GetSeatGradesAsync(eventId);
+
+        // 좌석 위치 조회
         var locations = await _sellRepository.GetSeatLocationsAsync(eventId);
+
+        // 좌석 구역 조회
+        var areas = await _sellRepository.GetSeatAreasAsync(eventId);
 
         return new SeatOptionRespDto
         {
+            Grades = grades.Select(g => new SeatGradeOption
+            {
+                GradeId = g.Grade.Id,
+                Code = g.Grade.Code,
+                GradeName = g.Grade.NameKo
+            }).ToList(),
             Locations = locations.Select(l => new SeatLocationOption
             {
                 LocationId = l.Id,
                 LocationName = l.LocationName
+            }).ToList(),
+            Areas = areas.Select(a => new SeatAreaOption
+            {
+                AreaId = a.Id,
+                AreaName = a.AreaName
             }).ToList(),
             AllowCustomLocation = true
         };
@@ -135,13 +156,24 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             throw new AppException("해당 일정을 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
-        // 3. 가격 검증
-        if (request.Price > request.OriginalPrice)
+        // 2.1 일정-공연 매칭 검증 (Codex 이슈 #3)
+        if (schedule.EventId != request.EventId)
+        {
+            throw new AppException("해당 일정은 선택한 공연에 속하지 않습니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 3. 정가 조회 및 필수 검증 (Codex 이슈 #2)
+        var seatPrice = await _sellRepository.GetSeatPriceAsync(request.EventId, request.SeatGradeId);
+        if (seatPrice == null)
+        {
+            throw new AppException("해당 공연의 좌석 등급에 대한 정가 정보를 찾을 수 없습니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 4. 가격 검증 (판매가는 정가 이하만 가능)
+        if (request.Price > seatPrice.OriginalPrice)
         {
             throw new AppException("판매가는 정가를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
-
-
 
         // 5. pending_review 상태 ID 조회
         var pendingReviewStatusId = await _sellRepository.GetTicketStatusIdByCodeAsync("pending_review");
@@ -159,58 +191,103 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             schedule.ScheduleTime.Minute,
             schedule.ScheduleTime.Second);
 
-        // 6. 티켓 엔티티 생성
-        var ticket = new DBModel.Ticket
-        {
-            SellerId = userId,
-            EventId = request.EventId,
-            ScheduleId = request.ScheduleId,
-            CategoryId = eventEntity.CategoryId,
-            EventDatetime = eventDatetime,
-            SeatGradeId = request.SeatGradeId,
-            SeatLocationId = request.LocationId,  // LocationId → SeatLocationId
-            AreaId = request.AreaId,  // Area string → AreaId FK
-            Row = request.Row,
-            Quantity = request.Quantity,
-            IsConsecutive = request.IsConsecutive,
-            RemainingQuantity = request.Quantity,
-            Price = request.Price,
-            // OriginalPrice는 event_seat_prices 테이블에서 조회
-            TradeMethodId = request.TradeMethodId,
-            HasTicket = request.HasTicket,
-            Description = request.Description,
-            StatusId = pendingReviewStatusId.Value
-        };
-
-        // 8. 티켓 저장
-        var ticketId = await _sellRepository.CreateTicketAsync(ticket);
-
-        // 9. 이미지 업로드
+        // 7. 트랜잭션으로 티켓 생성, 특이사항, 이미지 저장 (Codex 이슈 #1)
+        // Note: MySQL Retry Strategy가 필요한 경우 UserRepository 패턴 참조
+        int ticketId = 0;
         List<TicketImageDto>? uploadedImages = null;
-        if (request.Images != null && request.Images.Any())
+        List<string> uploadedObjectKeys = new(); // 롤백용 (Codex 추가 이슈 #2)
+
+        using (var transaction = await _sellRepository.BeginTransactionAsync())
         {
-            // FileUploadService를 통해 배치 업로드 (검증 포함)
-            var uploadResults = await _fileUploadService.UploadTicketImagesAsync(
-                request.Images,
-                ticketId,
-                userId);
-
-            // DB에 저장 (object key만)
-            var ticketImages = uploadResults.Select(r => new TicketImage
+            try
             {
-                TicketId = ticketId,
-                ImageUrl = r.ObjectKey
-            }).ToList();
-            await _sellRepository.CreateTicketImagesAsync(ticketImages);
+                // 7.1 티켓 기본 정보 저장
+                var ticket = new DBModel.Ticket
+                {
+                    SellerId = userId,
+                    EventId = request.EventId,
+                    ScheduleId = request.ScheduleId,
+                    SeatGradeId = request.SeatGradeId,
+                    SeatLocationId = request.LocationId,
+                    AreaId = request.AreaId,
+                    CategoryId = eventEntity.CategoryId,
+                    Row = request.Row,
+                    Quantity = request.Quantity,
+                    RemainingQuantity = request.Quantity,
+                    Price = request.Price,
+                    IsConsecutive = request.IsConsecutive,
+                    HasTicket = request.HasTicket,
+                    Description = request.Description,
+                    EventDatetime = schedule.ScheduleDate.ToDateTime(schedule.ScheduleTime),
+                    StatusId = SALE_STATUS_ID,
+                    FeatureIds = (request.FeatureIds != null && request.FeatureIds.Any()) 
+                        ? string.Join(",", request.FeatureIds) 
+                        : null
+                };
 
-            // DB insert 후 실제 Id를 가져와 매핑
-            var savedImages = await _sellRepository.GetTicketImagesByTicketIdAsync(ticketId);
-            uploadedImages = uploadResults.Zip(savedImages, (upload, saved) => new TicketImageDto
+                ticketId = await _sellRepository.CreateTicketAsync(ticket);
+
+                // 7.2 특이사항 저장 (기존 매핑 테이블 방식 제거, 위에서 가로채서 처리됨)
+                // if (request.FeatureIds != null && request.FeatureIds.Any())
+                // {
+                //     await _sellRepository.CreateTicketFeaturesAsync(ticketId, request.FeatureIds);
+                // }
+
+                // 7.3 이미지 업로드 및 DB 저장
+                if (request.Images != null && request.Images.Any())
+                {
+                    try
+                    {
+                        // FileUploadService를 통해 배치 업로드 (검증 포함)
+                        var uploadResults = await _fileUploadService.UploadTicketImagesAsync(
+                            request.Images,
+                            ticketId,
+                            userId);
+
+                        // 업로드된 ObjectKey 추적 (롤백용)
+                        uploadedObjectKeys = uploadResults.Select(r => r.ObjectKey).ToList();
+
+                        // DB에 저장 (object key만)
+                        var ticketImages = uploadResults.Select(r => new TicketImage
+                        {
+                            TicketId = ticketId,
+                            ImageUrl = r.ObjectKey
+                        }).ToList();
+                        await _sellRepository.CreateTicketImagesAsync(ticketImages);
+
+                        // DB insert 후 실제 Id를 가져와 매핑
+                        var savedImages = await _sellRepository.GetTicketImagesByTicketIdAsync(ticketId);
+                        uploadedImages = uploadResults.Zip(savedImages, (upload, saved) => new TicketImageDto
+                        {
+                            ImageId = saved.Id,
+                            ImageUrl = upload.SignedUrl,
+                            ExpiresAt = upload.ExpiresAt
+                        }).ToList();
+                    }
+                    catch
+                    {
+                        // 이미지 업로드 실패 시 스토리지 롤백 (Codex 추가 이슈 #2)
+                        foreach (var objectKey in uploadedObjectKeys)
+                        {
+                            await _fileUploadService.DeleteFileAsync(objectKey);
+                        }
+                        throw;
+                    }
+                }
+
+                // 트랜잭션 커밋
+                await transaction.CommitAsync();
+            }
+            catch
             {
-                ImageId = saved.Id,
-                ImageUrl = upload.SignedUrl,
-                ExpiresAt = upload.ExpiresAt
-            }).ToList();
+                // DB 실패 시 롤백 + 스토리지 정리 (Codex 추가 이슈 #2)
+                await transaction.RollbackAsync();
+                foreach (var objectKey in uploadedObjectKeys)
+                {
+                    await _fileUploadService.DeleteFileAsync(objectKey);
+                }
+                throw;
+            }
         }
 
         return new CreateSellTicketRespDto
@@ -400,5 +477,32 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         }).ToList();
 
         return new RefreshTicketImageUrlRespDto { Images = imageDtos };
+    }
+
+    /// <summary>
+    /// 활성화된 티켓 특이사항 목록 조회
+    /// </summary>
+    public async Task<List<TicketFeatureRespDto>> GetTicketFeaturesAsync()
+    {
+        var features = await _sellRepository.GetActiveTicketFeaturesAsync();
+
+        return features.Select(f => new TicketFeatureRespDto
+        {
+            Id = f.Id,
+            Code = f.Code,
+            NameKo = f.NameKo,
+            NameEn = f.NameEn,
+            Description = f.Description
+        }).ToList();
+    }
+
+    /// <summary>
+    /// 공연 좌석 정가 조회 (등급/위치/구역 기반)
+    /// </summary>
+    public async Task<int?> GetOriginalPriceAsync(GetOriginalPriceReqDto request)
+    {
+        // 현재는 GradeId 기준으로만 정가를 조회하지만, 필요 시 LocationId/AreaId 검증 로직 추가 가능
+        var grade = await _sellRepository.GetSeatPriceAsync(request.EventId, request.GradeId);
+        return grade?.OriginalPrice;
     }
 }

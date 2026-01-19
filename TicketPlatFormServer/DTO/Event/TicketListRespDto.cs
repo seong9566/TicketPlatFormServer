@@ -101,6 +101,11 @@ public class TicketListRespDto
     public bool? IsFavorited { get; set; }
 
     /// <summary>
+    /// 티켓 특이사항 목록
+    /// </summary>
+    public List<TicketFeatureDto>? Features { get; set; }
+
+    /// <summary>
     /// 판매자 정보
     /// </summary>
     public SellerInfoDto Seller { get; set; } = null!;
