@@ -330,8 +330,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                 Quantity = t.Quantity,
                 RemainingQuantity = t.RemainingQuantity,
                 Price = t.Price,
-                // OriginalPrice는 event_seat_prices에서 조회 필요
-                OriginalPrice = 0,  // TODO: event_seat_prices JOIN 또는 별도 조회
+                OriginalPrice = 0,
                 Status = t.Status.NameKo ?? t.Status.Code,
                 CreatedAt = t.CreatedAt,
                 ThumbnailUrl = ticketImages.ContainsKey(t.Id) ? ticketImages[t.Id] : null
