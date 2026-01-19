@@ -7,12 +7,12 @@
     "mysql": {
       "command": "node",
       "args": [
-        "/Users/ihyeonseong/Desktop/workspace/mcp_servers/mysql-mcp-server/server.js"
+        "/Users/stecdev/Desktop/workspace/dotnet_server/study_dotnet/mysql-mcp-server/server.js"
       ],
       "env": {
         "DB_HOST": "localhost",
         "DB_USER": "root",
-        "DB_PASSWORD": "1234", 
+        "DB_PASSWORD": "stecdev1234!",
         "DB_NAME": "TicketPlatFormDB"
       }
     }

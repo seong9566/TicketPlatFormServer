@@ -284,3 +284,4 @@ TicketPlatFormServer/appsettings.Development.json
 
 # macOS system files
 .DS_Store
+.mcp.json
