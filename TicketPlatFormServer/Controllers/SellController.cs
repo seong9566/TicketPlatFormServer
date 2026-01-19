@@ -91,6 +91,26 @@ public class SellController(ISellService sellService) : ControllerBase
     }
 
     /// <summary>
+    /// 공연 좌석 정가 조회
+    /// </summary>
+    /// <param name="eventId">공연 ID</param>
+    /// <param name="request">정가 조회 조건</param>
+    /// <returns>정가 (없으면 null)</returns>
+    [HttpGet("events/original-price")]
+    [ProducesResponseType(typeof(ApiResponse<int?>), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetOriginalPrice([FromQuery] GetOriginalPriceReqDto request)
+    {
+        var price = await _sellService.GetOriginalPriceAsync(request);
+        var resp = new ApiResponse<int?>(
+            message: "정가 조회 성공",
+            data: price,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
+
+    /// <summary>
     /// 티켓 판매 등록
     /// </summary>
     /// <param name="request">티켓 판매 등록 정보</param>
@@ -172,4 +192,22 @@ public class SellController(ISellService sellService) : ControllerBase
         );
         return Ok(resp);
     }
+
+    /// <summary>
+    /// 티켓 특이사항 목록 조회 (판매 등록 시 선택 가능한 특이사항)
+    /// </summary>
+    /// <returns>특이사항 목록</returns>
+    [HttpGet("features")]
+    [ProducesResponseType(typeof(ApiResponse<List<TicketFeatureRespDto>>), 200)]
+    public async Task<IActionResult> GetTicketFeatures()
+    {
+        var features = await _sellService.GetTicketFeaturesAsync();
+        var resp = new ApiResponse<List<TicketFeatureRespDto>>(
+            message: "특이사항 목록 조회 성공",
+            data: features,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
 }
+
