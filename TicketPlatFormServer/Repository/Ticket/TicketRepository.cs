@@ -109,4 +109,40 @@ public class TicketRepository(
             }
         };
     }
+
+    /// <summary>
+    /// 티켓에 연결된 특이사항 목록 조회 (비정규화 컬럼 feature_ids 기반)
+    /// </summary>
+    public async Task<List<TicketFeatureReadModel>> GetTicketFeaturesAsync(int ticketId)
+    {
+        // 1. 티켓에서 feature_ids 문자열 조회
+        var featureIdsStr = await dapper.QueryFirstOrDefaultAsync<string>(
+            "SELECT feature_ids FROM tickets WHERE id = @TicketId",
+            new { TicketId = ticketId }
+        );
+
+        if (string.IsNullOrWhiteSpace(featureIdsStr))
+        {
+            return new List<TicketFeatureReadModel>();
+        }
+
+        // 2. ID 리스트로 변환
+        var ids = featureIdsStr.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                               .Select(int.Parse)
+                               .ToList();
+
+        if (!ids.Any())
+        {
+            return new List<TicketFeatureReadModel>();
+        }
+
+        // 3. 실제 특징 정보(명칭 등) 조회
+        var features = await dapper.QueryAsync<TicketFeatureReadModel>(
+            TicketQueries.GetTicketFeaturesByIds,
+            new { Ids = ids }
+        );
+
+        return features.ToList();
+    }
 }
+
