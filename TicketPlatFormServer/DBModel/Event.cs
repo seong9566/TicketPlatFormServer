@@ -77,9 +77,5 @@ public partial class Event
 
     public virtual ICollection<EventSeatLocation> EventSeatLocations { get; set; } = new List<EventSeatLocation>();
 
-    public virtual ICollection<EventSeatPrice> EventSeatPrices { get; set; } = new List<EventSeatPrice>();
-
-    public virtual ICollection<SeatLocation> SeatLocations { get; set; } = new List<SeatLocation>();
-
     public virtual ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 }

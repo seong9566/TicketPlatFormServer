@@ -62,7 +62,6 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<EventSeatLocation> EventSeatLocations { get; set; }
 
-    public virtual DbSet<EventSeatPrice> EventSeatPrices { get; set; }
 
     public virtual DbSet<FavoriteType> FavoriteTypes { get; set; }
 
@@ -90,9 +89,7 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<ReputationRatingType> ReputationRatingTypes { get; set; }
 
-    public virtual DbSet<SeatGrade> SeatGrades { get; set; }
-
-    public virtual DbSet<SeatLocation> SeatLocations { get; set; }
+    // SeatGrade 및 SeatLocation 마스터 테이블은 통합되어 더 이상 사용되지 않음
 
     public virtual DbSet<Settlement> Settlements { get; set; }
 
@@ -110,7 +107,6 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<TicketStatus> TicketStatuses { get; set; }
 
-    public virtual DbSet<TicketTicketFeature> TicketTicketFeatures { get; set; }
 
     public virtual DbSet<TicketVerification> TicketVerifications { get; set; }
 
@@ -913,7 +909,7 @@ public partial class TicketContext : DbContext
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 
-            entity.ToTable("event_seat_grades", tb => tb.HasComment("공연별 좌석 등급 매핑"));
+            entity.ToTable("event_seat_grades", tb => tb.HasComment("공연별 좌석 등급 매핑 (마스터 명칭 통합)"));
 
             entity.HasIndex(e => e.SeatGradeId, "seat_grade_id");
 
@@ -933,14 +929,25 @@ public partial class TicketContext : DbContext
                 .HasDefaultValueSql("'0'")
                 .HasColumnName("sort_order");
 
+            entity.Property(e => e.Code)
+                .HasMaxLength(50)
+                .HasColumnName("code")
+                .IsRequired();
+            entity.Property(e => e.NameKo)
+                .HasMaxLength(100)
+                .HasColumnName("name_ko")
+                .IsRequired();
+            entity.Property(e => e.NameEn)
+                .HasMaxLength(100)
+                .HasColumnName("name_en");
+            entity.Property(e => e.OriginalPrice)
+                .HasColumnName("original_price")
+                .HasComment("공연별 해당 등급 정가");
+
             entity.HasOne(d => d.Event).WithMany(p => p.EventSeatGrades)
                 .HasForeignKey(d => d.EventId)
                 .HasConstraintName("event_seat_grades_ibfk_1");
 
-            entity.HasOne(d => d.SeatGrade).WithMany(p => p.EventSeatGrades)
-                .HasForeignKey(d => d.SeatGradeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("event_seat_grades_ibfk_2");
         });
 
         modelBuilder.Entity<EventSeatLocation>(entity =>
@@ -971,45 +978,6 @@ public partial class TicketContext : DbContext
             entity.HasOne(d => d.Event).WithMany(p => p.EventSeatLocations)
                 .HasForeignKey(d => d.EventId)
                 .HasConstraintName("event_seat_locations_ibfk_1");
-        });
-
-        modelBuilder.Entity<EventSeatPrice>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity.ToTable("event_seat_prices", tb => tb.HasComment("공연별 좌석 정가"));
-
-            entity.HasIndex(e => e.SeatGradeId, "seat_grade_id");
-
-            entity.HasIndex(e => new { e.EventId, e.SeatGradeId }, "uk_event_grade_price").IsUnique();
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp")
-                .HasColumnName("created_at");
-            entity.Property(e => e.EventId).HasColumnName("event_id");
-            entity.Property(e => e.IsActive)
-                .HasDefaultValueSql("'1'")
-                .HasColumnName("is_active");
-            entity.Property(e => e.OriginalPrice)
-                .HasComment("정가")
-                .HasColumnName("original_price");
-            entity.Property(e => e.SeatGradeId).HasColumnName("seat_grade_id");
-            entity.Property(e => e.UpdatedAt)
-                .ValueGeneratedOnAddOrUpdate()
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp")
-                .HasColumnName("updated_at");
-
-            entity.HasOne(d => d.Event).WithMany(p => p.EventSeatPrices)
-                .HasForeignKey(d => d.EventId)
-                .HasConstraintName("event_seat_prices_ibfk_1");
-
-            entity.HasOne(d => d.SeatGrade).WithMany(p => p.EventSeatPrices)
-                .HasForeignKey(d => d.SeatGradeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("event_seat_prices_ibfk_2");
         });
 
         modelBuilder.Entity<FavoriteType>(entity =>
@@ -1126,6 +1094,8 @@ public partial class TicketContext : DbContext
             entity.HasIndex(e => e.PlatformId, "idx_notification_token_platform_id");
 
             entity.HasIndex(e => e.UserId, "idx_notification_token_user");
+
+            entity.HasIndex(e => e.DeviceToken, "token").IsUnique();
 
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CreatedAt)
@@ -1466,73 +1436,7 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
         });
 
-        modelBuilder.Entity<SeatGrade>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
 
-            entity
-                .ToTable("seat_grades", tb => tb.HasComment("좌석 등급 마스터"))
-                .UseCollation("utf8mb4_unicode_ci");
-
-            entity.HasIndex(e => e.Code, "code").IsUnique();
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Code)
-                .HasMaxLength(50)
-                .HasComment("좌석 등급 코드")
-                .HasColumnName("code");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp")
-                .HasColumnName("created_at");
-            entity.Property(e => e.NameEn)
-                .HasMaxLength(50)
-                .HasComment("영문명")
-                .HasColumnName("name_en");
-            entity.Property(e => e.NameKo)
-                .HasMaxLength(50)
-                .HasComment("한글명")
-                .HasColumnName("name_ko");
-            entity.Property(e => e.SortOrder)
-                .HasDefaultValueSql("'0'")
-                .HasComment("정렬 순서")
-                .HasColumnName("sort_order");
-            entity.Property(e => e.UpdatedAt)
-                .ValueGeneratedOnAddOrUpdate()
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp")
-                .HasColumnName("updated_at");
-        });
-
-        modelBuilder.Entity<SeatLocation>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity.ToTable("seat_locations", tb => tb.HasComment("좌석 위치 옵션 테이블"));
-
-            entity.HasIndex(e => e.EventId, "idx_locations_event");
-
-            entity.Property(e => e.Id)
-                .HasMaxLength(36)
-                .HasComment("위치 ID (예: LOC_1F)")
-                .HasColumnName("id");
-            entity.Property(e => e.EventId)
-                .HasComment("공연 FK (NULL이면 전역 사용)")
-                .HasColumnName("event_id");
-            entity.Property(e => e.IsActive)
-                .IsRequired()
-                .HasDefaultValueSql("'1'")
-                .HasColumnName("is_active");
-            entity.Property(e => e.LocationName)
-                .HasMaxLength(100)
-                .HasComment("위치명")
-                .HasColumnName("location_name");
-            entity.Property(e => e.SortOrder).HasColumnName("sort_order");
-
-            entity.HasOne(d => d.Event).WithMany(p => p.SeatLocations)
-                .HasForeignKey(d => d.EventId)
-                .HasConstraintName("fk_locations_event");
-        });
 
         modelBuilder.Entity<Settlement>(entity =>
         {
@@ -1742,6 +1646,11 @@ public partial class TicketContext : DbContext
                 .HasColumnType("timestamp")
                 .HasColumnName("updated_at");
 
+            entity.Property(e => e.FeatureIds)
+                .HasColumnType("text")
+                .HasColumnName("feature_ids")
+                .HasComment("티켓 특이사항 ID 목록 (콤마 구분)");
+
             entity.HasOne(d => d.Area).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.AreaId)
                 .HasConstraintName("fk_tickets_event_seat_area");
@@ -1758,7 +1667,8 @@ public partial class TicketContext : DbContext
             entity.HasOne(d => d.SeatGrade).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.SeatGradeId)
                 .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("fk_tickets_seat_grade");
+                .HasConstraintName("fk_tickets_event_seat_grade");
+
 
             entity.HasOne(d => d.SeatLocation).WithMany(p => p.Tickets)
                 .HasForeignKey(d => d.SeatLocationId)
@@ -1820,10 +1730,6 @@ public partial class TicketContext : DbContext
                 .HasComment("설명")
                 .HasColumnType("text")
                 .HasColumnName("description");
-            entity.Property(e => e.Icon)
-                .HasMaxLength(50)
-                .HasComment("아이콘 (UI용)")
-                .HasColumnName("icon");
             entity.Property(e => e.NameEn)
                 .HasMaxLength(100)
                 .HasComment("영문명")
@@ -1917,30 +1823,6 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
         });
 
-        modelBuilder.Entity<TicketTicketFeature>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("PRIMARY");
-
-            entity
-                .ToTable("ticket_ticket_features", tb => tb.HasComment("티켓-특이사항 연결 테이블"))
-                .UseCollation("utf8mb4_unicode_ci");
-
-            entity.HasIndex(e => e.FeatureId, "idx_feature_id");
-
-            entity.HasIndex(e => new { e.TicketId, e.FeatureId }, "uk_ticket_feature").IsUnique();
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp")
-                .HasColumnName("created_at");
-            entity.Property(e => e.FeatureId)
-                .HasComment("특이사항 ID")
-                .HasColumnName("feature_id");
-            entity.Property(e => e.TicketId)
-                .HasComment("티켓 ID")
-                .HasColumnName("ticket_id");
-        });
 
         modelBuilder.Entity<TicketVerification>(entity =>
         {

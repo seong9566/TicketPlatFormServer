@@ -30,10 +30,6 @@ public partial class TicketFeature
     /// </summary>
     public string? Description { get; set; }
 
-    /// <summary>
-    /// 아이콘 (UI용)
-    /// </summary>
-    public string? Icon { get; set; }
 
     /// <summary>
     /// 정렬 순서
