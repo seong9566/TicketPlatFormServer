@@ -1,4 +1,4 @@
-namespace TicketPlatFormServer.DTO;
+namespace TicketPlatFormServer.DTO.Ticket;
 
 /// <summary>
 /// 티켓 목록 조회 RespDto

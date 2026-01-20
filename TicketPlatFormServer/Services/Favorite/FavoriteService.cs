@@ -2,6 +2,7 @@ using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.DTO.Favorite;
+using TicketPlatFormServer.DTO.Ticket;
 using TicketPlatFormServer.Repository.Favorite;
 
 namespace TicketPlatFormServer.Services.Favorite;
