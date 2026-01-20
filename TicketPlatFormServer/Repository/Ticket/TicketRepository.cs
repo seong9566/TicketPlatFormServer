@@ -62,7 +62,6 @@ public class TicketRepository(
                 Quantity = (int)row.Quantity,
                 IsSingleTicket = row.Quantity == 1,
                 RemainingQuantity = (int)row.RemainingQuantity,
-                // FeatureIds는 모델에서 제거됨
                 // 목록에서는 이미지 생략
                 TicketImages = new List<string>(),
                 Seller = new SellerInfoReadModel
@@ -81,6 +80,9 @@ public class TicketRepository(
 
         // feature_ids 파싱 및 feature 데이터 로드
         await LoadTicketFeaturesAsync(tickets, featureIdMap);
+
+        // 첫 번째 이미지 로드 (썸네일용)
+        await LoadFirstImagesAsync(tickets);
 
         return tickets;
     }
@@ -235,6 +237,36 @@ public class TicketRepository(
                     .Where(id => featureDict.ContainsKey(id))
                     .Select(id => featureDict[id])
                     .ToList();
+            }
+        }
+    }
+
+    /// <summary>
+    /// 티켓 목록에 첫 번째 이미지 배치 로드 (썸네일용)
+    /// </summary>
+    private async Task LoadFirstImagesAsync(List<TicketListReadModel> tickets)
+    {
+        if (!tickets.Any())
+        {
+            return;
+        }
+
+        var ticketIds = tickets.Select(t => t.TicketId).ToList();
+
+        // 한 번의 쿼리로 모든 티켓의 첫 번째 이미지 조회
+        var firstImages = await dapper.QueryAsync<(int TicketId, string ImageUrl)>(
+            TicketQueries.GetFirstImagesByTicketIds,
+            new { TicketIds = ticketIds }
+        );
+
+        var imageDict = firstImages.ToDictionary(x => x.TicketId, x => x.ImageUrl);
+
+        // 각 티켓에 첫 번째 이미지 할당 (object key 상태)
+        foreach (var ticket in tickets)
+        {
+            if (imageDict.TryGetValue(ticket.TicketId, out var imageUrl))
+            {
+                ticket.TicketImages = new List<string> { imageUrl };
             }
         }
     }

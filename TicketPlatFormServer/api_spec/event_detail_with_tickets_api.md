@@ -67,7 +67,7 @@
         "quantity": 2,
         "remainingQuantity": 1,
         "isSingleTicket": false,
-        "ticketImages": [],
+        "ticketImages": ["https://storage.example.com/tickets/34/image1.jpg"],
         "isFavorited": true,
         "seller": {
           "userId": 12,
@@ -107,7 +107,7 @@
         "quantity": 2,
         "remainingQuantity": 1,
         "isSingleTicket": false,
-        "ticketImages": [],
+        "ticketImages": ["https://storage.example.com/tickets/34/image1.jpg"],
         "isFavorited": null,
         "seller": { "userId": 12, "nickname": "티켓마스터", "isSecurePayment": false }
       }
@@ -163,7 +163,7 @@
 | quantity | int | ❌ | 티켓 수량 |
 | remainingQuantity | int | ❌ | 남은 수량 |
 | isSingleTicket | bool | ❌ | 1인 1매 여부 |
-| ticketImages | string[] | ❌ | 티켓 이미지 URL 목록 (이 API에서는 빈 배열 반환) |
+| ticketImages | string[] | ❌ | 티켓 이미지 URL 목록 (목록 조회에서는 첫 번째 이미지만 썸네일로 반환) |
 | isFavorited | bool | ✅ | 찜 여부 (로그인 시 true/false, 비로그인 시 null) |
 | seller | SellerInfoDto | ❌ | 판매자 정보 |
 
@@ -206,7 +206,7 @@
 
 ## 📝 참고사항
 - `seatTypeFilters`에는 항상 `"전체좌석"` 항목이 포함됩니다.
-- `ticketImages`는 목록 조회 특성상 빈 배열로 반환됩니다. 상세 이미지는 티켓 상세 조회 API를 사용하세요.
+- `ticketImages`는 목록 조회에서 첫 번째 이미지만 썸네일용으로 반환됩니다. 전체 이미지는 티켓 상세 조회 API를 사용하세요.
 - 로그인하지 않으면 `isFavorited`는 `null`로 반환됩니다.
 
 ---

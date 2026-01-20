@@ -5,6 +5,7 @@ using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.ReadModels;
 using TicketPlatFormServer.Repository.Ticket;
+using TicketPlatFormServer.Services.FileUpload;
 
 namespace TicketPlatFormServer.Services.Event;
 
@@ -16,12 +17,18 @@ public class EventService : IEventService
     private readonly IEventRepository _eventRepo;
     private readonly ITicketRepository _ticketRepo;
     private readonly IFavoriteRepository _favoriteRepo;
+    private readonly IFileUploadService _fileUploadService;
 
-    public EventService(IEventRepository eventRepo, ITicketRepository ticketRepo, IFavoriteRepository favoriteRepo)
+    public EventService(
+        IEventRepository eventRepo, 
+        ITicketRepository ticketRepo, 
+        IFavoriteRepository favoriteRepo,
+        IFileUploadService fileUploadService)
     {
         _eventRepo = eventRepo;
         _ticketRepo = ticketRepo;
         _favoriteRepo = favoriteRepo;
+        _fileUploadService = fileUploadService;
     }
 
     public async Task<List<EventListRespDto>> GetEventsByCategoryId(int categoryId)
@@ -158,6 +165,23 @@ public class EventService : IEventService
             })
             .ToList();
 
+        // 티켓 이미지 object key → Supabase signed URL 변환
+        var imageKeysToSign = ticketReadModels
+            .SelectMany(t => t.TicketImages)
+            .Where(key => !string.IsNullOrEmpty(key) && !key.StartsWith("http"))
+            .Distinct()
+            .ToList();
+
+        var signedUrlMap = new Dictionary<string, string>();
+        if (imageKeysToSign.Count > 0)
+        {
+            var signedResults = await _fileUploadService.RefreshSignedUrlsBatchAsync(imageKeysToSign);
+            foreach (var (key, result) in signedResults)
+            {
+                signedUrlMap[key] = result.SignedUrl;
+            }
+        }
+
         // ReadModel → RespDto 변환
         return new EventDetailRespDto
         {
@@ -196,7 +220,10 @@ public class EventService : IEventService
                 Quantity = tm.Quantity,
                 RemainingQuantity = tm.RemainingQuantity,
                 IsSingleTicket = tm.IsSingleTicket,
-                TicketImages = tm.TicketImages,
+                // 썸네일 이미지 URL 변환: object key → signed URL
+                TicketImages = tm.TicketImages
+                    .Select(key => signedUrlMap.TryGetValue(key, out var url) ? url : key)
+                    .ToList(),
                 IsFavorited = userId.HasValue ? favoritedTicketIds.Contains(tm.TicketId) : null,
                 Features = tm.Features?.Select(f => new TicketFeatureDto
                 {

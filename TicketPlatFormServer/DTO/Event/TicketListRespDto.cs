@@ -144,8 +144,6 @@ public class TicketFeatureDto
     public int FeatureId { get; set; }
     public string Code { get; set; } = null!;
     public string NameKo { get; set; } = null!;
-    public string NameEn { get; set; } = null!;
-    public string? Icon { get; set; }
 }
 
 /// <summary>

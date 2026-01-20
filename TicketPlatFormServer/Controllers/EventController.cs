@@ -52,7 +52,7 @@ public class EventController : Controller
         var result = await _eventService.GetEventDetailWithTickets(eventId, userId);
 
         var resp = new ApiResponse<EventDetailRespDto>(
-            message: "이벤트 상세 정보 조회 성공",
+            message: "이벤트의 티켓 목록 조회 성공",
             data: result,
             statusCode: 200
         );

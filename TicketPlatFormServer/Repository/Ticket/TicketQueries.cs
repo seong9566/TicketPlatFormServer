@@ -143,6 +143,20 @@ internal static class TicketQueries
         ORDER BY created_at ASC";
 
     /// <summary>
+    /// 여러 티켓의 첫 번째 이미지만 배치 조회 (썸네일용)
+    /// 상세 화면과 동일하게 created_at ASC 기준, 동일 시 id ASC로 정렬하여 첫 번째 선택
+    /// </summary>
+    internal const string GetFirstImagesByTicketIds = @"
+        SELECT ti.ticket_id AS TicketId, ti.image_url AS ImageUrl
+        FROM ticket_images ti
+        INNER JOIN (
+            SELECT ticket_id, MIN(id) AS first_id
+            FROM ticket_images
+            WHERE ticket_id IN @TicketIds
+            GROUP BY ticket_id
+        ) first_img ON ti.id = first_img.first_id";
+
+    /// <summary>
     /// 특정 티켓들의 특이사항 목록 조회 (ID 리스트 기반)
     /// </summary>
     internal const string GetTicketFeaturesByIds = @"
