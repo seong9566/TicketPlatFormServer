@@ -36,7 +36,12 @@
     "seatType": "VIP석",
     "price": 150000,
     "originalPrice": 200000,
-    "seatFeatures": ["연석", "통로석", "시야제한 없음"],
+    "features": [
+      { "id": 1, "name": "연석" },
+      { "id": 2, "name": "통로석" }
+    ],
+    "tradeMethodId": 1,
+    "tradeMethodName": "PIN 거래",
     "description": "급하게 팝니다!",
     "eventTitle": "뮤지컬 위키드",
     "eventDate": "2026.02.15",
@@ -90,6 +95,9 @@
 | eventDate | string \| null | 공연 날짜 (YYYY.MM.DD) |
 | venueName | string \| null | 장소명 |
 | eventPosterImageUrl | string \| null | 이벤트 포스터 이미지 URL |
+| tradeMethodId | int \| null | 거래 방식 ID |
+| tradeMethodName | string \| null | 거래 방식 이름 |
+| features | TicketFeatureDto[] \| null | 티켓 특이사항 목록 |
 
 **참고사항**:
 - **찜 여부 확인**: 로그인 시 토큰에서 사용자 정보를 추출해 찜 여부를 반환
