@@ -151,8 +151,7 @@ internal static class TicketQueries
             f.name_ko AS NameKo,
             f.code AS Code
         FROM ticket_features f
-        WHERE f.id IN @Ids
-          AND f.is_active = 1";
+        WHERE f.id IN @Ids";
 
     /// <summary>
     /// 티켓 특징 조회 SQL (Many-to-Many 관계)
