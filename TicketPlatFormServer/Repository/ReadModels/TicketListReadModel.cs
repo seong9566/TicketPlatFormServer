@@ -132,11 +132,6 @@ public class TicketListReadModel
     public List<string> TicketImages { get; set; } = new();
 
     /// <summary>
-    /// 특이사항 ID 목록 (콤마 구분)
-    /// </summary>
-    public string? FeatureIds { get; set; }
-
-    /// <summary>
     /// 티켓 특이사항 목록
     /// </summary>
     public List<TicketFeatureReadModel>? Features { get; set; }

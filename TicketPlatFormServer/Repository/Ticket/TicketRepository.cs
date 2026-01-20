@@ -20,11 +20,21 @@ public class TicketRepository(
 
         var tickets = new List<TicketListReadModel>();
 
+        var featureIdMap = new Dictionary<int, string>();
+
         foreach (var row in ticketRows)
         {
+            var ticketId = (int)row.TicketId;
+            string? featureIds = row.FeatureIds;
+
+            if (!string.IsNullOrWhiteSpace(featureIds))
+            {
+                featureIdMap[ticketId] = featureIds;
+            }
+
             tickets.Add(new TicketListReadModel
             {
-                TicketId = (int)row.TicketId,
+                TicketId = ticketId,
                 // 좌석 등급 정보 (확장)
                 SeatGradeId = row.SeatGradeId != null ? (int?)Convert.ToInt32(row.SeatGradeId) : null,
                 SeatGradeCode = row.SeatGradeCode,
@@ -52,7 +62,7 @@ public class TicketRepository(
                 Quantity = (int)row.Quantity,
                 IsSingleTicket = row.Quantity == 1,
                 RemainingQuantity = (int)row.RemainingQuantity,
-                FeatureIds = row.FeatureIds,
+                // FeatureIds는 모델에서 제거됨
                 // 목록에서는 이미지 생략
                 TicketImages = new List<string>(),
                 Seller = new SellerInfoReadModel
@@ -70,7 +80,7 @@ public class TicketRepository(
         }
 
         // feature_ids 파싱 및 feature 데이터 로드
-        await LoadTicketFeaturesAsync(tickets);
+        await LoadTicketFeaturesAsync(tickets, featureIdMap);
 
         return tickets;
     }
@@ -93,8 +103,12 @@ public class TicketRepository(
             TicketQueries.GetTicketImages,
             new { TicketId = ticketId }
         );
-
-        return new TicketListReadModel
+        
+        // 상세 조회에서도 FeatureIds를 처리해야 함 (ReadModel에 없으므로)
+        // 현재 상세 조회 쿼리는 feature_ids를 반환하지 않을 수 있으나, 필요한 경우 추가해야 함.
+        // 여기서는 단건이므로 GetTicketFeaturesAsync를 호출하여 채우는 것이 나음.
+        
+        var ticket = new TicketListReadModel
         {
             TicketId = (int)ticketRow.TicketId,
             // 좌석 등급 정보 (확장)
@@ -136,6 +150,11 @@ public class TicketRepository(
                 IsSecurePayment = ticketRow.IsSecurePayment == 1
             }
         };
+
+        // 상세 조회 시 Features 채우기
+        ticket.Features = await GetTicketFeaturesAsync(ticketId);
+
+        return ticket;
     }
 
     /// <summary>
@@ -176,19 +195,16 @@ public class TicketRepository(
     /// <summary>
     /// 티켓 목록의 특이사항을 배치로 로드하는 헬퍼 메서드
     /// </summary>
-    private async Task LoadTicketFeaturesAsync(List<TicketListReadModel> tickets)
+    private async Task LoadTicketFeaturesAsync(List<TicketListReadModel> tickets, Dictionary<int, string> featureIdMap)
     {
-        // feature_ids가 있는 티켓만 필터링
-        var ticketsWithFeatures = tickets.Where(t => !string.IsNullOrWhiteSpace(t.FeatureIds)).ToList();
-        
-        if (!ticketsWithFeatures.Any())
+        if (!featureIdMap.Any())
         {
             return;
         }
         
         // 모든 unique feature ID 수집
-        var allFeatureIds = ticketsWithFeatures
-            .SelectMany(t => t.FeatureIds!.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        var allFeatureIds = featureIdMap.Values
+            .SelectMany(ids => ids.Split(',', StringSplitOptions.RemoveEmptyEntries))
             .Select(int.Parse)
             .Distinct()
             .ToList();
@@ -207,16 +223,19 @@ public class TicketRepository(
         var featureDict = allFeatures.ToDictionary(f => f.FeatureId);
         
         // 각 티켓에 해당하는 features 할당
-        foreach (var ticket in ticketsWithFeatures)
+        foreach (var ticket in tickets)
         {
-            var ids = ticket.FeatureIds!.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            if (featureIdMap.TryGetValue(ticket.TicketId, out var featureIdsStr))
+            {
+                var ids = featureIdsStr.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                        .Select(int.Parse)
                                        .ToList();
-            
-            ticket.Features = ids
-                .Where(id => featureDict.ContainsKey(id))
-                .Select(id => featureDict[id])
-                .ToList();
+                
+                ticket.Features = ids
+                    .Where(id => featureDict.ContainsKey(id))
+                    .Select(id => featureDict[id])
+                    .ToList();
+            }
         }
     }
 }
