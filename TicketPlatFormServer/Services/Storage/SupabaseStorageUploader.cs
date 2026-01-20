@@ -74,9 +74,12 @@ public class SupabaseStorageUploader : IStorageUploader
 
         var result = await response.Content.ReadFromJsonAsync<SignUrlResponse>(ct);
 
-        // Supabase API가 반환하는 SignedUrl은 "/object/sign/..." 형태이므로 "/storage/v1" 접두사가 필요함
-        // 만약 API 응답에 "/storage/v1"이 포함되어 있다면 중복 방지 로직 필요하겠지만, 현재 확인된 바로는 포함되지 않음
-        var signedPath = result!.SignedUrl.StartsWith("/storage/v1") ? result!.SignedUrl : $"/storage/v1{result!.SignedUrl}";
+        if (result?.SignedUrl == null)
+        {
+            throw new HttpRequestException($"Supabase signed URL 응답이 올바르지 않습니다. (Bucket: {effectiveBucket}, Key: {objectKey})");
+        }
+
+        var signedPath = result.SignedUrl.StartsWith("/storage/v1") ? result.SignedUrl : $"/storage/v1{result.SignedUrl}";
         var signedUrl = $"{_settings.ProjectUrl}{signedPath}";
 
         return signedUrl;
@@ -99,14 +102,22 @@ public class SupabaseStorageUploader : IStorageUploader
 
         var results = await response.Content.ReadFromJsonAsync<List<BatchSignUrlResponse>>(ct);
 
-        return results!.ToDictionary(
-            r => r.Path,
-            r =>
-            {
-                var signedPath = r.SignedUrl.StartsWith("/storage/v1") ? r.SignedUrl : $"/storage/v1{r.SignedUrl}";
-                return $"{_settings.ProjectUrl}{signedPath}";
-            }
-        );
+        if (results == null)
+        {
+            return new Dictionary<string, string>();
+        }
+
+        return results
+            .Where(r => !string.IsNullOrEmpty(r.Path) && !string.IsNullOrEmpty(r.SignedUrl))
+            .ToDictionary(
+                r => r.Path!,
+                r =>
+                {
+                    // r.SignedUrl is checked in Where clause so it is not null here
+                    var signedPath = r.SignedUrl!.StartsWith("/storage/v1") ? r.SignedUrl : $"/storage/v1{r.SignedUrl}";
+                    return $"{_settings.ProjectUrl}{signedPath}";
+                }
+            );
     }
 
     public async Task<bool> DeleteAsync(string objectKey, string? bucketName = null, CancellationToken ct = default)
@@ -135,6 +146,6 @@ public class SupabaseStorageUploader : IStorageUploader
 #pragma warning restore CS0618
     }
 
-    private record SignUrlResponse(string SignedUrl);
-    private record BatchSignUrlResponse(string Path, string SignedUrl);
+    private record SignUrlResponse(string? SignedUrl);
+    private record BatchSignUrlResponse(string? Path, string? SignedUrl);
 }
