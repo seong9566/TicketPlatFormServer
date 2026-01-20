@@ -1,3 +1,5 @@
+using TicketPlatFormServer.DTO.Ticket;
+
 namespace TicketPlatFormServer.DTO;
 
 /// <summary>

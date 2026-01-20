@@ -1,6 +1,7 @@
 using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.DTO.Ticket;
 using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.ReadModels;
