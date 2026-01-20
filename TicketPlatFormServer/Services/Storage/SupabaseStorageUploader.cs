@@ -92,7 +92,13 @@ public class SupabaseStorageUploader : IStorageUploader
 
         var effectiveBucket = GetEffectiveBucketName(bucketName);
         var url = $"/storage/v1/object/sign/{effectiveBucket}";
+
+        // Supabase API에 전달할 때 object key를 그대로 사용 (prefix 유지)
+        // 응답의 path와 매칭을 위한 identity mapping
         var body = new { expiresIn = expirySec, paths = keysList };
+
+        _logger.LogInformation("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Requesting batch signed URLs: Bucket={Bucket}, Count={Count}, Keys=[{Keys}]",
+            effectiveBucket, keysList.Count, string.Join(", ", keysList.Take(3)));
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(_settings.SignUrlTimeoutSec * 2));
@@ -104,20 +110,45 @@ public class SupabaseStorageUploader : IStorageUploader
 
         if (results == null)
         {
+            _logger.LogWarning("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Null response from Supabase");
             return new Dictionary<string, string>();
         }
 
-        return results
-            .Where(r => !string.IsNullOrEmpty(r.Path) && !string.IsNullOrEmpty(r.SignedUrl))
-            .ToDictionary(
-                r => r.Path!,
-                r =>
-                {
-                    // r.SignedUrl is checked in Where clause so it is not null here
-                    var signedPath = r.SignedUrl!.StartsWith("/storage/v1") ? r.SignedUrl : $"/storage/v1{r.SignedUrl}";
-                    return $"{_settings.ProjectUrl}{signedPath}";
-                }
-            );
+        var signedUrls = new Dictionary<string, string>();
+
+        foreach (var result in results)
+        {
+            _logger.LogDebug("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Response item: Path={Path}, SignedUrl={SignedUrlExists}",
+                result.Path, !string.IsNullOrEmpty(result.SignedUrl));
+
+            if (string.IsNullOrEmpty(result.Path) || string.IsNullOrEmpty(result.SignedUrl))
+            {
+                _logger.LogWarning("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Failed to sign: Path={Path}, Error={Error}",
+                    result.Path, result.Error ?? "unknown");
+                continue;
+            }
+
+            // 응답의 Path가 요청한 key와 일치하는지 확인
+            if (keysList.Contains(result.Path))
+            {
+                var signedPath = result.SignedUrl.StartsWith("/storage/v1")
+                    ? result.SignedUrl
+                    : $"/storage/v1{result.SignedUrl}";
+
+                signedUrls[result.Path] = $"{_settings.ProjectUrl}{signedPath}";
+            }
+            else
+            {
+                // 경로 매칭 실패 - 요청한 키 목록과 비교
+                _logger.LogWarning("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Unexpected path in response: {Path}. Requested keys: [{Keys}]",
+                    result.Path, string.Join(", ", keysList.Take(5)));
+            }
+        }
+
+        _logger.LogInformation("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Successfully signed {Count}/{Total} URLs",
+            signedUrls.Count, keysList.Count);
+
+        return signedUrls;
     }
 
     public async Task<bool> DeleteAsync(string objectKey, string? bucketName = null, CancellationToken ct = default)
@@ -146,6 +177,33 @@ public class SupabaseStorageUploader : IStorageUploader
 #pragma warning restore CS0618
     }
 
+    /// <summary>
+    /// Object key에서 버킷 prefix 제거
+    /// 예: "tickets/34/abc.jpg" -> "34/abc.jpg" (when bucket = "ticket-images")
+    /// </summary>
+    private string StripBucketPrefix(string objectKey, string bucketName)
+    {
+        // 각 버킷의 prefix 패턴
+        var bucketPrefixes = new Dictionary<string, string>
+        {
+            { _settings.BucketNames.ProfileImage, "profiles/" },
+            { _settings.BucketNames.ChatImage, "chat/" },
+            { _settings.BucketNames.TicketImage, "tickets/" }
+        };
+
+        // 현재 버킷에 해당하는 prefix 찾기
+        if (bucketPrefixes.TryGetValue(bucketName, out var prefix))
+        {
+            if (objectKey.StartsWith(prefix))
+            {
+                return objectKey.Substring(prefix.Length);
+            }
+        }
+
+        // prefix가 없거나 매칭되지 않으면 그대로 반환
+        return objectKey;
+    }
+
     private record SignUrlResponse(string? SignedUrl);
-    private record BatchSignUrlResponse(string? Path, string? SignedUrl);
+    private record BatchSignUrlResponse(string? Path, string? SignedUrl, string? Error);
 }
