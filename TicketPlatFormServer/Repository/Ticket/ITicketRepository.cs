@@ -22,6 +22,13 @@ public interface ITicketRepository
     Task<TicketListReadModel?> GetTicketDetailById(int ticketId);
 
     /// <summary>
+    /// 티켓 상세 정보 조회 (이벤트 정보 포함 - 티켓 상세 화면용)
+    /// </summary>
+    /// <param name="ticketId">티켓 ID</param>
+    /// <returns>티켓 상세 정보 (이벤트 정보 포함)</returns>
+    Task<TicketDetailReadModel?> GetTicketDetailByIdWithEvent(int ticketId);
+
+    /// <summary>
     /// 티켓에 연결된 특이사항 목록 조회
     /// </summary>
     /// <param name="ticketId">티켓 ID</param>

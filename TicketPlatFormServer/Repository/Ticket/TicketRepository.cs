@@ -159,6 +159,83 @@ public class TicketRepository(
         return ticket;
     }
 
+    public async Task<TicketDetailReadModel?> GetTicketDetailByIdWithEvent(int ticketId)
+    {
+        // 티켓 상세 정보 조회 (이벤트 정보 포함)
+        var ticketRow = await dapper.QueryFirstOrDefaultAsync<dynamic>(
+            TicketQueries.GetTicketDetailByIdWithEvent,
+            new { TicketId = ticketId }
+        );
+
+        if (ticketRow == null)
+        {
+            return null;
+        }
+
+        // 티켓 이미지 조회
+        var ticketImages = await dapper.QueryAsync<string>(
+            TicketQueries.GetTicketImages,
+            new { TicketId = ticketId }
+        );
+
+        var ticket = new TicketDetailReadModel
+        {
+            TicketId = (int)ticketRow.TicketId,
+            // 좌석 등급 정보 (확장)
+            SeatGradeId = ticketRow.SeatGradeId != null ? (int?)Convert.ToInt32(ticketRow.SeatGradeId) : null,
+            SeatGradeCode = ticketRow.SeatGradeCode,
+            SeatGradeName = ticketRow.SeatGradeName,
+            SeatGradeNameEn = ticketRow.SeatGradeNameEn,
+            SeatGradeSortOrder = ticketRow.SeatGradeSortOrder != null ? (int?)Convert.ToInt32(ticketRow.SeatGradeSortOrder) : null,
+            // 구역 정보 (확장)
+            AreaId = ticketRow.AreaId != null ? (int?)Convert.ToInt32(ticketRow.AreaId) : null,
+            Area = ticketRow.Area,
+            AreaSortOrder = ticketRow.AreaSortOrder != null ? (int?)Convert.ToInt32(ticketRow.AreaSortOrder) : null,
+            // 위치 정보 (NEW)
+            LocationId = ticketRow.LocationId != null ? (int?)Convert.ToInt32(ticketRow.LocationId) : null,
+            LocationName = ticketRow.LocationName,
+            LocationSortOrder = ticketRow.LocationSortOrder != null ? (int?)Convert.ToInt32(ticketRow.LocationSortOrder) : null,
+            // 기존 필드
+            Row = ticketRow.Row,
+            Price = (int)ticketRow.Price,
+            OriginalPrice = (int)ticketRow.OriginalPrice,
+            IsConsecutive = ticketRow.IsConsecutive,
+            TradeMethodId = ticketRow.TradeMethodId != null ? (int?)Convert.ToInt32(ticketRow.TradeMethodId) : null,
+            TradeMethodName = ticketRow.TradeMethodName,
+            HasTicket = ticketRow.HasTicket,
+            Description = ticketRow.Description,
+            CreatedAt = ticketRow.CreatedAt,
+            Quantity = (int)ticketRow.Quantity,
+            IsSingleTicket = ticketRow.Quantity == 1,
+            RemainingQuantity = (int)ticketRow.RemainingQuantity,
+            TicketImages = ticketImages.ToList(),
+            Seller = new SellerInfoReadModel
+            {
+                UserId = (int)ticketRow.UserId,
+                Nickname = ticketRow.Nickname,
+                ProfileImageUrl = ticketRow.ProfileImageUrl,
+                MannerTemperature = ticketRow.MannerTemperature != null ? (float?)Convert.ToDouble(ticketRow.MannerTemperature) : null,
+                TotalTradeCount = ticketRow.TotalTradeCount != null ? Convert.ToInt32(ticketRow.TotalTradeCount) : 0,
+                ResponseRate = ticketRow.ResponseRate != null ? (float?)Convert.ToDouble(ticketRow.ResponseRate) : null,
+                IsSecurePayment = ticketRow.IsSecurePayment == 1
+            },
+            Event = new EventInfoReadModel
+            {
+                EventId = ticketRow.EventId != null ? Convert.ToInt32(ticketRow.EventId) : 0,
+                EventTitle = ticketRow.EventTitle ?? "",
+                PosterImageUrl = ticketRow.PosterImageUrl,
+                StartAt = ticketRow.StartAt,
+                EndAt = ticketRow.EndAt,
+                VenueName = ticketRow.VenueName
+            }
+        };
+
+        // 상세 조회 시 Features 채우기
+        ticket.Features = await GetTicketFeaturesAsync(ticketId);
+
+        return ticket;
+    }
+
     /// <summary>
     /// 티켓에 연결된 특이사항 목록 조회 (비정규화 컬럼 feature_ids 기반)
     /// </summary>
