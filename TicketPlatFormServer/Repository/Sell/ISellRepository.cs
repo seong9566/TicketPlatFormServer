@@ -12,7 +12,7 @@ public interface ISellRepository
     /// <summary>
     /// ExecutionStrategy 생성 (MySQL retry 지원)
     /// </summary>
-    Task<IExecutionStrategy> CreateExecutionStrategyAsync();
+    IExecutionStrategy CreateExecutionStrategy();
 
     /// <summary>
     /// 트랜잭션 시작

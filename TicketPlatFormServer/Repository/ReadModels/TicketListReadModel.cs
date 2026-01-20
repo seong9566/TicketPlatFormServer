@@ -7,12 +7,15 @@ public class TicketListReadModel
 {
     public int TicketId { get; set; }
 
-
-
     /// <summary>
     /// 좌석 등급 ID FK
     /// </summary>
     public int? SeatGradeId { get; set; }
+
+    /// <summary>
+    /// 좌석 등급 코드 (예: "VIP", "R", "S")
+    /// </summary>
+    public string? SeatGradeCode { get; set; }
 
     /// <summary>
     /// 좌석 등급 이름 (예: "VIP석", "일반석")
@@ -20,9 +23,44 @@ public class TicketListReadModel
     public string? SeatGradeName { get; set; }
 
     /// <summary>
+    /// 좌석 등급 영문명 (예: "VIP Seat")
+    /// </summary>
+    public string? SeatGradeNameEn { get; set; }
+
+    /// <summary>
+    /// 좌석 등급 정렬 순서
+    /// </summary>
+    public int? SeatGradeSortOrder { get; set; }
+
+    /// <summary>
+    /// 구역 ID FK
+    /// </summary>
+    public int? AreaId { get; set; }
+
+    /// <summary>
     /// 구역 (예: "A구역")
     /// </summary>
     public string? Area { get; set; }
+
+    /// <summary>
+    /// 구역 정렬 순서
+    /// </summary>
+    public int? AreaSortOrder { get; set; }
+
+    /// <summary>
+    /// 위치 ID FK
+    /// </summary>
+    public int? LocationId { get; set; }
+
+    /// <summary>
+    /// 위치명 (예: "1층", "2층", "플로어석")
+    /// </summary>
+    public string? LocationName { get; set; }
+
+    /// <summary>
+    /// 위치 정렬 순서
+    /// </summary>
+    public int? LocationSortOrder { get; set; }
 
     /// <summary>
     /// 열 (예: "5열")
@@ -93,7 +131,15 @@ public class TicketListReadModel
     /// </summary>
     public List<string> TicketImages { get; set; } = new();
 
+    /// <summary>
+    /// 특이사항 ID 목록 (콤마 구분)
+    /// </summary>
+    public string? FeatureIds { get; set; }
 
+    /// <summary>
+    /// 티켓 특이사항 목록
+    /// </summary>
+    public List<TicketFeatureReadModel>? Features { get; set; }
 
     /// <summary>
     /// 판매자 정보

@@ -19,9 +19,9 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
     /// <summary>
     /// ExecutionStrategy 생성 (MySQL retry 지원)
     /// </summary>
-    public Task<IExecutionStrategy> CreateExecutionStrategyAsync()
+    public IExecutionStrategy CreateExecutionStrategy()
     {
-        return Task.FromResult(_context.Database.CreateExecutionStrategy());
+        return _context.Database.CreateExecutionStrategy();
     }
 
     /// <summary>

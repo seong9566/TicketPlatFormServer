@@ -88,6 +88,7 @@ public class EventService : IEventService
 
         // 좌석 등급 필터 생성 및 매진 임박 여부 계산
         var seatGradeCounts = new Dictionary<string, int>();
+        var locationCounts = new Dictionary<int, (string name, int count, int sortOrder)>();
         bool isSoldOutImminent = false;
 
         foreach (var ticket in ticketReadModels)
@@ -100,6 +101,22 @@ public class EventService : IEventService
                     seatGradeCounts[ticket.SeatGradeName] = 0;
                 }
                 seatGradeCounts[ticket.SeatGradeName]++;
+            }
+
+            // 위치별 개수 집계 (NEW)
+            if (ticket.LocationId.HasValue)
+            {
+                var locId = ticket.LocationId.Value;
+                if (!locationCounts.ContainsKey(locId))
+                {
+                    locationCounts[locId] = (
+                        ticket.LocationName ?? "미분류",
+                        0,
+                        ticket.LocationSortOrder ?? 999
+                    );
+                }
+                var (name, count, sort) = locationCounts[locId];
+                locationCounts[locId] = (name, count + 1, sort);
             }
 
             // 매진 임박 체크 (remaining_quantity가 5개 이하인 티켓이 있는지)
@@ -129,6 +146,18 @@ public class EventService : IEventService
             });
         }
 
+        // 위치 필터 생성 (NEW)
+        var seatLocationFilters = locationCounts
+            .OrderBy(x => x.Value.sortOrder)
+            .Select(x => new SeatLocationDto
+            {
+                LocationId = x.Key,
+                LocationName = x.Value.name,
+                TicketCount = x.Value.count,
+                SortOrder = x.Value.sortOrder
+            })
+            .ToList();
+
         // ReadModel → RespDto 변환
         return new EventDetailRespDto
         {
@@ -143,12 +172,18 @@ public class EventService : IEventService
             ArtistName = eventReadModel.ArtistName,
             IsSoldOutImminent = isSoldOutImminent,
             SeatTypeFilters = seatTypeFilters,
+            SeatLocationFilters = seatLocationFilters, // NEW
             Tickets = ticketReadModels.Select(tm => new TicketListRespDto
             {
                 TicketId = tm.TicketId,
                 SeatGradeId = tm.SeatGradeId,
+                SeatGradeCode = tm.SeatGradeCode, // NEW
                 SeatGradeName = tm.SeatGradeName,
+                SeatGradeNameEn = tm.SeatGradeNameEn, // NEW
+                AreaId = tm.AreaId, // NEW
                 Area = tm.Area,
+                LocationId = tm.LocationId, // NEW
+                LocationName = tm.LocationName, // NEW
                 Row = tm.Row,
                 Price = tm.Price,
                 OriginalPrice = tm.OriginalPrice,
@@ -163,6 +198,14 @@ public class EventService : IEventService
                 IsSingleTicket = tm.IsSingleTicket,
                 TicketImages = tm.TicketImages,
                 IsFavorited = userId.HasValue ? favoritedTicketIds.Contains(tm.TicketId) : null,
+                Features = tm.Features?.Select(f => new TicketFeatureDto
+                {
+                    FeatureId = f.FeatureId,
+                    Code = f.Code,
+                    NameKo = f.NameKo,
+                    NameEn = f.NameEn,
+                    Icon = f.Icon
+                }).ToList(),
                 Seller = new SellerInfoDto
                 {
                     UserId = tm.Seller.UserId,

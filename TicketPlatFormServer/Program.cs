@@ -198,7 +198,7 @@ if (!string.IsNullOrWhiteSpace(connectionString))
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
             mySqlOptions =>
             {
-                mySqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null); // 재시도 3회, 10초 간격
+                // mySqlOptions.EnableRetryOnFailure(3, TimeSpan.FromSeconds(10), null); // 수동 트랜잭션과 충돌하여 비활성화
                 mySqlOptions.CommandTimeout(60); // CommandTimeout 60초
                 mySqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery); // 복잡한 쿼리의 성능 향상을 위한 쿼리 분할 사용
             });

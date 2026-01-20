@@ -48,7 +48,12 @@ public class EventDetailRespDto
     /// 좌석 타입별 필터 정보
     /// </summary>
     public List<SeatTypeFilterDto> SeatTypeFilters { get; set; } = new();
-    
+
+    /// <summary>
+    /// 좌석 위치별 필터 정보 (예: "1층", "2층")
+    /// </summary>
+    public List<SeatLocationDto> SeatLocationFilters { get; set; } = new();
+
     /// <summary>
     /// 판매 티켓 목록
     /// </summary>

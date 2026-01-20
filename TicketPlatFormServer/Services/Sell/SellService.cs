@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using TicketPlatFormServer.DTO.Sell;
 using TicketPlatFormServer.Common;
+using TicketPlatFormServer.Repository;
 using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Services.Storage;
 using TicketPlatFormServer.Services.FileUpload;
@@ -170,19 +171,12 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         }
 
         // 4. 가격 검증 (판매가는 정가 이하만 가능)
-        if (request.Price > seatPrice.OriginalPrice)
+        if (request.Price > seatPrice.OriginalPrice * request.Quantity)
         {
             throw new AppException("판매가는 정가를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 5. pending_review 상태 ID 조회
-        var pendingReviewStatusId = await _sellRepository.GetTicketStatusIdByCodeAsync("pending_review");
-        if (pendingReviewStatusId == null)
-        {
-            throw new AppException("티켓 상태를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
-        }
-
-        // 6. 공연 일시 계산
+        // 5. 공연 일시 계산
         var eventDatetime = new DateTime(
             schedule.ScheduleDate.Year,
             schedule.ScheduleDate.Month,
@@ -191,17 +185,16 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             schedule.ScheduleTime.Minute,
             schedule.ScheduleTime.Second);
 
-        // 7. 트랜잭션으로 티켓 생성, 특이사항, 이미지 저장 (Codex 이슈 #1)
-        // Note: MySQL Retry Strategy가 필요한 경우 UserRepository 패턴 참조
+        // 6. 트랜잭션으로 티켓 생성, 이미지 저장
         int ticketId = 0;
         List<TicketImageDto>? uploadedImages = null;
-        List<string> uploadedObjectKeys = new(); // 롤백용 (Codex 추가 이슈 #2)
+        List<string> uploadedObjectKeys = new(); // 롤백용
 
         using (var transaction = await _sellRepository.BeginTransactionAsync())
         {
             try
             {
-                // 7.1 티켓 기본 정보 저장
+                // 6.1 티켓 기본 정보 저장
                 var ticket = new DBModel.Ticket
                 {
                     SellerId = userId,
@@ -221,20 +214,20 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                     Description = request.Description,
                     EventDatetime = schedule.ScheduleDate.ToDateTime(schedule.ScheduleTime),
                     StatusId = SALE_STATUS_ID,
-                    FeatureIds = (request.FeatureIds != null && request.FeatureIds.Any()) 
-                        ? string.Join(",", request.FeatureIds) 
+                    FeatureIds = (request.FeatureIds != null && request.FeatureIds.Any())
+                        ? string.Join(",", request.FeatureIds)
                         : null
                 };
 
                 ticketId = await _sellRepository.CreateTicketAsync(ticket);
 
-                // 7.2 특이사항 저장 (기존 매핑 테이블 방식 제거, 위에서 가로채서 처리됨)
+                // 6.2 특이사항 저장 (기존 매핑 테이블 방식 제거, 위에서 가로채서 처리됨)
                 // if (request.FeatureIds != null && request.FeatureIds.Any())
                 // {
                 //     await _sellRepository.CreateTicketFeaturesAsync(ticketId, request.FeatureIds);
                 // }
 
-                // 7.3 이미지 업로드 및 DB 저장
+                // 6.3 이미지 업로드 및 DB 저장
                 if (request.Images != null && request.Images.Any())
                 {
                     try
@@ -267,7 +260,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                     }
                     catch
                     {
-                        // 이미지 업로드 실패 시 스토리지 롤백 (Codex 추가 이슈 #2)
+                        // 이미지 업로드 실패 시 스토리지 롤백
                         foreach (var objectKey in uploadedObjectKeys)
                         {
                             await _fileUploadService.DeleteFileAsync(objectKey);
@@ -281,7 +274,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             }
             catch
             {
-                // DB 실패 시 롤백 + 스토리지 정리 (Codex 추가 이슈 #2)
+                // DB 실패 시 롤백 + 스토리지 정리
                 await transaction.RollbackAsync();
                 foreach (var objectKey in uploadedObjectKeys)
                 {
@@ -294,8 +287,8 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         return new CreateSellTicketRespDto
         {
             TicketId = ticketId,
-            Status = "pending_review",
-            Message = "티켓 판매 등록이 완료되었습니다. 검수 후 판매가 시작됩니다.",
+            Status = "available",
+            Message = "티켓 판매 등록이 완료되었습니다.",
             Images = uploadedImages
         };
     }
