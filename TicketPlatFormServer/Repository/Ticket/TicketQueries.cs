@@ -147,7 +147,7 @@ internal static class TicketQueries
     /// </summary>
     internal const string GetTicketFeaturesByIds = @"
         SELECT
-            f.id AS Id,
+            f.id AS FeatureId,
             f.name_ko AS NameKo,
             f.code AS Code
         FROM ticket_features f
