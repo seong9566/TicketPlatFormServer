@@ -202,9 +202,7 @@ public class EventService : IEventService
                 {
                     FeatureId = f.FeatureId,
                     Code = f.Code,
-                    NameKo = f.NameKo,
-                    NameEn = f.NameEn,
-                    Icon = f.Icon
+                    NameKo = f.NameKo
                 }).ToList(),
                 Seller = new SellerInfoDto
                 {

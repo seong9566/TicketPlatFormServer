@@ -483,9 +483,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         {
             Id = f.Id,
             Code = f.Code,
-            NameKo = f.NameKo,
-            NameEn = f.NameEn,
-            Description = f.Description
+            NameKo = f.NameKo
         }).ToList();
     }
 

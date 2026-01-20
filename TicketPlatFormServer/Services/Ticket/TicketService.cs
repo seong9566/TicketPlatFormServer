@@ -104,9 +104,7 @@ public class TicketService : ITicketService
         {
             FeatureId = f.FeatureId,
             Code = f.Code,
-            NameKo = f.NameKo,
-            NameEn = f.NameEn ?? "",
-            Icon = f.Icon
+            NameKo = f.NameKo
         }).ToList();
 
         // ReadModel → RespDto 변환

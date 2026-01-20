@@ -21,11 +21,6 @@ public class TicketFeatureRespDto
     public string NameKo { get; set; } = null!;
 
     /// <summary>
-    /// 영문명
-    /// </summary>
-    public string? NameEn { get; set; }
-
-    /// <summary>
     /// 설명
     /// </summary>
     public string? Description { get; set; }
