@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.DTO.Ticket;
 using TicketPlatFormServer.Services.Ticket;
 
 namespace TicketPlatFormServer.Controllers;
@@ -33,7 +34,7 @@ public class TicketController : Controller
 
         var result = await _ticketService.GetTicketDetailById(ticketId, userId);
 
-        var resp = new ApiResponse<TicketListRespDto>(
+        var resp = new ApiResponse<TicketDetailRespDto>(
             message: "티켓 상세 정보 조회 성공",
             data: result,
             statusCode: 200

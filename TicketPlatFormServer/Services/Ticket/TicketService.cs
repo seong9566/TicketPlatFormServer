@@ -1,6 +1,7 @@
 using System.Net;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.DTO.Ticket;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.ReadModels;
 using TicketPlatFormServer.Repository.Ticket;
@@ -28,14 +29,14 @@ public class TicketService : ITicketService
         _fileUploadService = fileUploadService;
     }
 
-    public async Task<TicketListRespDto> GetTicketDetailById(int ticketId, int? userId = null)
+    public async Task<TicketDetailRespDto> GetTicketDetailById(int ticketId, int? userId = null)
     {
         if (ticketId <= 0)
         {
             throw new AppException(message: "유효하지 않은 티켓 ID입니다.", statusCode: HttpStatusCode.BadRequest);
         }
 
-        var readModel = await _repo.GetTicketDetailById(ticketId);
+        var readModel = await _repo.GetTicketDetailByIdWithEvent(ticketId);
 
         if (readModel == null)
         {
@@ -49,12 +50,9 @@ public class TicketService : ITicketService
             isFavorited = await _favoriteRepo.CheckIsFavorited(userId.Value, FAVORITE_TYPE_TICKET, ticketId);
         }
 
-        // 티켓 특이사항 조회
-        var ticketFeatures = await _repo.GetTicketFeaturesAsync(ticketId);
-
-        // Signed URL 변환 대상 키 수집 (티켓 이미지 + 판매자 프로필 이미지)
+        // Signed URL 변환 대상 키 수집 (티켓 이미지 + 판매자 프로필 이미지 + 이벤트 포스터)
         var keysToSign = new List<string>();
-        
+
         if (readModel.TicketImages != null)
         {
             keysToSign.AddRange(readModel.TicketImages);
@@ -62,10 +60,18 @@ public class TicketService : ITicketService
 
         var sellerProfileKey = readModel.Seller.ProfileImageUrl;
         bool shouldSignSellerProfile = !string.IsNullOrEmpty(sellerProfileKey) && !sellerProfileKey.StartsWith("http");
-        
+
         if (shouldSignSellerProfile)
         {
             keysToSign.Add(sellerProfileKey!);
+        }
+
+        var eventPosterKey = readModel.Event.PosterImageUrl;
+        bool shouldSignEventPoster = !string.IsNullOrEmpty(eventPosterKey) && !eventPosterKey.StartsWith("http");
+
+        if (shouldSignEventPoster)
+        {
+            keysToSign.Add(eventPosterKey!);
         }
 
         // 배치 요청으로 Signed URL 획득 (캐시 활용)
@@ -99,8 +105,15 @@ public class TicketService : ITicketService
             finalSellerProfileUrl = sellerResult.SignedUrl;
         }
 
-        // 3. 특이사항 DTO 변환
-        var features = ticketFeatures.Select(f => new TicketFeatureDto
+        // 3. 이벤트 포스터 이미지 URL 매핑
+        string? finalEventPosterUrl = eventPosterKey;
+        if (shouldSignEventPoster && signedUrls.TryGetValue(eventPosterKey!, out var posterResult))
+        {
+            finalEventPosterUrl = posterResult.SignedUrl;
+        }
+
+        // 4. 특이사항 DTO 변환
+        var features = readModel.Features?.Select(f => new TicketFeatureDto
         {
             FeatureId = f.FeatureId,
             Code = f.Code,
@@ -108,12 +121,21 @@ public class TicketService : ITicketService
         }).ToList();
 
         // ReadModel → RespDto 변환
-        return new TicketListRespDto
+        return new TicketDetailRespDto
         {
             TicketId = readModel.TicketId,
+            // 좌석 등급 정보 (확장)
             SeatGradeId = readModel.SeatGradeId,
+            SeatGradeCode = readModel.SeatGradeCode,
             SeatGradeName = readModel.SeatGradeName,
+            SeatGradeNameEn = readModel.SeatGradeNameEn,
+            // 구역 정보 (확장)
+            AreaId = readModel.AreaId,
             Area = readModel.Area,
+            // 위치 정보 (NEW)
+            LocationId = readModel.LocationId,
+            LocationName = readModel.LocationName,
+            // 기존 필드
             Row = readModel.Row,
             Price = readModel.Price,
             OriginalPrice = readModel.OriginalPrice,
@@ -128,7 +150,7 @@ public class TicketService : ITicketService
             IsSingleTicket = readModel.IsSingleTicket,
             TicketImages = ticketImages,
             IsFavorited = isFavorited,
-            Features = features.Any() ? features : null,
+            Features = features?.Any() == true ? features : null,
             Seller = new SellerInfoDto
             {
                 UserId = readModel.Seller.UserId,
@@ -138,6 +160,15 @@ public class TicketService : ITicketService
                 TotalTradeCount = readModel.Seller.TotalTradeCount,
                 ResponseRate = readModel.Seller.ResponseRate,
                 IsSecurePayment = readModel.Seller.IsSecurePayment
+            },
+            Event = new EventInfoDto
+            {
+                EventId = readModel.Event.EventId,
+                EventTitle = readModel.Event.EventTitle,
+                PosterImageUrl = finalEventPosterUrl,
+                StartAt = readModel.Event.StartAt,
+                EndAt = readModel.Event.EndAt,
+                VenueName = readModel.Event.VenueName
             }
         };
     }

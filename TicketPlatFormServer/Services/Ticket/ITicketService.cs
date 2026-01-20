@@ -1,4 +1,5 @@
 using TicketPlatFormServer.DTO;
+using TicketPlatFormServer.DTO.Ticket;
 
 namespace TicketPlatFormServer.Services.Ticket;
 
@@ -13,5 +14,5 @@ public interface ITicketService
     /// <param name="ticketId">티켓 ID</param>
     /// <param name="userId">사용자 ID (선택, 찜 여부 확인용)</param>
     /// <returns>티켓 상세 정보</returns>
-    Task<TicketListRespDto> GetTicketDetailById(int ticketId, int? userId = null);
+    Task<TicketDetailRespDto> GetTicketDetailById(int ticketId, int? userId = null);
 }
