@@ -61,6 +61,10 @@
         "isConsecutive": true,
         "tradeMethodId": 1,
         "tradeMethodName": "PIN거래",
+        "features": [
+          { "id": 1, "name": "연석" },
+          { "id": 2, "name": "통로석" }
+        ],
         "hasTicket": true,
         "description": "급처",
         "createdAt": "2026-01-12T11:30:00",
@@ -157,6 +161,7 @@
 | isConsecutive | bool | ✅ | 연석 여부 |
 | tradeMethodId | int | ✅ | 거래 방법 ID |
 | tradeMethodName | string | ✅ | 거래 방법 이름 |
+| features | TicketFeatureDto[] | ✅ | 티켓 특이사항 목록 |
 | hasTicket | bool | ✅ | 티켓 보유 여부 |
 | description | string | ✅ | 판매 사유/설명 |
 | createdAt | DateTime | ❌ | 티켓 등록 날짜 |
