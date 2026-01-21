@@ -176,13 +176,33 @@ Content-Type: multipart/form-data
   "data": {
     "messageId": 789,
     "roomId": 1,
+    "senderId": 20,
+    "senderNickname": "구매자",
+    "senderProfileImage": "https://storage.example.com/profiles/20.jpg?signed=...",
     "message": "안녕하세요",
     "imageUrl": null,
-    "createdAt": "2026-01-14T10:30:00"
+    "imageUrlExpiresAt": null,
+    "createdAt": "2026-01-14T10:30:00",
+    "success": true
   },
-  "statusCode": 200
+  "statusCode": 200,
+  "success": true
 }
 ```
+
+**Response Data 필드**
+| Field | Type | Description |
+|-------|------|-------------|
+| messageId | long | 메시지 ID |
+| roomId | long | 채팅방 ID |
+| senderId | int | 발신자 사용자 ID |
+| senderNickname | string | 발신자 닉네임 |
+| senderProfileImage | string? | 발신자 프로필 이미지 URL (Signed URL, nullable) |
+| message | string? | 메시지 내용 (텍스트 메시지인 경우) |
+| imageUrl | string? | 이미지 URL (이미지 메시지인 경우, Signed URL) |
+| imageUrlExpiresAt | DateTime? | 이미지 URL 만료 시간 |
+| createdAt | DateTime | 메시지 생성 시간 |
+| success | bool | 전송 성공 여부 |
 
 **SignalR 실시간 알림**
 메시지 전송 시 해당 채팅방의 모든 참여자에게 실시간으로 알림:

@@ -13,7 +13,7 @@ namespace TicketPlatFormServer.Controllers;
 [ApiController]
 [Route("api/chat")]
 [Authorize]
-public class ChatController(IChatService chatService, IHubContext<ChatHub> hubContext) : ControllerBase
+public class ChatController(IChatService chatService, IHubContext<ChatHub> hubContext, ILogger<ChatController> logger) : ControllerBase
 {
     /// <summary>
     /// 채팅방 생성 또는 조회
@@ -89,6 +89,9 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
         // 발신자 정보 로드
         var senderInfo = await chatService.GetSenderInfoForSignalR(result.MessageId);
 
+        logger.LogInformation("[ChatController.SendMessage] Broadcasting message to room_{RoomId}. MessageId: {MessageId}, SenderId: {SenderId}",
+            req.RoomId, result.MessageId, userId.Value);
+
         // SignalR을 통해 실시간으로 메시지 브로드캐스트
         await hubContext.Clients.Group($"room_{req.RoomId}")
             .SendAsync("ReceiveMessage", new NewMessageSignalDto
@@ -102,6 +105,13 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
                 ImageUrl = result.ImageUrl,
                 CreatedAt = result.CreatedAt
             });
+
+        logger.LogInformation("[ChatController.SendMessage] SignalR broadcast completed for room_{RoomId}", req.RoomId);
+
+        // HTTP 응답에 발신자 정보 추가
+        result.SenderId = userId.Value;
+        result.SenderNickname = senderInfo.Nickname;
+        result.SenderProfileImage = senderInfo.ProfileImageUrl;
 
         var resp = new ApiResponse<SendMessageRespDto>(
             message: "메시지 전송 성공",
