@@ -22,6 +22,7 @@ public interface IChatRepository
     Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl);
     Task<ChatMessage?> GetMessageById(long messageId);
     Task<List<ChatMessage>> GetMessagesByRoomId(long roomId, long? lastMessageId, int limit);
+    Task<Dictionary<long, string?>> GetLastMessagesForRooms(IEnumerable<long> roomIds);
     Task<int> GetUnreadCount(long roomId, int userId);
 
     // Cleanup Operations

@@ -263,6 +263,37 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     }
 
     /// <summary>
+    /// 여러 채팅방의 마지막 메시지를 한 번에 조회
+    /// </summary>
+    public async Task<Dictionary<long, string?>> GetLastMessagesForRooms(IEnumerable<long> roomIds)
+    {
+        var roomIdsList = roomIds.ToList();
+        if (roomIdsList.Count == 0) return new Dictionary<long, string?>();
+
+        // AsNoTracking() 추가 및 필요한 컬럼만 프로젝션하여 성능 최적화
+        var lastMessages = await db.ChatMessages
+            .AsNoTracking()
+            .Where(m => roomIdsList.Contains(m.RoomId))
+            .GroupBy(m => m.RoomId)
+            .Select(g => g.OrderByDescending(m => m.Id)
+                .Select(m => new { m.RoomId, m.Message, m.ImageUrl })
+                .FirstOrDefault())
+            .ToListAsync();
+
+        return lastMessages
+            .Where(m => m != null)
+            .ToDictionary(
+                m => m!.RoomId,
+                m =>
+                {
+                    if (!string.IsNullOrEmpty(m!.Message)) return m.Message;
+                    if (!string.IsNullOrEmpty(m.ImageUrl)) return "(사진)";
+                    return (string?)null;
+                }
+            );
+    }
+
+    /// <summary>
     /// 읽지 않은 메시지 수 조회
     /// </summary>
     public async Task<int> GetUnreadCount(long roomId, int userId)

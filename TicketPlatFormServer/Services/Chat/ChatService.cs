@@ -81,7 +81,11 @@ public class ChatService(
             ? await fileUploadService.RefreshSignedUrlsBatchAsync(profileKeys!)
             : new Dictionary<string, SignedUrlResult>();
 
-        // 3. 매핑
+        // 3. 마지막 메시지 조회
+        var roomIds = rooms.Select(r => r.Id).ToList();
+        var lastMessages = await chatRepo.GetLastMessagesForRooms(roomIds);
+
+        // 4. 매핑
         return rooms.Select(room =>
         {
             var otherUserProfileKey = room.BuyerId == userId
@@ -99,6 +103,8 @@ public class ChatService(
                 }
             }
 
+            lastMessages.TryGetValue(room.Id, out var lastMsg);
+
             return new ChatRoomListRespDto
             {
                 RoomId = room.Id,
@@ -112,7 +118,7 @@ public class ChatService(
                         : room.Buyer?.UserProfile?.Nickname ?? "Unknown",
                     ProfileImageUrl = otherUserProfileUrl
                 },
-                LastMessage = null, // 별도 쿼리 필요
+                LastMessage = lastMsg,
                 LastMessageAt = room.LastMessageAt,
                 UnreadCount = room.BuyerId == userId ? (room.UnreadCountBuyer ?? 0) : (room.UnreadCountSeller ?? 0),
                 RoomStatusCode = room.Status?.Code ?? "",
