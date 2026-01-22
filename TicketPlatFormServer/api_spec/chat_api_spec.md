@@ -164,12 +164,17 @@ Content-Type: multipart/form-data
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | roomId | long | O | 채팅방 ID |
-| message | string | X | 메시지 내용 (텍스트 메시지인 경우) |
-| image | File | X | 이미지 파일 (이미지 메시지인 경우) |
+| message | string | X | 메시지 내용 (텍스트 메시지) |
+| images | File[] | X | 이미지 파일들 (최대 5개) |
 
-**참고**: `message`와 `image` 중 하나는 반드시 제공되어야 합니다.
+**참고**:
+- `message`와 `images` 중 최소 하나는 반드시 제공되어야 합니다.
+- `message`와 여러 개의 `images`를 **동시에 전송**할 수 있습니다 (텍스트 + 다중 이미지 전송).
+- 이미지는 한 번에 최대 **5개**까지 전송 가능합니다 (서버 설정에 따라 다름).
 
 **Response** `200 OK`
+
+**예시 1: 텍스트만 전송**
 ```json
 {
   "message": "메시지 전송 성공",
@@ -178,10 +183,9 @@ Content-Type: multipart/form-data
     "roomId": 1,
     "senderId": 20,
     "senderNickname": "구매자",
-    "senderProfileImage": "https://storage.example.com/profiles/20.jpg?signed=...",
+    "senderProfileImage": "https://storage.supabase.com/sign/profiles/20.jpg?token=...",
     "message": "안녕하세요",
-    "imageUrl": null,
-    "imageUrlExpiresAt": null,
+    "images": null,
     "createdAt": "2026-01-14T10:30:00",
     "success": true
   },
@@ -190,7 +194,60 @@ Content-Type: multipart/form-data
 }
 ```
 
-**Response Data 필드**
+**예시 2: 다중 이미지만 전송**
+```json
+{
+  "message": "메시지 전송 성공",
+  "data": {
+    "messageId": 790,
+    "roomId": 1,
+    "senderId": 20,
+    "senderNickname": "구매자",
+    "senderProfileImage": "https://storage.supabase.com/sign/profiles/20.jpg?token=...",
+    "message": null,
+    "images": [
+      {
+        "url": "https://storage.supabase.com/sign/chat-image/chat/1/20_1737572379_54b5d9c4.jpg?token=...",
+        "expiresAt": "2026-01-14T11:00:00"
+      },
+      {
+        "url": "https://storage.supabase.com/sign/chat-image/chat/1/20_1737572380_f4a5d8c1.jpg?token=...",
+        "expiresAt": "2026-01-14T11:00:00"
+      }
+    ],
+    "createdAt": "2026-01-14T10:30:00",
+    "success": true
+  },
+  "statusCode": 200,
+  "success": true
+}
+```
+
+**예시 3: 이미지 + 텍스트 동시 전송** ⭐ 새로운 기능
+```json
+{
+  "message": "메시지 전송 성공",
+  "data": {
+    "messageId": 791,
+    "roomId": 1,
+    "senderId": 20,
+    "senderNickname": "구매자",
+    "senderProfileImage": "https://storage.supabase.com/sign/profiles/20.jpg?token=...",
+    "message": "이 티켓 맞나요?",
+    "images": [
+      {
+        "url": "https://storage.supabase.com/sign/chat-image/chat/1/20_1737572379_54b5d9c4.jpg?token=...",
+        "expiresAt": "2026-01-14T11:00:00"
+      }
+    ],
+    "createdAt": "2026-01-14T10:30:00",
+    "success": true
+  },
+  "statusCode": 200,
+  "success": true
+}
+```
+
 | Field | Type | Description |
 |-------|------|-------------|
 | messageId | long | 메시지 ID |
@@ -199,9 +256,16 @@ Content-Type: multipart/form-data
 | senderNickname | string | 발신자 닉네임 |
 | senderProfileImage | string? | 발신자 프로필 이미지 URL (Signed URL, nullable) |
 | message | string? | 메시지 내용 (텍스트 메시지인 경우) |
-| imageUrl | string? | 이미지 URL (이미지 메시지인 경우, Signed URL) |
-| imageUrlExpiresAt | DateTime? | 이미지 URL 만료 시간 |
+| images | List<ImageInfo>? | 첨부된 이미지 목록 |
 | createdAt | DateTime | 메시지 생성 시간 |
+| success | bool | 요청 성공 여부 |
+
+**ImageInfo 필드**
+| Field | Type | Description |
+|-------|------|-------------|
+| url | string | 이미지 Signed URL |
+| expiresAt | DateTime? | URL 만료 시간 |
+
 | success | bool | 전송 성공 여부 |
 
 **SignalR 실시간 알림**
@@ -209,13 +273,18 @@ Content-Type: multipart/form-data
 ```json
 Event: "ReceiveMessage"
 {
-  "messageId": 789,
+  "messageId": 791,
   "roomId": 1,
   "senderId": 20,
   "senderNickname": "구매자",
   "senderProfileImage": "https://...",
   "message": "안녕하세요",
-  "imageUrl": null,
+  "images": [
+    {
+      "url": "https://...",
+      "expiresAt": "..."
+    }
+  ],
   "createdAt": "2026-01-14T10:30:00"
 }
 ```
@@ -562,9 +631,30 @@ await connection.invoke("JoinRoom", roomId);
 ### 파일 업로드
 
 이미지 메시지 전송 시:
-- **허용 형식**: jpg, jpeg, png, gif
-- **최대 크기**: 5MB
+- **허용 형식**: jpg, jpeg, png, gif, webp
+- **최대 크기**: 10MB
 - **저장소**: Supabase Storage
+
+**Supabase Storage 버킷 구조**
+
+채팅 이미지는 `chat-image` 버킷에 저장되며, 다음과 같은 경로 구조를 사용합니다:
+
+```
+ 버킷:
+  └── chat/{roomId}/{userId}_{timestamp}_{guid}.jpg
+
+예시:
+  chat/1/20_1737572379_54b5d9c468cd4f3aa689ef90934d2c03.jpg
+```
+
+**Signed URL 방식**
+- 모든 이미지 URL은 Signed URL 방식으로 제공됩니다
+- 기본 만료 시간: 30분 (1800초)
+- URL 만료 후 `/api/chat/messages/image-url` API로 재발급 가능
+
+**참고**:
+- objectKey는 `chat/{roomId}/` prefix를 포함한 전체 경로로 저장됩니다
+- 버킷명은 자동으로 추론되며, 명시적으로 지정할 필요가 없습니다
 
 ---
 
@@ -596,6 +686,26 @@ await connection.invoke("JoinRoom", roomId);
 
 ---
 
+## 변경 이력
+
+### v2.1 (2026-01-22)
+- ✅ **이미지 + 텍스트 동시 전송 기능 추가**
+  - POST /api/chat/messages API에서 message와 image를 동시에 전송 가능
+  - Response 예시 추가 (텍스트만, 이미지만, 이미지+텍스트)
+- 🔧 **Supabase Storage 업로드 로직 개선**
+  - objectKey 처리 방식 수정 (prefix 유지)
+  - 에러 로깅 개선 (응답 body 캡처)
+  - 버킷 구조 문서화 추가
+- 📝 **파일 업로드 섹션 보강**
+  - 버킷 구조 상세 설명 추가
+  - Signed URL 방식 설명 추가
+  - 최대 파일 크기 10MB로 업데이트
+
+### v2.0 (2026-01-14)
+- Query Parameter 및 Request Body 방식으로 리팩토링 완료
+
+---
+
 **작성일**: 2026-01-14
-**버전**: v2.0
-**최종 업데이트**: Query Parameter 및 Request Body 방식으로 리팩토링 완료
+**버전**: v2.1
+**최종 업데이트**: 2026-01-22 - 이미지 + 텍스트 동시 전송 기능 및 Supabase Storage 개선
