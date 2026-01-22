@@ -43,7 +43,15 @@ public class SupabaseStorageUploader : IStorageUploader
         cts.CancelAfter(TimeSpan.FromSeconds(_settings.UploadTimeoutSec));
 
         var response = await _httpClient.SendAsync(request, cts.Token);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("[SupabaseStorageUploader.UploadAsync] Upload failed: StatusCode={StatusCode}, Bucket={Bucket}, ObjectKey={ObjectKey}, Error={Error}",
+                response.StatusCode, effectiveBucket, objectKey, errorContent);
+
+            throw new HttpRequestException($"Supabase 파일 업로드 실패 (Bucket: {effectiveBucket}, Key: {objectKey}): {response.StatusCode} - {errorContent}");
+        }
 
         _logger.LogInformation("[SupabaseStorageUploader.UploadAsync] Uploaded: {ObjectKey} to bucket: {Bucket}", objectKey, effectiveBucket);
         return objectKey;
@@ -92,9 +100,6 @@ public class SupabaseStorageUploader : IStorageUploader
 
         var effectiveBucket = GetEffectiveBucketName(bucketName);
         var url = $"/storage/v1/object/sign/{effectiveBucket}";
-
-        // Supabase API에 전달할 때 object key를 그대로 사용 (prefix 유지)
-        // 응답의 path와 매칭을 위한 identity mapping
         var body = new { expiresIn = expirySec, paths = keysList };
 
         _logger.LogInformation("[SupabaseStorageUploader.GetSignedUrlsBatchAsync] Requesting batch signed URLs: Bucket={Bucket}, Count={Count}, Keys=[{Keys}]",
@@ -175,33 +180,6 @@ public class SupabaseStorageUploader : IStorageUploader
 #pragma warning disable CS0618 // BucketName is obsolete
         return bucketName ?? _settings.BucketName;
 #pragma warning restore CS0618
-    }
-
-    /// <summary>
-    /// Object key에서 버킷 prefix 제거
-    /// 예: "tickets/34/abc.jpg" -> "34/abc.jpg" (when bucket = "ticket-images")
-    /// </summary>
-    private string StripBucketPrefix(string objectKey, string bucketName)
-    {
-        // 각 버킷의 prefix 패턴
-        var bucketPrefixes = new Dictionary<string, string>
-        {
-            { _settings.BucketNames.ProfileImage, "profiles/" },
-            { _settings.BucketNames.ChatImage, "chat/" },
-            { _settings.BucketNames.TicketImage, "tickets/" }
-        };
-
-        // 현재 버킷에 해당하는 prefix 찾기
-        if (bucketPrefixes.TryGetValue(bucketName, out var prefix))
-        {
-            if (objectKey.StartsWith(prefix))
-            {
-                return objectKey.Substring(prefix.Length);
-            }
-        }
-
-        // prefix가 없거나 매칭되지 않으면 그대로 반환
-        return objectKey;
     }
 
     private record SignUrlResponse(string? SignedUrl);
