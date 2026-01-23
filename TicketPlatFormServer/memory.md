@@ -47,3 +47,6 @@ memory.md 파일 업데이트 주기 : 주간
    - `.gitignore`에 `appsettings.Development.json` 추가 권장
    - `.gitignore`에 `.mcp.json` 추가 권장 (환경별 경로/비밀번호 다름)
    - 각 환경에 맞는 설정 파일 유지
+6. **Key**
+   - Key 값이 표함되어 있는 설정 파일은 절대 바로 사용금지
+   - env 파일로 분리 후 사용 할것
