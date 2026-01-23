@@ -35,4 +35,9 @@ public partial class ChatMessage
     public virtual ChatRoom Room { get; set; } = null!;
 
     public virtual User Sender { get; set; } = null!;
+
+    /// <summary>
+    /// 메시지에 첨부된 이미지들
+    /// </summary>
+    public virtual ICollection<ChatMessageImage> Images { get; set; } = new List<ChatMessageImage>();
 }

@@ -22,6 +22,21 @@ public class TicketInfo
     public string Title { get; set; } = null!;
     public int Price { get; set; }
     public string? ThumbnailUrl { get; set; }
+    
+    /// <summary>
+    /// 좌석 정보 (예: "1층 VIP A구역 3열")
+    /// </summary>
+    public string? SeatInfo { get; set; }
+    
+    /// <summary>
+    /// 공연 일시
+    /// </summary>
+    public DateTime? EventDateTime { get; set; }
+    
+    /// <summary>
+    /// 공연장 이름
+    /// </summary>
+    public string? VenueName { get; set; }
 }
 
 public class UserInfo

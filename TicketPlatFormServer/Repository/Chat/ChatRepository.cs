@@ -15,7 +15,11 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     public async Task<ChatRoom?> GetChatRoomById(long roomId)
     {
         return await db.ChatRooms
-            .Include(cr => cr.Ticket)
+            .AsNoTracking()
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Event)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatGrade)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatLocation)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Area)
             .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Status)
@@ -29,12 +33,37 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     public async Task<ChatRoom?> GetChatRoomByTicketAndBuyer(int ticketId, int buyerId)
     {
         return await db.ChatRooms
-            .Include(cr => cr.Ticket)
+            .AsNoTracking()
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Event)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatGrade)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatLocation)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Area)
             .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Status)
             .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
             .FirstOrDefaultAsync(cr => cr.TicketId == ticketId && cr.BuyerId == buyerId && cr.DeletedAt == null);
+    }
+
+    /// <summary>
+    /// 티켓과 사용자로 채팅방 조회 (Seller와 Buyer 모두 조회 가능)
+    /// </summary>
+    public async Task<ChatRoom?> GetChatRoomByTicketAndUser(int ticketId, int userId)
+    {
+        return await db.ChatRooms
+            .AsNoTracking()
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Event)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatGrade)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatLocation)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Area)
+            .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
+            .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
+            .Include(cr => cr.Status)
+            .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
+            .FirstOrDefaultAsync(cr =>
+                cr.TicketId == ticketId &&
+                (cr.BuyerId == userId || cr.SellerId == userId) &&
+                cr.DeletedAt == null);
     }
 
     /// <summary>
@@ -45,12 +74,15 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
         var offset = (page - 1) * pageSize;
 
         var rooms = await db.ChatRooms
-            .Include(cr => cr.Ticket)
+            .AsNoTracking()
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Event)
             .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
             .Include(cr => cr.Status)
             .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
-            .Where(cr => (cr.BuyerId == userId || cr.SellerId == userId) && cr.DeletedAt == null)
+            .Where(cr => (cr.BuyerId == userId || cr.SellerId == userId)
+                      && cr.DeletedAt == null
+                      && cr.LastMessageAt != null)
             .OrderByDescending(cr => cr.LastMessageAt)
             .Skip(offset)
             .Take(pageSize)
@@ -71,7 +103,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
             BuyerId = buyerId,
             SellerId = sellerId,
             StatusId = statusId,
-            LastMessageAt = DateTime.UtcNow,
+            LastMessageAt = null,
             UnreadCountBuyer = 0,
             UnreadCountSeller = 0,
             CreatedAt = DateTime.UtcNow
@@ -231,12 +263,51 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     }
 
     /// <summary>
+    /// 다중 이미지 메시지 생성
+    /// </summary>
+    public async Task<ChatMessage> CreateMessageWithImages(long roomId, int senderId, string? message, List<string> imageObjectKeys)
+    {
+        var chatMessage = new ChatMessage
+        {
+            RoomId = roomId,
+            SenderId = senderId,
+            Message = message,
+            ImageUrl = imageObjectKeys.FirstOrDefault(),  // 첫번째 이미지 (하위 호환성)
+            CreatedAt = DateTime.UtcNow
+        };
+
+        db.ChatMessages.Add(chatMessage);
+        await db.SaveChangesAsync();
+
+        // 이미지들 저장
+        if (imageObjectKeys.Count > 0)
+        {
+            var images = imageObjectKeys.Select((key, index) => new ChatMessageImage
+            {
+                MessageId = chatMessage.Id,
+                ImageUrl = key,
+                SortOrder = index,
+                CreatedAt = DateTime.UtcNow
+            }).ToList();
+
+            db.ChatMessageImages.AddRange(images);
+            await db.SaveChangesAsync();
+        }
+
+        logger.LogInformation("[ChatRepository.CreateMessageWithImages] MessageId: {MessageId}, RoomId: {RoomId}, ImageCount: {ImageCount}",
+            chatMessage.Id, roomId, imageObjectKeys.Count);
+
+        return chatMessage;
+    }
+
+    /// <summary>
     /// 메시지 ID로 조회 (발신자 정보 포함)
     /// </summary>
     public async Task<ChatMessage?> GetMessageById(long messageId)
     {
         return await db.ChatMessages
             .Include(cm => cm.Sender).ThenInclude(u => u.UserProfile)
+            .Include(cm => cm.Images.OrderBy(i => i.SortOrder))
             .FirstOrDefaultAsync(cm => cm.Id == messageId);
     }
 
@@ -247,6 +318,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     {
         var query = db.ChatMessages
             .Include(cm => cm.Sender).ThenInclude(u => u.UserProfile)
+            .Include(cm => cm.Images.OrderBy(i => i.SortOrder))
             .Where(cm => cm.RoomId == roomId);
 
         if (lastMessageId.HasValue)
@@ -352,6 +424,32 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
 
         logger.LogInformation("[ChatRepository.DeleteMessagesForRoom] RoomId: {RoomId}, Deleted: {Count}", roomId, messages.Count);
         return messages.Count;
+    }
+
+    /// <summary>
+    /// 메시지 삭제 (이미지 포함)
+    /// </summary>
+    public async Task DeleteMessage(long messageId)
+    {
+        var message = await db.ChatMessages
+            .Include(cm => cm.Images)
+            .FirstOrDefaultAsync(cm => cm.Id == messageId);
+
+        if (message != null)
+        {
+            // 관련 이미지 먼저 삭제
+            if (message.Images != null && message.Images.Count > 0)
+            {
+                db.ChatMessageImages.RemoveRange(message.Images);
+            }
+
+            // 메시지 삭제
+            db.ChatMessages.Remove(message);
+            await db.SaveChangesAsync();
+
+            logger.LogInformation("[ChatRepository.DeleteMessage] MessageId: {MessageId}, ImageCount: {ImageCount}",
+                messageId, message.Images?.Count ?? 0);
+        }
     }
 
     /// <summary>

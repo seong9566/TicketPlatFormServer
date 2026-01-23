@@ -1,5 +1,11 @@
+using System;
+using System.Collections.Generic;
+
 namespace TicketPlatFormServer.DTO.Chat;
 
+/// <summary>
+/// 채팅 메시지 조회 응답 DTO
+/// </summary>
 public class ChatMessageRespDto
 {
     public long MessageId { get; set; }
@@ -8,8 +14,12 @@ public class ChatMessageRespDto
     public string SenderNickname { get; set; } = null!;
     public string? SenderProfileImage { get; set; }
     public string? Message { get; set; }
-    public string? ImageUrl { get; set; }
-    public DateTime? ImageUrlExpiresAt { get; set; }
+    
+    /// <summary>
+    /// 첨부된 이미지들
+    /// </summary>
+    public List<ImageInfo>? Images { get; set; }
+    
     public DateTime CreatedAt { get; set; }
     public bool IsMyMessage { get; set; }
 }

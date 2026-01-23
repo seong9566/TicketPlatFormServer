@@ -8,6 +8,8 @@ public interface IChatService
     Task<ChatRoomDetailRespDto> GetOrCreateChatRoom(int ticketId, int userId);
     Task<List<ChatRoomListRespDto>> GetChatRooms(int userId, int page, int pageSize);
     Task<ChatRoomDetailRespDto> GetChatRoomDetail(long roomId, int userId);
+    Task<ChatRoomDetailRespDto?> GetChatRoomByTicket(int ticketId, int userId);
+    Task<DBModel.ChatRoom?> GetChatRoomById(long roomId);
 
     // Messaging
     Task<SendMessageRespDto> SendMessage(SendMessageReqDto req);

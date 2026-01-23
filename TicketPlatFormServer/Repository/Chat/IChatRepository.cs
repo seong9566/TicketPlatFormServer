@@ -7,6 +7,7 @@ public interface IChatRepository
     // Chat Room Operations
     Task<ChatRoom?> GetChatRoomById(long roomId);
     Task<ChatRoom?> GetChatRoomByTicketAndBuyer(int ticketId, int buyerId);
+    Task<ChatRoom?> GetChatRoomByTicketAndUser(int ticketId, int userId);
     Task<List<ChatRoom>> GetChatRoomsByUserId(int userId, int page, int pageSize);
     Task<ChatRoom> CreateChatRoom(int ticketId, int buyerId, int sellerId, long statusId);
     Task UpdateChatRoomStatus(long roomId, long statusId);
@@ -20,10 +21,12 @@ public interface IChatRepository
 
     // Message Operations
     Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl);
+    Task<ChatMessage> CreateMessageWithImages(long roomId, int senderId, string? message, List<string> imageObjectKeys);
     Task<ChatMessage?> GetMessageById(long messageId);
     Task<List<ChatMessage>> GetMessagesByRoomId(long roomId, long? lastMessageId, int limit);
     Task<Dictionary<long, string?>> GetLastMessagesForRooms(IEnumerable<long> roomIds);
     Task<int> GetUnreadCount(long roomId, int userId);
+    Task DeleteMessage(long messageId);
 
     // Cleanup Operations
     Task<List<long>> GetExpiredChatRooms(int retentionDays);

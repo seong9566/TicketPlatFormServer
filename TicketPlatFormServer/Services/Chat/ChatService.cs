@@ -1,5 +1,7 @@
 using System.Net;
 using TicketPlatFormServer.Common;
+using TicketPlatFormServer.Config;
+using TicketPlatFormServer.DBModel;
 using TicketPlatFormServer.DTO.Chat;
 using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Ticket;
@@ -13,6 +15,7 @@ public class ChatService(
     ITicketRepository ticketRepo,
     ITransactionRepository transactionRepo,
     IFileUploadService fileUploadService,
+    SupabaseStorageSettings supabaseSettings,
     ILogger<ChatService> logger) : IChatService
 {
     private const int DetailMessageLimit = 30;
@@ -150,6 +153,38 @@ public class ChatService(
     }
 
     /// <summary>
+    /// 채팅방 ID로 조회 (권한 검증 없음)
+    /// </summary>
+    public async Task<ChatRoom?> GetChatRoomById(long roomId)
+    {
+        return await chatRepo.GetChatRoomById(roomId);
+    }
+
+    /// <summary>
+    /// 티켓으로 채팅방 조회 (생성하지 않음)
+    /// </summary>
+    public async Task<ChatRoomDetailRespDto?> GetChatRoomByTicket(int ticketId, int userId)
+    {
+        // 티켓 조회
+        var ticket = await ticketRepo.GetTicketDetailById(ticketId);
+        if (ticket == null)
+        {
+            throw new AppException("티켓을 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        // 채팅방 조회 (생성하지 않음)
+        var existingRoom = await chatRepo.GetChatRoomByTicketAndUser(ticketId, userId);
+
+        if (existingRoom == null)
+        {
+            return null; // Controller에서 404 처리
+        }
+        // 메시지 로드 및 매핑
+        var messages = await GetRecentMessages(existingRoom.Id, userId);
+        return await MapToRoomDetailDto(existingRoom, userId, messages);
+    }
+
+    /// <summary>
     /// 메시지 전송
     /// </summary>
     public async Task<SendMessageRespDto> SendMessage(SendMessageReqDto req)
@@ -169,48 +204,117 @@ public class ChatService(
             throw new AppException("이 채팅방은 더 이상 메시지를 보낼 수 없습니다.", HttpStatusCode.Forbidden);
         }
 
-        // 이미지 업로드 (있는 경우)
-        string? imageObjectKey = null;
-        string? imageSignedUrl = null;
-        DateTime? imageExpiresAt = null;
-
-        if (req.Image != null)
+        // 이미지 개수 제한 검증
+        var maxImages = supabaseSettings.MaxChatImagesPerMessage;
+        if (req.Images != null && req.Images.Count > maxImages)
         {
-            var uploadResult = await fileUploadService.UploadChatImageAsync(req.Image, req.UserId, req.RoomId);
-            imageObjectKey = uploadResult.ObjectKey;
-            imageSignedUrl = uploadResult.SignedUrl;
-            imageExpiresAt = uploadResult.ExpiresAt;
+            throw new AppException($"이미지는 최대 {maxImages}개까지 전송할 수 있습니다.", HttpStatusCode.BadRequest);
         }
 
         // 메시지 또는 이미지 중 하나는 필수
-        if (string.IsNullOrWhiteSpace(req.Message) && string.IsNullOrWhiteSpace(imageObjectKey))
+        if (string.IsNullOrWhiteSpace(req.Message) && (req.Images == null || req.Images.Count == 0))
         {
             throw new AppException("메시지 또는 이미지를 입력해주세요.", HttpStatusCode.BadRequest);
         }
 
-        // 메시지 저장 (DB에는 object key 저장)
-        var message = await chatRepo.CreateMessage(req.RoomId, req.UserId, req.Message, imageObjectKey);
+        // 다중 이미지 업로드 (롤백 지원)
+        var uploadResults = new List<(string ObjectKey, string SignedUrl, DateTime ExpiresAt)>();
+        var uploadedKeys = new List<string>();
+        ChatMessage? message = null;
 
-        // 마지막 메시지 시간 업데이트
-        await chatRepo.UpdateLastMessageAt(req.RoomId, message.CreatedAt ?? DateTime.UtcNow);
-
-        // 상대방 읽지 않은 메시지 수 증가
-        var isSenderBuyer = room.BuyerId == req.UserId;
-        await chatRepo.IncrementUnreadCount(req.RoomId, !isSenderBuyer);
-
-        logger.LogInformation("[ChatService.SendMessage] 메시지 전송: MessageId={MessageId}, RoomId={RoomId}, SenderId={SenderId}",
-            message.Id, req.RoomId, req.UserId);
-
-        return new SendMessageRespDto
+        try
         {
-            MessageId = message.Id,
-            RoomId = req.RoomId,
-            Message = req.Message,
-            ImageUrl = imageSignedUrl,
-            ImageUrlExpiresAt = imageExpiresAt,
-            CreatedAt = message.CreatedAt ?? DateTime.UtcNow,
-            Success = true
-        };
+            // 1단계: 이미지 업로드 (스토리지)
+            if (req.Images != null && req.Images.Count > 0)
+            {
+                foreach (var image in req.Images)
+                {
+                    var result = await fileUploadService.UploadChatImageAsync(image, req.UserId, req.RoomId);
+                    uploadResults.Add((result.ObjectKey, result.SignedUrl, result.ExpiresAt));
+                    uploadedKeys.Add(result.ObjectKey);
+                }
+            }
+
+            // 2단계: 메시지 저장 (DB에는 object key 저장)
+            var imageKeys = uploadResults.Select(r => r.ObjectKey).ToList();
+            message = await chatRepo.CreateMessageWithImages(req.RoomId, req.UserId, req.Message, imageKeys);
+
+            // 3단계: 메타데이터 업데이트 (이 단계 실패 시 메시지도 롤백 필요)
+            try
+            {
+                // 마지막 메시지 시간 업데이트
+                await chatRepo.UpdateLastMessageAt(req.RoomId, message.CreatedAt ?? DateTime.UtcNow);
+
+                // 상대방 읽지 않은 메시지 수 증가
+                var isSenderBuyer = room.BuyerId == req.UserId;
+                await chatRepo.IncrementUnreadCount(req.RoomId, !isSenderBuyer);
+            }
+            catch (Exception metadataEx)
+            {
+                // 메타데이터 업데이트 실패 시 메시지 삭제 (보상 트랜잭션)
+                logger.LogError(metadataEx, "[ChatService.SendMessage] 메타데이터 업데이트 실패, 메시지 롤백: MessageId={MessageId}", message.Id);
+                await chatRepo.DeleteMessage(message.Id);
+                throw;
+            }
+
+            // 발신자 정보 조회
+            var (senderNickname, senderProfileImage) = await GetSenderInfoForSignalR(message.Id);
+
+            logger.LogInformation("[ChatService.SendMessage] 메시지 전송 성공: MessageId={MessageId}, RoomId={RoomId}, SenderId={SenderId}, ImageCount={ImageCount}",
+                message.Id, req.RoomId, req.UserId, uploadResults.Count);
+
+            return new SendMessageRespDto
+            {
+                MessageId = message.Id,
+                RoomId = req.RoomId,
+                SenderId = req.UserId,
+                SenderNickname = senderNickname,
+                SenderProfileImage = senderProfileImage,
+                Message = req.Message,
+                Images = uploadResults.Select(r => new ImageInfo
+                {
+                    Url = r.SignedUrl,
+                    ExpiresAt = r.ExpiresAt
+                }).ToList(),
+                CreatedAt = message.CreatedAt ?? DateTime.UtcNow,
+                Success = true
+            };
+        }
+        catch (Exception ex)
+        {
+            // 전체 롤백: 메시지 삭제 (이미 시도했을 수도 있지만 안전하게 재시도)
+            if (message != null)
+            {
+                try
+                {
+                    await chatRepo.DeleteMessage(message.Id);
+                    logger.LogInformation("[ChatService.SendMessage] 롤백 완료: 메시지 삭제 MessageId={MessageId}", message.Id);
+                }
+                catch (Exception deleteEx)
+                {
+                    logger.LogError(deleteEx, "[ChatService.SendMessage] 메시지 삭제 실패 (이미 삭제되었을 수 있음): MessageId={MessageId}", message.Id);
+                }
+            }
+
+            // 업로드된 파일 삭제
+            if (uploadedKeys.Count > 0)
+            {
+                logger.LogWarning(ex, "[ChatService.SendMessage] 메시지 전송 실패, 업로드된 이미지 롤백: {Count}개", uploadedKeys.Count);
+                foreach (var key in uploadedKeys)
+                {
+                    try
+                    {
+                        await fileUploadService.DeleteFileAsync(key);
+                    }
+                    catch (Exception fileDeleteEx)
+                    {
+                        logger.LogError(fileDeleteEx, "[ChatService.SendMessage] 파일 삭제 실패: {Key}", key);
+                    }
+                }
+            }
+
+            throw;
+        }
     }
 
     /// <summary>
@@ -464,10 +568,18 @@ public class ChatService(
     {
         var messageList = messages.ToList();
 
-        // 1. 이미지 Object Key 수집 (메시지 이미지)
+        // 1. 이미지 Object Key 수집
         var messageImageKeys = messageList
-            .Where(m => !string.IsNullOrEmpty(m.ImageUrl))
-            .Select(m => m.ImageUrl!)
+            .SelectMany(m => 
+            {
+                var keys = m.Images.Select(i => i.ImageUrl).ToList();
+                // 하위 호환성: Images가 비어있고 ImageUrl이 있으면 추가
+                if (keys.Count == 0 && !string.IsNullOrEmpty(m.ImageUrl))
+                {
+                    keys.Add(m.ImageUrl);
+                }
+                return keys;
+            })
             .Distinct()
             .ToList();
 
@@ -492,11 +604,26 @@ public class ChatService(
         return messageList.Select(m =>
         {
             // 메시지 이미지 처리
-            var hasImage = !string.IsNullOrEmpty(m.ImageUrl);
-            SignedUrlResult? imageSignedUrlResult = null;
-            if (hasImage && signedUrls.TryGetValue(m.ImageUrl!, out var imgResult))
+            var imagesInfo = new List<ImageInfo>();
+            
+            // 신규 다중 이미지 처리
+            if (m.Images != null && m.Images.Count > 0)
             {
-                imageSignedUrlResult = imgResult;
+                foreach (var img in m.Images.OrderBy(i => i.SortOrder))
+                {
+                    if (signedUrls.TryGetValue(img.ImageUrl, out var result))
+                    {
+                        imagesInfo.Add(new ImageInfo { Url = result.SignedUrl, ExpiresAt = result.ExpiresAt });
+                    }
+                }
+            }
+            // 하위 호환성: Images가 없을 때 기존 ImageUrl 사용
+            else if (!string.IsNullOrWhiteSpace(m.ImageUrl))
+            {
+                if (signedUrls.TryGetValue(m.ImageUrl, out var result))
+                {
+                    imagesInfo.Add(new ImageInfo { Url = result.SignedUrl, ExpiresAt = result.ExpiresAt });
+                }
             }
 
             // 프로필 이미지 처리
@@ -521,8 +648,7 @@ public class ChatService(
                 SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
                 SenderProfileImage = finalProfileImageUrl,
                 Message = m.Message,
-                ImageUrl = imageSignedUrlResult?.SignedUrl,
-                ImageUrlExpiresAt = imageSignedUrlResult?.ExpiresAt,
+                Images = imagesInfo.Count > 0 ? imagesInfo : null,
                 CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
                 IsMyMessage = m.SenderId == userId
             };
@@ -534,20 +660,24 @@ public class ChatService(
         var isBuyer = room.BuyerId == userId;
         var transaction = room.Transaction;
 
-        // 프로필 이미지 배치 처리
-        var profileKeys = new List<string>();
+        // 프로필 이미지 및 이벤트 포스터 배치 처리
+        var imageKeys = new List<string>();
 
         var buyerProfileKey = room.Buyer?.UserProfile?.ProfileImageUrl;
         var sellerProfileKey = room.Seller?.UserProfile?.ProfileImageUrl;
+        var eventPosterKey = room.Ticket?.Event?.PosterImageUrl;
 
         if (!string.IsNullOrEmpty(buyerProfileKey) && !buyerProfileKey.StartsWith("http"))
-            profileKeys.Add(buyerProfileKey);
+            imageKeys.Add(buyerProfileKey);
 
         if (!string.IsNullOrEmpty(sellerProfileKey) && !sellerProfileKey.StartsWith("http"))
-            profileKeys.Add(sellerProfileKey);
+            imageKeys.Add(sellerProfileKey);
 
-        var signedUrls = profileKeys.Count > 0
-            ? await fileUploadService.RefreshSignedUrlsBatchAsync(profileKeys)
+        if (!string.IsNullOrEmpty(eventPosterKey) && !eventPosterKey.StartsWith("http"))
+            imageKeys.Add(eventPosterKey);
+
+        var signedUrls = imageKeys.Count > 0
+            ? await fileUploadService.RefreshSignedUrlsBatchAsync(imageKeys)
             : new Dictionary<string, SignedUrlResult>();
 
         string? buyerProfileUrl = buyerProfileKey;
@@ -562,6 +692,13 @@ public class ChatService(
             sellerProfileUrl = sellerResult.SignedUrl;
         }
 
+        // 이벤트 포스터 URL 처리
+        string? eventPosterUrl = eventPosterKey;
+        if (!string.IsNullOrEmpty(eventPosterKey) && signedUrls.TryGetValue(eventPosterKey, out var posterResult))
+        {
+            eventPosterUrl = posterResult.SignedUrl;
+        }
+
         return new ChatRoomDetailRespDto
         {
             RoomId = room.Id,
@@ -570,7 +707,10 @@ public class ChatService(
                 TicketId = room.TicketId,
                 Title = room.Ticket?.Event?.Title ?? "",
                 Price = room.Ticket?.Price ?? 0,
-                ThumbnailUrl = null // TODO: 티켓 이미지 추가
+                ThumbnailUrl = eventPosterUrl,
+                SeatInfo = BuildSeatInfo(room.Ticket),
+                EventDateTime = room.Ticket?.EventDatetime,
+                VenueName = room.Ticket?.Event?.VenueName
             },
             Buyer = new UserInfo
             {
@@ -630,5 +770,37 @@ public class ChatService(
         }
 
         return (nickname, profileImageUrl);
+    }
+
+    /// <summary>
+    /// 티켓의 좌석 정보를 조합하여 문자열로 반환
+    /// 예: "1층 VIP A구역 3열"
+    /// </summary>
+    private static string? BuildSeatInfo(DBModel.Ticket? ticket)
+    {
+        if (ticket == null) return null;
+
+        var parts = new List<string>();
+
+        // 좌석 위치 (1층, 2층, 플로어석 등)
+        if (!string.IsNullOrEmpty(ticket.SeatLocation?.LocationName))
+            parts.Add(ticket.SeatLocation.LocationName);
+
+        // 좌석 등급 (VIP, R석 등)
+        if (!string.IsNullOrEmpty(ticket.SeatGrade?.NameKo))
+            parts.Add(ticket.SeatGrade.NameKo);
+
+        // 구역 (A구역, B구역 등)
+        if (!string.IsNullOrEmpty(ticket.Area?.AreaName))
+            parts.Add(ticket.Area.AreaName);
+
+        // 열 (3열, 5열 등) - "열" 이미 포함된 경우 중복 방지
+        if (!string.IsNullOrEmpty(ticket.Row))
+        {
+            var rowValue = ticket.Row.Trim();
+            parts.Add(rowValue.EndsWith("열") ? rowValue : $"{rowValue}열");
+        }
+
+        return parts.Count > 0 ? string.Join(" ", parts) : null;
     }
 }

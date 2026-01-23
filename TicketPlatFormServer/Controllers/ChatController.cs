@@ -73,6 +73,36 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
     }
 
     /// <summary>
+    /// 티켓으로 채팅방 조회 (생성하지 않음)
+    /// </summary>
+    [HttpGet("rooms/by-ticket")]
+    public async Task<IActionResult> GetChatRoomByTicket([FromQuery] int ticketId)
+    {
+        var userId = User.GetUserId();
+        if (userId == null)
+            throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
+
+        var result = await chatService.GetChatRoomByTicket(ticketId, userId.Value);
+
+        if (result == null)
+        {
+            var notFoundResp = new ApiResponse<object>(
+                message: "채팅방이 존재하지 않습니다",
+                data: null,
+                statusCode: 404
+            );
+            return NotFound(notFoundResp);
+        }
+
+        var resp = new ApiResponse<ChatRoomDetailRespDto>(
+            message: "채팅방 조회 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
+
+    /// <summary>
     /// 메시지 전송 (텍스트 또는 이미지)
     /// </summary>
     [HttpPost("messages")]
@@ -86,32 +116,45 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
 
         var result = await chatService.SendMessage(req);
 
-        // 발신자 정보 로드
-        var senderInfo = await chatService.GetSenderInfoForSignalR(result.MessageId);
+        // 채팅방 정보 조회하여 수신자 파악
+        var room = await chatService.GetChatRoomById(req.RoomId);
+        if (room == null)
+        {
+            throw new AppException("채팅방을 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
 
-        logger.LogInformation("[ChatController.SendMessage] Broadcasting message to room_{RoomId}. MessageId: {MessageId}, SenderId: {SenderId}",
-            req.RoomId, result.MessageId, userId.Value);
+        // 수신자 ID 결정 (발신자가 아닌 다른 사람)
+        var receiverId = room.BuyerId == userId.Value
+            ? room.SellerId
+            : room.BuyerId;
 
-        // SignalR을 통해 실시간으로 메시지 브로드캐스트
+        var messageDto = new NewMessageSignalDto
+        {
+            MessageId = result.MessageId,
+            RoomId = result.RoomId,
+            SenderId = userId.Value,
+            SenderNickname = result.SenderNickname,
+            SenderProfileImage = result.SenderProfileImage,
+            Message = result.Message,
+            Images = result.Images,
+            CreatedAt = result.CreatedAt
+        };
+
+        logger.LogInformation(
+            "[ChatController.SendMessage] Broadcasting message to room_{RoomId}. MessageId: {MessageId}, SenderId: {SenderId}, ReceiverId: {ReceiverId}",
+            req.RoomId, result.MessageId, userId.Value, receiverId);
+
+        // 채팅방 안에 있는 사람들에게 전송 (기존)
         await hubContext.Clients.Group($"room_{req.RoomId}")
-            .SendAsync("ReceiveMessage", new NewMessageSignalDto
-            {
-                MessageId = result.MessageId,
-                RoomId = result.RoomId,
-                SenderId = userId.Value,
-                SenderNickname = senderInfo.Nickname,
-                SenderProfileImage = senderInfo.ProfileImageUrl,
-                Message = result.Message,
-                ImageUrl = result.ImageUrl,
-                CreatedAt = result.CreatedAt
-            });
+            .SendAsync("ReceiveMessage", messageDto);
 
-        logger.LogInformation("[ChatController.SendMessage] SignalR broadcast completed for room_{RoomId}", req.RoomId);
+        // 수신자에게 직접 전송 (어느 화면에 있든 수신 가능)
+        await hubContext.Clients.Group($"user_{receiverId}")
+            .SendAsync("ReceiveMessage", messageDto);
 
-        // HTTP 응답에 발신자 정보 추가
-        result.SenderId = userId.Value;
-        result.SenderNickname = senderInfo.Nickname;
-        result.SenderProfileImage = senderInfo.ProfileImageUrl;
+        logger.LogInformation(
+            "[ChatController.SendMessage]  SignalR broadcast completed: room_{RoomId} and user_{ReceiverId}",
+            req.RoomId, receiverId);
 
         var resp = new ApiResponse<SendMessageRespDto>(
             message: "메시지 전송 성공",

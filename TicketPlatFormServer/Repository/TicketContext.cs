@@ -36,6 +36,8 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<ChatMessage> ChatMessages { get; set; }
 
+    public virtual DbSet<ChatMessageImage> ChatMessageImages { get; set; }
+
     public virtual DbSet<ChatRoom> ChatRooms { get; set; }
 
     public virtual DbSet<ChatRoomStatus> ChatRoomStatuses { get; set; }
@@ -437,6 +439,40 @@ public partial class TicketContext : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
+        modelBuilder.Entity<ChatMessageImage>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("chat_message_images", tb => tb.HasComment("채팅 메시지 이미지 테이블"));
+
+            entity.HasIndex(e => e.MessageId, "idx_chat_message_images_message");
+            entity.HasIndex(e => new { e.MessageId, e.SortOrder }, "uk_chat_message_images_order").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.MessageId)
+                .HasComment("메시지 FK")
+                .HasColumnName("message_id");
+            entity.Property(e => e.ImageUrl)
+                .IsRequired()
+                .HasMaxLength(500)
+                .HasComment("Supabase Object Key")
+                .HasColumnName("image_url");
+            entity.Property(e => e.SortOrder)
+                .HasDefaultValue(0)
+                .HasComment("이미지 순서 (0부터 시작)")
+                .HasColumnName("sort_order");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("datetime")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Message)
+                .WithMany(p => p.Images)
+                .HasForeignKey(d => d.MessageId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_chat_message_images_message");
+        });
+
         modelBuilder.Entity<ChatRoom>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
@@ -456,6 +492,10 @@ public partial class TicketContext : DbContext
             entity.HasIndex(e => e.StatusId, "idx_chat_status_id");
 
             entity.HasIndex(e => new { e.TicketId, e.BuyerId }, "idx_chat_ticket_buyer").IsUnique();
+
+            entity.HasIndex(e => new { e.TicketId, e.BuyerId, e.DeletedAt }, "idx_chat_ticket_buyer_deleted");
+
+            entity.HasIndex(e => new { e.TicketId, e.SellerId, e.DeletedAt }, "idx_chat_ticket_seller_deleted");
 
             entity.HasIndex(e => e.TransactionId, "idx_chat_transaction");
 
