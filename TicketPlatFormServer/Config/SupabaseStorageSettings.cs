@@ -25,6 +25,11 @@ public class SupabaseStorageSettings
     public int UploadTimeoutSec { get; set; } = 30;
     public int SignUrlTimeoutSec { get; set; } = 5;
     public int DeleteTimeoutSec { get; set; } = 10;
+
+    /// <summary>
+    /// 채팅 메시지당 최대 이미지 수
+    /// </summary>
+    public int MaxChatImagesPerMessage { get; set; } = 5;
 }
 
 /// <summary>
@@ -33,6 +38,6 @@ public class SupabaseStorageSettings
 public class BucketNames
 {
     public string ProfileImage { get; set; } = "profile-image";
-    public string ChatImage { get; set; } = "chat-image";
+    public string ChatImage { get; set; } = "chat-images";
     public string TicketImage { get; set; } = "ticket-image";
 }
