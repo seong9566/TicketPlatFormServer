@@ -19,7 +19,7 @@ public class SupabaseStorageSettings
     public BucketNames BucketNames { get; set; } = new();
 
     public int MaxFileSizeMB { get; set; } = 10;
-    public string[] AllowedExtensions { get; set; } = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+    public string[] AllowedExtensions { get; set; } = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg", ".heic", ".heif", ".avif"];
     public int UploadSignedUrlExpirySec { get; set; } = 3600;
     public int ReadSignedUrlExpirySec { get; set; } = 1800;
     public int UploadTimeoutSec { get; set; } = 30;

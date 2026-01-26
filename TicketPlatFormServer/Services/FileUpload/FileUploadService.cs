@@ -29,23 +29,32 @@ public class FileUploadService(
             throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 2. 확장자 검증
-        var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!supabaseSettings.AllowedExtensions.Contains(fileExtension))
+        // 2. 파일 확장자 및 실제 타입 검증
+        using var stream = file.OpenReadStream();
+
+        // 실제 파일 타입 감지
+        var detectedExtension = await MagicBytesValidator.DetectFileTypeAsync(stream);
+        if (detectedExtension == null)
+        {
+            throw new AppException("지원하지 않는 파일 형식입니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 감지된 확장자가 허용 목록에 있는지 확인
+        if (!supabaseSettings.AllowedExtensions.Contains(detectedExtension))
         {
             throw new AppException(
                 $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
                 HttpStatusCode.BadRequest);
         }
 
-        // 3. Magic bytes 검증
-        using var stream = file.OpenReadStream();
-        var isMagicBytesValid = await MagicBytesValidator.ValidateAsync(stream, fileExtension);
-        if (!isMagicBytesValid)
+        var originalExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var fileExtension = detectedExtension;
+
+        // 확장자가 다른 경우 경고 로그
+        if (originalExtension != detectedExtension)
         {
-            logger.LogWarning("[FileUploadService] Magic bytes mismatch: Extension={Ext}, ContentType={ContentType}",
-                fileExtension, file.ContentType);
-            throw new AppException("파일 내용이 확장자와 일치하지 않습니다.", HttpStatusCode.BadRequest);
+            logger.LogWarning("[FileUploadService.UploadChatImageAsync] Extension mismatch: FileName={FileName}, Original={Original}, Detected={Detected}",
+                file.FileName, originalExtension, detectedExtension);
         }
 
         // 4. Object key 생성
@@ -128,23 +137,32 @@ public class FileUploadService(
                 throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
             }
 
-            // 3. 확장자 검증
-            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!supabaseSettings.AllowedExtensions.Contains(fileExtension))
+            // 3. 파일 확장자 및 실제 타입 검증
+            using var stream = file.OpenReadStream();
+
+            // 실제 파일 타입 감지
+            var detectedExtension = await MagicBytesValidator.DetectFileTypeAsync(stream);
+            if (detectedExtension == null)
+            {
+                throw new AppException("지원하지 않는 파일 형식입니다.", HttpStatusCode.BadRequest);
+            }
+
+            // 감지된 확장자가 허용 목록에 있는지 확인
+            if (!supabaseSettings.AllowedExtensions.Contains(detectedExtension))
             {
                 throw new AppException(
                     $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
                     HttpStatusCode.BadRequest);
             }
 
-            // 4. Magic bytes 검증
-            using var stream = file.OpenReadStream();
-            var isMagicBytesValid = await MagicBytesValidator.ValidateAsync(stream, fileExtension);
-            if (!isMagicBytesValid)
+            var originalExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var fileExtension = detectedExtension;
+
+            // 확장자가 다른 경우 경고 로그
+            if (originalExtension != detectedExtension)
             {
-                logger.LogWarning("[FileUploadService.UploadTicketImagesAsync] Magic bytes mismatch for ticket: Extension={Ext}, ContentType={ContentType}",
-                    fileExtension, file.ContentType);
-                throw new AppException("파일 내용이 확장자와 일치하지 않습니다.", HttpStatusCode.BadRequest);
+                logger.LogWarning("[FileUploadService.UploadTicketImagesAsync] Extension mismatch: FileName={FileName}, Original={Original}, Detected={Detected}",
+                    file.FileName, originalExtension, detectedExtension);
             }
 
             // 5. Object key 생성
@@ -278,23 +296,32 @@ public class FileUploadService(
             throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 2. 확장자 검증
-        var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!supabaseSettings.AllowedExtensions.Contains(fileExtension))
+        // 2. 파일 확장자 및 실제 타입 검증
+        using var stream = file.OpenReadStream();
+
+        // 실제 파일 타입 감지
+        var detectedExtension = await MagicBytesValidator.DetectFileTypeAsync(stream);
+        if (detectedExtension == null)
+        {
+            throw new AppException("지원하지 않는 파일 형식입니다.", HttpStatusCode.BadRequest);
+        }
+
+        // 감지된 확장자가 허용 목록에 있는지 확인
+        if (!supabaseSettings.AllowedExtensions.Contains(detectedExtension))
         {
             throw new AppException(
                 $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
                 HttpStatusCode.BadRequest);
         }
 
-        // 3. Magic bytes 검증
-        using var stream = file.OpenReadStream();
-        var isMagicBytesValid = await MagicBytesValidator.ValidateAsync(stream, fileExtension);
-        if (!isMagicBytesValid)
+        var originalExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var fileExtension = detectedExtension;
+
+        // 확장자가 다른 경우 경고 로그
+        if (originalExtension != detectedExtension)
         {
-            logger.LogWarning("[FileUploadService.UploadUserProfileImageAsync] Magic bytes mismatch: Extension={Ext}, ContentType={ContentType}",
-                fileExtension, file.ContentType);
-            throw new AppException("파일 내용이 확장자와 일치하지 않습니다.", HttpStatusCode.BadRequest);
+            logger.LogWarning("[FileUploadService.UploadUserProfileImageAsync] Extension mismatch: FileName={FileName}, Original={Original}, Detected={Detected}",
+                file.FileName, originalExtension, detectedExtension);
         }
 
         // 4. Object key 생성 (profiles/{userId}/{guid}.{ext})
