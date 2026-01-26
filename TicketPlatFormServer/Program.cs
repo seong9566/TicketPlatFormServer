@@ -11,6 +11,7 @@ using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
+using TicketPlatFormServer.Repository.Payment;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Transactions;
@@ -22,6 +23,7 @@ using TicketPlatFormServer.Services.Event;
 using TicketPlatFormServer.Services.Favorite;
 using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Home;
+using TicketPlatFormServer.Services.Payment;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
@@ -137,6 +139,15 @@ builder.Configuration.GetSection("ChatSettings").Bind(chatSettings);
 builder.Services.AddSingleton(chatSettings);
 #endregion
 
+#region Toss Payments 설정
+var tossPaymentsSettings = new TossPaymentsSettings();
+builder.Configuration.GetSection("TossPayments").Bind(tossPaymentsSettings);
+builder.Services.AddSingleton(tossPaymentsSettings);
+
+// Resilience settings for HttpClient (loaded in Supabase Storage section below)
+// HttpClient for TossPaymentsService - will use resilienceSettings after it's loaded
+#endregion
+
 #region Supabase Storage 설정
 var supabaseSettings = new SupabaseStorageSettings();
 builder.Configuration.GetSection("SupabaseStorage").Bind(supabaseSettings);
@@ -163,6 +174,11 @@ builder.Services.AddHttpClient<SupabaseStorageUploader>()
 
 // IStorageUploader - Supabase로 설정
 builder.Services.AddScoped<IStorageUploader>(sp => sp.GetRequiredService<SupabaseStorageUploader>());
+
+// HttpClient for TossPaymentsService
+builder.Services.AddHttpClient("TossPayments")
+    .AddPolicyHandler(GetRetryPolicy(resilienceSettings))
+    .AddPolicyHandler(GetCircuitBreakerPolicy(resilienceSettings));
 
 static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(ResilienceSettings settings)
 {
@@ -239,6 +255,7 @@ builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<ITransactionItemRepository, TransactionItemRepository>();
 
 // Sell 서비스
 builder.Services.AddScoped<ISellRepository, SellRepository>();
@@ -248,6 +265,11 @@ builder.Services.AddScoped<ISellService, SellService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
+
+// Payment 서비스
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<ITossPaymentsService, TossPaymentsService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // Background 서비스
 builder.Services.AddHostedService<ChatCleanupService>();

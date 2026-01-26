@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
 using TicketPlatFormServer.DBModel;
 using TicketEntity = TicketPlatFormServer.DBModel.Ticket;
+using PaymentEntity = TicketPlatFormServer.DBModel.Payment;
 
 namespace TicketPlatFormServer.Repository;
 
@@ -75,7 +76,7 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<NotificationType> NotificationTypes { get; set; }
 
-    public virtual DbSet<Payment> Payments { get; set; }
+    public virtual DbSet<PaymentEntity> Payments { get; set; }
 
     public virtual DbSet<PaymentMethod> PaymentMethods { get; set; }
 
@@ -1183,7 +1184,7 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
         });
 
-        modelBuilder.Entity<Payment>(entity =>
+        modelBuilder.Entity<PaymentEntity>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 

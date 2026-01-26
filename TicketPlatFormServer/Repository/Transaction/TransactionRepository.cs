@@ -45,4 +45,57 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
 
         return count > 0;
     }
+
+    /// <summary>
+    /// 거래 상태 업데이트
+    /// </summary>
+    public async Task UpdateTransactionStatusAsync(long transactionId, long statusId)
+    {
+        const string query = @"
+            UPDATE transactions
+            SET status_id = @StatusId
+            WHERE id = @TransactionId
+              AND deleted_at IS NULL
+        ";
+
+        await dapper.ExecuteAsync(query, new
+        {
+            TransactionId = transactionId,
+            StatusId = statusId
+        });
+    }
+
+    /// <summary>
+    /// 상세 정보와 함께 거래 조회 (Buyer, Seller, TransactionItems)
+    /// </summary>
+    public async Task<DBModel.Transaction?> GetTransactionWithDetailsAsync(long transactionId)
+    {
+        return await context.Transactions
+            .Where(t => t.Id == transactionId && t.DeletedAt == null)
+            .Include(t => t.Status)
+            .Include(t => t.TransactionItems)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// 거래 생성
+    /// </summary>
+    public async Task<DBModel.Transaction> CreateTransactionAsync(DBModel.Transaction transaction)
+    {
+        transaction.CreatedAt = DateTime.UtcNow;
+        context.Transactions.Add(transaction);
+        await context.SaveChangesAsync();
+        return transaction;
+    }
+
+    /// <summary>
+    /// Code로 TransactionStatus 조회 (캐싱 권장)
+    /// </summary>
+    public async Task<DBModel.TransactionStatus?> GetTransactionStatusByCodeAsync(string code)
+    {
+        return await context.TransactionStatuses
+            .Where(ts => ts.Code == code && ts.IsActive == true)
+            .FirstOrDefaultAsync();
+    }
 }

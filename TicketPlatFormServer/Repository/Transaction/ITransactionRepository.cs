@@ -22,4 +22,32 @@ public interface ITransactionRepository
     /// <param name="sellerId">판매자 ID</param>
     /// <returns>소유권 일치 여부</returns>
     Task<bool> ValidateTransactionOwnership(long transactionId, long buyerId, long sellerId);
+
+    /// <summary>
+    /// 거래 상태 업데이트
+    /// </summary>
+    /// <param name="transactionId">거래 ID</param>
+    /// <param name="statusId">상태 ID</param>
+    Task UpdateTransactionStatusAsync(long transactionId, long statusId);
+
+    /// <summary>
+    /// 상세 정보와 함께 거래 조회 (Buyer, Seller, TransactionItems with Ticket & Event)
+    /// </summary>
+    /// <param name="transactionId">거래 ID</param>
+    /// <returns>상세 거래 정보 (없으면 null)</returns>
+    Task<DBModel.Transaction?> GetTransactionWithDetailsAsync(long transactionId);
+
+    /// <summary>
+    /// 거래 생성
+    /// </summary>
+    /// <param name="transaction">거래 정보</param>
+    /// <returns>생성된 거래 (ID 포함)</returns>
+    Task<DBModel.Transaction> CreateTransactionAsync(DBModel.Transaction transaction);
+
+    /// <summary>
+    /// Code로 TransactionStatus 조회
+    /// </summary>
+    /// <param name="code">상태 코드 (예: "pending", "paid", "confirmed")</param>
+    /// <returns>TransactionStatus (없으면 null)</returns>
+    Task<DBModel.TransactionStatus?> GetTransactionStatusByCodeAsync(string code);
 }
