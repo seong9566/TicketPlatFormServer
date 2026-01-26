@@ -3,10 +3,12 @@ using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
 using TicketPlatFormServer.DBModel;
 using TicketPlatFormServer.DTO.Chat;
+using TicketPlatFormServer.DTO.Payment;
 using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.FileUpload;
+using TicketPlatFormServer.Services.Payment;
 
 namespace TicketPlatFormServer.Services.Chat;
 
@@ -14,7 +16,9 @@ public class ChatService(
     IChatRepository chatRepo,
     ITicketRepository ticketRepo,
     ITransactionRepository transactionRepo,
+    ITransactionItemRepository transactionItemRepo,
     IFileUploadService fileUploadService,
+    IPaymentService paymentService,
     SupabaseStorageSettings supabaseSettings,
     ILogger<ChatService> logger) : IChatService
 {
@@ -353,8 +357,9 @@ public class ChatService(
 
     /// <summary>
     /// 결제 요청 (판매자가 구매자에게)
+    /// Transaction 자동 생성 및 결제 요청
     /// </summary>
-    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, long transactionId, int userId)
+    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, int userId)
     {
         // 권한 확인
         await ValidateUserInRoom(roomId, userId);
@@ -371,26 +376,52 @@ public class ChatService(
             throw new AppException("판매자만 결제를 요청할 수 있습니다.", HttpStatusCode.Forbidden);
         }
 
-        // Transaction 검증
-        var transaction = await transactionRepo.GetTransactionById(transactionId);
-        if (transaction == null)
+        // Transaction이 이미 존재하는지 확인
+        if (room.TransactionId != null)
         {
-            throw new AppException("거래 정보를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+            throw new AppException("이미 결제 요청된 거래입니다.", HttpStatusCode.BadRequest);
         }
 
-        // Transaction 소유권 검증 (BuyerId, SellerId 일치)
-        if (transaction.BuyerId != room.BuyerId || transaction.SellerId != room.SellerId)
+        // Ticket 정보 확인
+        if (room.Ticket == null)
         {
-            throw new AppException("거래 정보가 이 채팅방과 일치하지 않습니다.", HttpStatusCode.Forbidden);
+            throw new AppException("티켓 정보를 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
-        // Transaction 연결 (없는 경우)
-        if (room.TransactionId == null)
+        // 1. Transaction 생성
+        var pendingStatus = await transactionRepo.GetTransactionStatusByCodeAsync("pending_payment");
+        if (pendingStatus == null)
         {
-            await chatRepo.SetTransactionId(roomId, transactionId);
+            throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
         }
 
-        // 시스템 메시지 전송
+        var transaction = new DBModel.Transaction
+        {
+            BuyerId = room.BuyerId,
+            SellerId = room.SellerId,
+            StatusId = pendingStatus.Id,
+            ReservedAt = DateTime.UtcNow,
+            ReservationExpiresAt = DateTime.UtcNow.AddHours(24), // 24시간 후 만료
+        };
+
+        var createdTransaction = await transactionRepo.CreateTransactionAsync(transaction);
+
+        // 2. TransactionItem 생성 (티켓 정보)
+        var transactionItem = new TransactionItem
+        {
+            TransactionId = createdTransaction.Id,
+            TicketId = room.TicketId,
+            Quantity = 1,
+            UnitPrice = room.Ticket.Price,
+            TotalPrice = room.Ticket.Price,
+        };
+
+        await transactionItemRepo.CreateTransactionItemAsync(transactionItem);
+
+        // 3. ChatRoom에 Transaction 연결
+        await chatRepo.SetTransactionId(roomId, createdTransaction.Id);
+
+        // 4. 시스템 메시지 전송
         var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null);
 
         // LastMessageAt 업데이트
@@ -401,16 +432,26 @@ public class ChatService(
         await chatRepo.IncrementUnreadCount(roomId, !isSenderBuyer);
 
         logger.LogInformation("[ChatService.RequestPayment] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}",
-            roomId, transactionId, userId);
+            roomId, createdTransaction.Id, userId);
 
-        // TODO: 실제 결제 시스템과 연동하여 결제 URL 생성
-        var paymentUrl = $"/payment/{transactionId}";
+        // 5. 결제 요청 준비 (OrderId 생성)
+        var paymentRequest = new PaymentRequestDto
+        {
+            TransactionId = createdTransaction.Id,
+            Amount = room.Ticket.Price,
+            OrderName = $"{room.Ticket.Event?.Title} 티켓",
+            CustomerName = room.Buyer?.UserProfile?.Nickname,
+            CustomerEmail = room.Buyer?.Email
+        };
+
+        var paymentData = await paymentService.InitiatePaymentAsync(paymentRequest, userId);
+        var paymentUrl = $"/payment/checkout?orderId={paymentData.OrderId}";
 
         return new PaymentUrlRespDto
         {
             PaymentUrl = paymentUrl,
-            TransactionId = transactionId,
-            Amount = room.Ticket?.Price ?? 0
+            TransactionId = createdTransaction.Id,
+            Amount = paymentData.Amount
         };
     }
 
@@ -440,8 +481,8 @@ public class ChatService(
             throw new AppException("거래 정보가 일치하지 않습니다.", HttpStatusCode.BadRequest);
         }
 
-        // TODO: Transaction 상태 업데이트 (별도 Transaction Repository 필요)
-        // await transactionRepo.ConfirmTransaction(req.TransactionId, userId, DateTime.UtcNow);
+        // 에스크로 해제 (판매자에게 정산)
+        await paymentService.ReleaseEscrowAsync(req.TransactionId);
 
         // 채팅방 잠금
         await chatRepo.LockChatRoom(req.RoomId);

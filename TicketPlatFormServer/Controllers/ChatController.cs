@@ -223,7 +223,7 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
         if (userId == null)
             throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
 
-        var result = await chatService.RequestPayment(req.RoomId, req.TransactionId, userId.Value);
+        var result = await chatService.RequestPayment(req.RoomId, userId.Value);
 
         // SignalR로 채팅방에 결제 요청 알림
         await hubContext.Clients.Group($"room_{req.RoomId}")
@@ -231,12 +231,12 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
             {
                 RoomId = req.RoomId,
                 Event = "PaymentRequested",
-                TransactionId = req.TransactionId,
+                TransactionId = result.TransactionId,
                 Message = "결제가 요청되었습니다."
             });
 
         var resp = new ApiResponse<PaymentUrlRespDto>(
-            message: "결제 요청이 전송되었습니다",
+            message: "결제 요청 성공",
             data: result,
             statusCode: 200
         );
