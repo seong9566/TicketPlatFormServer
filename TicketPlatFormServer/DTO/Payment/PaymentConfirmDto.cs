@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TicketPlatFormServer.DTO.Payment;
 
 /// <summary>
@@ -27,7 +29,12 @@ public class PaymentConfirmRequestDto
 /// </summary>
 public class TossPaymentConfirmRequest
 {
+    [JsonPropertyName("paymentKey")]
     public string PaymentKey { get; set; } = null!;
+
+    [JsonPropertyName("orderId")]
     public string OrderId { get; set; } = null!;
+
+    [JsonPropertyName("amount")]
     public int Amount { get; set; }
 }

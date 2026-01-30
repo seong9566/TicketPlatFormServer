@@ -62,11 +62,6 @@ public class PaymentRequestResponseDto
     public string? CustomerEmail { get; set; }
 
     /// <summary>
-    /// 토스페이먼츠 클라이언트 키
-    /// </summary>
-    public string ClientKey { get; set; } = null!;
-
-    /// <summary>
     /// 성공 리다이렉트 URL
     /// </summary>
     public string SuccessUrl { get; set; } = null!;

@@ -67,6 +67,55 @@ public class TossPaymentResponseDto
 
     [JsonPropertyName("failure")]
     public TossFailureDto? Failure { get; set; }
+
+    // 추가 필드 - 토스페이먼츠 API 응답 완전 대응
+    [JsonPropertyName("mId")]
+    public string? MId { get; set; }
+
+    [JsonPropertyName("version")]
+    public string? Version { get; set; }
+
+    [JsonPropertyName("lastTransactionKey")]
+    public string? LastTransactionKey { get; set; }
+
+    [JsonPropertyName("useEscrow")]
+    public bool UseEscrow { get; set; }
+
+    [JsonPropertyName("cultureExpense")]
+    public bool CultureExpense { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; } // NORMAL, BILLING
+
+    [JsonPropertyName("country")]
+    public string? Country { get; set; } // KR
+
+    [JsonPropertyName("isPartialCancelable")]
+    public bool IsPartialCancelable { get; set; }
+
+    [JsonPropertyName("secret")]
+    public string? Secret { get; set; }
+
+    [JsonPropertyName("metadata")]
+    public object? Metadata { get; set; }
+
+    [JsonPropertyName("discount")]
+    public object? Discount { get; set; }
+
+    [JsonPropertyName("checkout")]
+    public TossCheckoutDto? Checkout { get; set; }
+
+    [JsonPropertyName("mobilePhone")]
+    public TossMobilePhoneDto? MobilePhone { get; set; }
+
+    [JsonPropertyName("giftCertificate")]
+    public TossGiftCertificateDto? GiftCertificate { get; set; }
+
+    [JsonPropertyName("cashReceipt")]
+    public TossCashReceiptDto? CashReceipt { get; set; }
+
+    [JsonPropertyName("cashReceipts")]
+    public object? CashReceipts { get; set; }
 }
 
 /// <summary>
@@ -106,6 +155,21 @@ public class TossCardDto
 
     [JsonPropertyName("isInterestFree")]
     public bool IsInterestFree { get; set; }
+
+    [JsonPropertyName("issuerCode")]
+    public string? IssuerCode { get; set; } // 카드 발급사 코드
+
+    [JsonPropertyName("acquirerCode")]
+    public string? AcquirerCode { get; set; } // 카드 매입사 코드
+
+    [JsonPropertyName("interestPayer")]
+    public string? InterestPayer { get; set; } // 무이자 할부 부담자
+
+    [JsonPropertyName("useCardPoint")]
+    public bool UseCardPoint { get; set; }
+
+    [JsonPropertyName("amount")]
+    public int Amount { get; set; } // 카드 결제 금액
 }
 
 /// <summary>
@@ -133,6 +197,12 @@ public class TossVirtualAccountDto
 
     [JsonPropertyName("settlementStatus")]
     public string? SettlementStatus { get; set; }
+
+    [JsonPropertyName("accountType")]
+    public string? AccountType { get; set; } // 일반, 고정
+
+    [JsonPropertyName("refundReceiveAccount")]
+    public object? RefundReceiveAccount { get; set; }
 }
 
 /// <summary>
@@ -196,4 +266,64 @@ public class TossFailureDto
 
     [JsonPropertyName("message")]
     public string Message { get; set; } = null!;
+}
+
+/// <summary>
+/// 결제창 정보
+/// </summary>
+public class TossCheckoutDto
+{
+    [JsonPropertyName("url")]
+    public string Url { get; set; } = null!;
+}
+
+/// <summary>
+/// 휴대폰 결제 정보
+/// </summary>
+public class TossMobilePhoneDto
+{
+    [JsonPropertyName("customerMobilePhone")]
+    public string CustomerMobilePhone { get; set; } = null!;
+
+    [JsonPropertyName("settlementStatus")]
+    public string SettlementStatus { get; set; } = null!; // INCOMPLETED, COMPLETED
+
+    [JsonPropertyName("receiptUrl")]
+    public string ReceiptUrl { get; set; } = null!;
+}
+
+/// <summary>
+/// 상품권 결제 정보
+/// </summary>
+public class TossGiftCertificateDto
+{
+    [JsonPropertyName("approveNo")]
+    public string ApproveNo { get; set; } = null!;
+
+    [JsonPropertyName("settlementStatus")]
+    public string SettlementStatus { get; set; } = null!; // INCOMPLETED, COMPLETED
+}
+
+/// <summary>
+/// 현금영수증 정보
+/// </summary>
+public class TossCashReceiptDto
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = null!; // 소득공제, 지출증빙
+
+    [JsonPropertyName("receiptKey")]
+    public string ReceiptKey { get; set; } = null!;
+
+    [JsonPropertyName("issueNumber")]
+    public string IssueNumber { get; set; } = null!;
+
+    [JsonPropertyName("receiptUrl")]
+    public string ReceiptUrl { get; set; } = null!;
+
+    [JsonPropertyName("amount")]
+    public int Amount { get; set; }
+
+    [JsonPropertyName("taxFreeAmount")]
+    public int TaxFreeAmount { get; set; }
 }

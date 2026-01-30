@@ -229,4 +229,97 @@ public class PaymentRepository(
                 .FirstOrDefaultAsync();
         });
     }
+
+    // ==================== 결제 수단별 상세 정보 ====================
+
+    /// <summary>
+    /// 카드 결제 상세 정보 생성
+    /// </summary>
+    public async Task<PaymentCardDetail> CreateCardDetailAsync(PaymentCardDetail cardDetail)
+    {
+        context.Set<PaymentCardDetail>().Add(cardDetail);
+        await context.SaveChangesAsync();
+        return cardDetail;
+    }
+
+    /// <summary>
+    /// 가상계좌 결제 상세 정보 생성
+    /// </summary>
+    public async Task<PaymentVirtualAccountDetail> CreateVirtualAccountDetailAsync(PaymentVirtualAccountDetail vaDetail)
+    {
+        context.Set<PaymentVirtualAccountDetail>().Add(vaDetail);
+        await context.SaveChangesAsync();
+        return vaDetail;
+    }
+
+    /// <summary>
+    /// 간편결제 상세 정보 생성
+    /// </summary>
+    public async Task<PaymentEasyPayDetail> CreateEasyPayDetailAsync(PaymentEasyPayDetail easyPayDetail)
+    {
+        context.Set<PaymentEasyPayDetail>().Add(easyPayDetail);
+        await context.SaveChangesAsync();
+        return easyPayDetail;
+    }
+
+    /// <summary>
+    /// 현금영수증 생성
+    /// </summary>
+    public async Task<PaymentCashReceipt> CreateCashReceiptAsync(PaymentCashReceipt cashReceipt)
+    {
+        context.Set<PaymentCashReceipt>().Add(cashReceipt);
+        await context.SaveChangesAsync();
+        return cashReceipt;
+    }
+
+    /// <summary>
+    /// 결제 거래 이벤트 생성
+    /// </summary>
+    public async Task<PaymentTransaction> CreateTransactionAsync(PaymentTransaction transaction)
+    {
+        context.Set<PaymentTransaction>().Add(transaction);
+        await context.SaveChangesAsync();
+        return transaction;
+    }
+
+    /// <summary>
+    /// PaymentId로 카드 상세 정보 조회
+    /// </summary>
+    public async Task<PaymentCardDetail?> GetCardDetailByPaymentIdAsync(long paymentId)
+    {
+        return await context.Set<PaymentCardDetail>()
+            .Where(c => c.PaymentId == paymentId)
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// PaymentId로 가상계좌 상세 정보 조회
+    /// </summary>
+    public async Task<PaymentVirtualAccountDetail?> GetVirtualAccountDetailByPaymentIdAsync(long paymentId)
+    {
+        return await context.Set<PaymentVirtualAccountDetail>()
+            .Where(v => v.PaymentId == paymentId)
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// PaymentId로 간편결제 상세 정보 조회
+    /// </summary>
+    public async Task<PaymentEasyPayDetail?> GetEasyPayDetailByPaymentIdAsync(long paymentId)
+    {
+        return await context.Set<PaymentEasyPayDetail>()
+            .Where(e => e.PaymentId == paymentId)
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// PaymentId로 거래 이벤트 목록 조회
+    /// </summary>
+    public async Task<List<PaymentTransaction>> GetTransactionsByPaymentIdAsync(long paymentId)
+    {
+        return await context.Set<PaymentTransaction>()
+            .Where(t => t.PaymentId == paymentId)
+            .OrderBy(t => t.CreatedAt)
+            .ToListAsync();
+    }
 }

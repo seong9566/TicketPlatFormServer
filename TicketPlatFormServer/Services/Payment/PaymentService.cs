@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
@@ -7,6 +8,7 @@ using TicketPlatFormServer.DTO.Payment;
 using TicketPlatFormServer.Repository;
 using TicketPlatFormServer.Repository.Payment;
 using TicketPlatFormServer.Repository.Transactions;
+using TicketPlatFormServer.Services.Common;
 
 namespace TicketPlatFormServer.Services.Payment;
 
@@ -20,6 +22,7 @@ public class PaymentService(
     ITransactionRepository transactionRepository,
     TicketContext context,
     TossPaymentsSettings settings,
+    EncryptionService encryptionService,
     ILogger<PaymentService> logger) : IPaymentService
 {
     /// <summary>
@@ -60,7 +63,6 @@ public class PaymentService(
             OrderName = request.OrderName,
             CustomerName = request.CustomerName,
             CustomerEmail = request.CustomerEmail,
-            ClientKey = settings.ClientKey,
             SuccessUrl = settings.SuccessUrl,
             FailUrl = settings.FailUrl
         };
@@ -109,6 +111,7 @@ public class PaymentService(
             logger.LogError(ex, "[PaymentService.ConfirmPaymentAsync] Toss API 승인 실패");
             throw;
         }
+        logger.LogInformation("[Toss성공 Response {tossResponse}]",tossResponse);
 
         // 5. 금액 검증
         if (tossResponse.TotalAmount != request.Amount)
@@ -135,6 +138,9 @@ public class PaymentService(
             {
                 TransactionId = transactionId,
                 PgProvider = "toss",
+                MerchantId = tossResponse.MId,
+                ApiVersion = tossResponse.Version,
+                Country = tossResponse.Country ?? "KR",
                 PaymentKey = tossResponse.PaymentKey,
                 OrderId = tossResponse.OrderId,
                 Amount = tossResponse.TotalAmount,
@@ -142,10 +148,120 @@ public class PaymentService(
                 PaidAt = string.IsNullOrEmpty(tossResponse.ApprovedAt)
                     ? DateTime.UtcNow
                     : DateTime.Parse(tossResponse.ApprovedAt).ToUniversalTime(),
-                StatusId = paymentStatus.Id
+                StatusId = paymentStatus.Id,
+                UseEscrow = tossResponse.UseEscrow,
+                IsPartialCancelable = tossResponse.IsPartialCancelable,
+                PaymentType = tossResponse.Type,
+                LastTransactionKey = tossResponse.LastTransactionKey,
+                CultureExpense = tossResponse.CultureExpense,
+                Metadata = tossResponse.Metadata != null ? JsonSerializer.Serialize(tossResponse.Metadata) : null,
+                DiscountInfo = tossResponse.Discount != null ? JsonSerializer.Serialize(tossResponse.Discount) : null
             };
 
             await paymentRepository.CreatePaymentAsync(payment);
+
+            // 6-3-1. 카드 결제 상세 정보 저장
+            if (tossResponse.Card != null)
+            {
+                var cardDetail = new PaymentCardDetail
+                {
+                    PaymentId = payment.Id,
+                    Company = tossResponse.Card.Company,
+                    CardNumber = tossResponse.Card.Number,
+                    InstallmentPlanMonths = tossResponse.Card.InstallmentPlanMonths,
+                    ApproveNo = tossResponse.Card.ApproveNo,
+                    CardType = tossResponse.Card.CardType,
+                    OwnerType = tossResponse.Card.OwnerType,
+                    AcquireStatus = tossResponse.Card.AcquireStatus,
+                    IsInterestFree = tossResponse.Card.IsInterestFree,
+                    IssuerCode = tossResponse.Card.IssuerCode,
+                    AcquirerCode = tossResponse.Card.AcquirerCode,
+                    InterestPayer = tossResponse.Card.InterestPayer,
+                    UseCardPoint = tossResponse.Card.UseCardPoint,
+                    Amount = tossResponse.Card.Amount,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await paymentRepository.CreateCardDetailAsync(cardDetail);
+            }
+
+            // 6-3-2. 가상계좌 상세 정보 저장
+            if (tossResponse.VirtualAccount != null)
+            {
+                var vaDetail = new PaymentVirtualAccountDetail
+                {
+                    PaymentId = payment.Id,
+                    AccountNumber = tossResponse.VirtualAccount.AccountNumber,
+                    BankCode = tossResponse.VirtualAccount.BankCode,
+                    CustomerName = tossResponse.VirtualAccount.CustomerName,
+                    DueDate = DateTime.Parse(tossResponse.VirtualAccount.DueDate),
+                    RefundStatus = tossResponse.VirtualAccount.RefundStatus,
+                    Expired = tossResponse.VirtualAccount.Expired,
+                    SettlementStatus = tossResponse.VirtualAccount.SettlementStatus,
+                    AccountType = tossResponse.VirtualAccount.AccountType,
+                    RefundReceiveAccount = encryptionService.EncryptNullable(
+                        tossResponse.VirtualAccount.RefundReceiveAccount != null
+                            ? JsonSerializer.Serialize(tossResponse.VirtualAccount.RefundReceiveAccount)
+                            : null),
+                    Secret = encryptionService.EncryptNullable(tossResponse.Secret),
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await paymentRepository.CreateVirtualAccountDetailAsync(vaDetail);
+            }
+
+            // 6-3-3. 간편결제 상세 정보 저장
+            if (tossResponse.EasyPay != null)
+            {
+                var easyPayDetail = new PaymentEasyPayDetail
+                {
+                    PaymentId = payment.Id,
+                    Provider = tossResponse.EasyPay.Provider,
+                    Amount = tossResponse.EasyPay.Amount,
+                    DiscountAmount = tossResponse.EasyPay.DiscountAmount,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await paymentRepository.CreateEasyPayDetailAsync(easyPayDetail);
+            }
+
+            // 6-3-4. 현금영수증 정보 저장
+            if (tossResponse.CashReceipt != null)
+            {
+                var cashReceipt = new PaymentCashReceipt
+                {
+                    PaymentId = payment.Id,
+                    ReceiptType = tossResponse.CashReceipt.Type,
+                    ReceiptKey = tossResponse.CashReceipt.ReceiptKey,
+                    IssueNumber = tossResponse.CashReceipt.IssueNumber,
+                    ReceiptUrl = tossResponse.CashReceipt.ReceiptUrl,
+                    Amount = tossResponse.CashReceipt.Amount,
+                    TaxFreeAmount = tossResponse.CashReceipt.TaxFreeAmount,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                await paymentRepository.CreateCashReceiptAsync(cashReceipt);
+            }
+
+            // 6-3-5. 결제 거래 이벤트 저장
+            var paymentTransaction = new PaymentTransaction
+            {
+                PaymentId = payment.Id,
+                TransactionKey = tossResponse.PaymentKey, // 승인 시에는 PaymentKey가 TransactionKey
+                TransactionType = "PAYMENT",
+                Amount = tossResponse.TotalAmount,
+                BalanceAmount = tossResponse.BalanceAmount,
+                TaxFreeAmount = tossResponse.TaxFreeAmount,
+                Currency = tossResponse.Currency ?? "KRW",
+                Status = "DONE",
+                Reason = null,
+                TossResponse = encryptionService.EncryptNullable(JsonSerializer.Serialize(tossResponse)),
+                EventAt = string.IsNullOrEmpty(tossResponse.ApprovedAt)
+                    ? DateTime.UtcNow
+                    : DateTime.Parse(tossResponse.ApprovedAt).ToUniversalTime(),
+                CreatedAt = DateTime.UtcNow
+            };
+            await paymentRepository.CreateTransactionAsync(paymentTransaction);
 
             // 6-4. Fee 계산 (3.5%)
             var feeAmount = (int)(tossResponse.TotalAmount * (settings.EscrowFeePercentage / 100m));
@@ -359,7 +475,7 @@ public class PaymentService(
                 PaymentKey = tossResponse.PaymentKey,
                 OrderId = tossResponse.OrderId,
                 Status = tossResponse.Status,
-                CancelAmount = request.CancelAmount ?? payment.Amount,
+                CancelAmount = request.CancelAmount ?? (int)payment.Amount,
                 CancelReason = request.CancelReason,
                 CanceledAt = string.IsNullOrEmpty(canceledAt)
                     ? DateTime.UtcNow
@@ -463,22 +579,9 @@ public class PaymentService(
             return paymentMethod;
         }
 
-        // DB에 없으면 생성 (기본 결제 수단으로)
-        logger.LogWarning("[PaymentService.GetOrCreatePaymentMethodAsync] PaymentMethod 없음, 생성: {Code}", normalizedCode);
-
-        paymentMethod = new PaymentMethod
-        {
-            Code = normalizedCode,
-            NameKo = methodCode,
-            IsActive = true,
-            SortOrder = 99
-        };
-
-        context.PaymentMethods.Add(paymentMethod);
-        await context.SaveChangesAsync();
-
-        return paymentMethod;
+        throw new AppException("결제 수단 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
     }
+
 
     /// <summary>
     /// 토스 결제 수단 코드를 DB 코드로 매핑

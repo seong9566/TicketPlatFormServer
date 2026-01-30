@@ -27,7 +27,7 @@ public class TossPaymentsService : ITossPaymentsService
         _logger = logger;
 
         // Basic Authentication 설정 (SecretKey를 Base64 인코딩)
-        var authToken = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_settings.SecretKey}:"));
+        var authToken = "dGVzdF9nc2tfZG9jc19PYVB6OEw1S2RtUVhrelJ6M3k0N0JNdzY6";
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authToken);
         _httpClient.BaseAddress = new Uri(_settings.ApiBaseUrl);
     }
@@ -77,8 +77,11 @@ public class TossPaymentsService : ITossPaymentsService
                 throw new AppException("결제 승인 응답을 처리할 수 없습니다.", HttpStatusCode.InternalServerError);
             }
 
+            // Success: PaymentKey=tgen_20260128100231dfOG2, Status=DONE
             _logger.LogInformation("[TossPaymentsService.ConfirmPaymentAsync] Success: PaymentKey={PaymentKey}, Status={Status}",
                 paymentKey, result.Status);
+        
+            
 
             return result;
         }

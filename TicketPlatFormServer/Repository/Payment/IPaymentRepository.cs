@@ -106,4 +106,51 @@ public interface IPaymentRepository
     /// <param name="code">에스크로 상태 코드 (예: holding, released, refunded)</param>
     /// <returns>EscrowStatus 정보 (없으면 null)</returns>
     Task<EscrowStatus?> GetEscrowStatusByCodeAsync(string code);
+
+    // ==================== 결제 수단별 상세 정보 ====================
+
+    /// <summary>
+    /// 카드 결제 상세 정보 생성
+    /// </summary>
+    Task<PaymentCardDetail> CreateCardDetailAsync(PaymentCardDetail cardDetail);
+
+    /// <summary>
+    /// 가상계좌 결제 상세 정보 생성
+    /// </summary>
+    Task<PaymentVirtualAccountDetail> CreateVirtualAccountDetailAsync(PaymentVirtualAccountDetail vaDetail);
+
+    /// <summary>
+    /// 간편결제 상세 정보 생성
+    /// </summary>
+    Task<PaymentEasyPayDetail> CreateEasyPayDetailAsync(PaymentEasyPayDetail easyPayDetail);
+
+    /// <summary>
+    /// 현금영수증 생성
+    /// </summary>
+    Task<PaymentCashReceipt> CreateCashReceiptAsync(PaymentCashReceipt cashReceipt);
+
+    /// <summary>
+    /// 결제 거래 이벤트 생성
+    /// </summary>
+    Task<PaymentTransaction> CreateTransactionAsync(PaymentTransaction transaction);
+
+    /// <summary>
+    /// PaymentId로 카드 상세 정보 조회
+    /// </summary>
+    Task<PaymentCardDetail?> GetCardDetailByPaymentIdAsync(long paymentId);
+
+    /// <summary>
+    /// PaymentId로 가상계좌 상세 정보 조회
+    /// </summary>
+    Task<PaymentVirtualAccountDetail?> GetVirtualAccountDetailByPaymentIdAsync(long paymentId);
+
+    /// <summary>
+    /// PaymentId로 간편결제 상세 정보 조회
+    /// </summary>
+    Task<PaymentEasyPayDetail?> GetEasyPayDetailByPaymentIdAsync(long paymentId);
+
+    /// <summary>
+    /// PaymentId로 거래 이벤트 목록 조회
+    /// </summary>
+    Task<List<PaymentTransaction>> GetTransactionsByPaymentIdAsync(long paymentId);
 }

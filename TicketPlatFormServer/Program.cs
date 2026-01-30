@@ -271,6 +271,14 @@ builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<ITossPaymentsService, TossPaymentsService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
+// Encryption 서비스
+builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionService>(sp =>
+{
+    var encryptionKey = builder.Configuration["Encryption:MasterKey"]
+        ?? throw new InvalidOperationException("Encryption:MasterKey is not configured");
+    return new TicketPlatFormServer.Services.Common.EncryptionService(encryptionKey);
+});
+
 // Background 서비스
 builder.Services.AddHostedService<ChatCleanupService>();
 
