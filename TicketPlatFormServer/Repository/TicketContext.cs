@@ -423,6 +423,11 @@ public partial class TicketContext : DbContext
                 .HasComment("메시지 내용")
                 .HasColumnType("text")
                 .HasColumnName("message");
+            entity.Property(e => e.Type)
+                .HasMaxLength(32)
+                .HasDefaultValueSql("'TEXT'")
+                .HasColumnName("message_type")
+                .HasConversion<string>();
             entity.Property(e => e.RoomId)
                 .HasComment("채팅방 FK")
                 .HasColumnName("room_id");

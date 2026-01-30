@@ -241,7 +241,8 @@ public class ChatService(
 
             // 2단계: 메시지 저장 (DB에는 object key 저장)
             var imageKeys = uploadResults.Select(r => r.ObjectKey).ToList();
-            message = await chatRepo.CreateMessageWithImages(req.RoomId, req.UserId, req.Message, imageKeys);
+            var messageType = imageKeys.Count > 0 ? Enum.MessageType.IMAGE : Enum.MessageType.TEXT;
+            message = await chatRepo.CreateMessageWithImages(req.RoomId, req.UserId, req.Message, imageKeys, messageType);
 
             // 3단계: 메타데이터 업데이트 (이 단계 실패 시 메시지도 롤백 필요)
             try
@@ -275,6 +276,7 @@ public class ChatService(
                 SenderNickname = senderNickname,
                 SenderProfileImage = senderProfileImage,
                 Message = req.Message,
+                Type = message.Type.ToString(),
                 Images = uploadResults.Select(r => new ImageInfo
                 {
                     Url = r.SignedUrl,
@@ -422,7 +424,7 @@ public class ChatService(
         await chatRepo.SetTransactionId(roomId, createdTransaction.Id);
 
         // 4. 시스템 메시지 전송
-        var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null);
+        var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null, Enum.MessageType.PAYMENT_REQUEST);
 
         // LastMessageAt 업데이트
         await chatRepo.UpdateLastMessageAt(roomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
@@ -689,6 +691,7 @@ public class ChatService(
                 SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
                 SenderProfileImage = finalProfileImageUrl,
                 Message = m.Message,
+                Type = m.Type.ToString(),
                 Images = imagesInfo.Count > 0 ? imagesInfo : null,
                 CreatedAt = m.CreatedAt ?? DateTime.UtcNow,
                 IsMyMessage = m.SenderId == userId

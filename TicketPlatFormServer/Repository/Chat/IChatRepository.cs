@@ -6,6 +6,7 @@ public interface IChatRepository
 {
     // Chat Room Operations
     Task<ChatRoom?> GetChatRoomById(long roomId);
+    Task<ChatRoom?> GetChatRoomByTransactionId(long transactionId);
     Task<ChatRoom?> GetChatRoomByTicketAndBuyer(int ticketId, int buyerId);
     Task<ChatRoom?> GetChatRoomByTicketAndUser(int ticketId, int userId);
     Task<List<ChatRoom>> GetChatRoomsByUserId(int userId, int page, int pageSize);
@@ -20,8 +21,8 @@ public interface IChatRepository
     Task SetTransactionId(long roomId, long transactionId);
 
     // Message Operations
-    Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl);
-    Task<ChatMessage> CreateMessageWithImages(long roomId, int senderId, string? message, List<string> imageObjectKeys);
+    Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl, Enum.MessageType type = Enum.MessageType.TEXT);
+    Task<ChatMessage> CreateMessageWithImages(long roomId, int senderId, string? message, List<string> imageObjectKeys, Enum.MessageType type = Enum.MessageType.IMAGE);
     Task<ChatMessage?> GetMessageById(long messageId);
     Task<List<ChatMessage>> GetMessagesByRoomId(long roomId, long? lastMessageId, int limit);
     Task<Dictionary<long, string?>> GetLastMessagesForRooms(IEnumerable<long> roomIds);

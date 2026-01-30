@@ -28,6 +28,24 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     }
 
     /// <summary>
+    /// TransactionId로 채팅방 조회
+    /// </summary>
+    public async Task<ChatRoom?> GetChatRoomByTransactionId(long transactionId)
+    {
+        return await db.ChatRooms
+            .AsNoTracking()
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Event)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatGrade)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.SeatLocation)
+            .Include(cr => cr.Ticket).ThenInclude(t => t!.Area)
+            .Include(cr => cr.Buyer).ThenInclude(u => u.UserProfile)
+            .Include(cr => cr.Seller).ThenInclude(u => u.UserProfile)
+            .Include(cr => cr.Status)
+            .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
+            .FirstOrDefaultAsync(cr => cr.TransactionId == transactionId && cr.DeletedAt == null);
+    }
+
+    /// <summary>
     /// 티켓과 구매자로 채팅방 조회
     /// </summary>
     public async Task<ChatRoom?> GetChatRoomByTicketAndBuyer(int ticketId, int buyerId)
@@ -242,7 +260,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     /// <summary>
     /// 메시지 생성
     /// </summary>
-    public async Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl)
+    public async Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl, Enum.MessageType type = Enum.MessageType.TEXT)
     {
         var chatMessage = new ChatMessage
         {
@@ -250,6 +268,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
             SenderId = senderId,
             Message = message,
             ImageUrl = imageUrl,
+            Type = type,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -265,7 +284,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     /// <summary>
     /// 다중 이미지 메시지 생성
     /// </summary>
-    public async Task<ChatMessage> CreateMessageWithImages(long roomId, int senderId, string? message, List<string> imageObjectKeys)
+    public async Task<ChatMessage> CreateMessageWithImages(long roomId, int senderId, string? message, List<string> imageObjectKeys, Enum.MessageType type = Enum.MessageType.IMAGE)
     {
         var chatMessage = new ChatMessage
         {
@@ -273,6 +292,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
             SenderId = senderId,
             Message = message,
             ImageUrl = imageObjectKeys.FirstOrDefault(),  // 첫번째 이미지 (하위 호환성)
+            Type = type,
             CreatedAt = DateTime.UtcNow
         };
 

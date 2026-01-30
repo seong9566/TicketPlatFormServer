@@ -14,6 +14,7 @@ public class ChatMessageRespDto
     public string SenderNickname { get; set; } = null!;
     public string? SenderProfileImage { get; set; }
     public string? Message { get; set; }
+    public string Type { get; set; } = null!;
     
     /// <summary>
     /// 첨부된 이미지들

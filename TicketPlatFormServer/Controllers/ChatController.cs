@@ -136,6 +136,7 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
             SenderNickname = result.SenderNickname,
             SenderProfileImage = result.SenderProfileImage,
             Message = result.Message,
+            Type = result.Type,
             Images = result.Images,
             CreatedAt = result.CreatedAt
         };

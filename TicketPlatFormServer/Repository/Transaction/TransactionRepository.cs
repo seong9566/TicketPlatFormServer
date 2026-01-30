@@ -1,6 +1,7 @@
 using System.Data;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using TicketPlatFormServer.Repository;
 
 namespace TicketPlatFormServer.Repository.Transactions;
@@ -57,6 +58,18 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
             WHERE id = @TransactionId
               AND deleted_at IS NULL
         ";
+
+        var currentTransaction = context.Database.CurrentTransaction;
+        if (currentTransaction != null)
+        {
+            var connection = context.Database.GetDbConnection();
+            await connection.ExecuteAsync(query, new
+            {
+                TransactionId = transactionId,
+                StatusId = statusId
+            }, transaction: currentTransaction.GetDbTransaction());
+            return;
+        }
 
         await dapper.ExecuteAsync(query, new
         {

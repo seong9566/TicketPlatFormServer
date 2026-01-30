@@ -330,7 +330,7 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
     {
         return await _context.EventSeatGrades
             .FirstOrDefaultAsync(esg => esg.EventId == eventId
-                                     && esg.SeatGradeId == seatGradeId
+                                     && esg.Id == seatGradeId
                                      && esg.IsActive == true);
     }
 
@@ -344,4 +344,3 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
             .ToListAsync();
     }
 }
-

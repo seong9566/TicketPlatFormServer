@@ -1,11 +1,15 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
 using TicketPlatFormServer.DBModel;
+using TicketPlatFormServer.DTO.Chat;
 using TicketPlatFormServer.DTO.Payment;
+using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository;
+using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Payment;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.Common;
@@ -20,9 +24,11 @@ public class PaymentService(
     ITossPaymentsService tossPaymentsService,
     IPaymentRepository paymentRepository,
     ITransactionRepository transactionRepository,
+    IChatRepository chatRepository,
     TicketContext context,
     TossPaymentsSettings settings,
     EncryptionService encryptionService,
+    IHubContext<ChatHub> hubContext,
     ILogger<PaymentService> logger) : IPaymentService
 {
     /// <summary>
@@ -298,6 +304,8 @@ public class PaymentService(
             // 6-8. 커밋
             await dbTransaction.CommitAsync();
 
+            await TryCreatePaymentSuccessMessageAsync(transactionId);
+
             logger.LogInformation(
                 "[PaymentService.ConfirmPaymentAsync] 결제 완료 - PaymentId: {PaymentId}, EscrowId: {EscrowId}, Amount: {Amount}, Fee: {FeeAmount}",
                 payment.Id, escrow.Id, tossResponse.TotalAmount, feeAmount);
@@ -375,6 +383,57 @@ public class PaymentService(
             await dbTransaction.RollbackAsync();
             logger.LogError(ex, "[PaymentService.ReleaseEscrowAsync] DB 트랜잭션 실패");
             throw new AppException("에스크로 해제 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError, ex);
+        }
+    }
+
+    private async Task TryCreatePaymentSuccessMessageAsync(long transactionId)
+    {
+        try
+        {
+            var room = await chatRepository.GetChatRoomByTransactionId(transactionId);
+            if (room == null)
+            {
+                logger.LogWarning("[PaymentService.TryCreatePaymentSuccessMessageAsync] ChatRoom not found. TransactionId: {TransactionId}", transactionId);
+                return;
+            }
+
+            var senderId = room.BuyerId;
+            var message = await chatRepository.CreateMessage(
+                room.Id,
+                senderId,
+                null,
+                null,
+                Enum.MessageType.PAYMENT_SUCCESS);
+
+            await chatRepository.UpdateLastMessageAt(room.Id, message.CreatedAt ?? DateTime.UtcNow);
+            await chatRepository.IncrementUnreadCount(room.Id, false);
+
+            var senderNickname = room.Buyer?.UserProfile?.Nickname ?? "Unknown";
+            var senderProfileImage = room.Buyer?.UserProfile?.ProfileImageUrl;
+
+            var messageDto = new NewMessageSignalDto
+            {
+                MessageId = message.Id,
+                RoomId = room.Id,
+                SenderId = senderId,
+                SenderNickname = senderNickname,
+                SenderProfileImage = senderProfileImage,
+                Message = null,
+                Type = Enum.MessageType.PAYMENT_SUCCESS.ToString(),
+                Images = null,
+                CreatedAt = message.CreatedAt ?? DateTime.UtcNow
+            };
+
+            await hubContext.Clients.Group($"room_{room.Id}")
+                .SendAsync("ReceiveMessage", messageDto);
+            await hubContext.Clients.Group($"user_{room.BuyerId}")
+                .SendAsync("ReceiveMessage", messageDto);
+            await hubContext.Clients.Group($"user_{room.SellerId}")
+                .SendAsync("ReceiveMessage", messageDto);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[PaymentService.TryCreatePaymentSuccessMessageAsync] Failed. TransactionId: {TransactionId}", transactionId);
         }
     }
 

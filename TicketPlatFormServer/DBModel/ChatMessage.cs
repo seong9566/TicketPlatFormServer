@@ -30,6 +30,11 @@ public partial class ChatMessage
     /// </summary>
     public string? ImageUrl { get; set; }
 
+    /// <summary>
+    /// 메시지 타입
+    /// </summary>
+    public Enum.MessageType Type { get; set; } = Enum.MessageType.TEXT;
+
     public DateTime? CreatedAt { get; set; }
 
     public virtual ChatRoom Room { get; set; } = null!;
