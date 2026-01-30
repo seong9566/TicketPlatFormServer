@@ -1224,6 +1224,18 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(50)
                 .HasComment("PG사 (예: toss, kakao)")
                 .HasColumnName("pg_provider");
+            entity.Property(e => e.MerchantId)
+                .HasMaxLength(50)
+                .HasComment("토스 가맹점 ID (mId)")
+                .HasColumnName("merchant_id");
+            entity.Property(e => e.ApiVersion)
+                .HasMaxLength(20)
+                .HasComment("토스 API 버전")
+                .HasColumnName("api_version");
+            entity.Property(e => e.Country)
+                .HasMaxLength(2)
+                .HasComment("국가 코드 (ISO-3166-1 alpha-2)")
+                .HasColumnName("country");
             entity.Property(e => e.StatusId)
                 .HasDefaultValueSql("'1'")
                 .HasComment("결제 상태 FK")
@@ -1231,6 +1243,31 @@ public partial class TicketContext : DbContext
             entity.Property(e => e.TransactionId)
                 .HasComment("거래 FK")
                 .HasColumnName("transaction_id");
+            entity.Property(e => e.UseEscrow)
+                .HasComment("에스크로 사용 여부")
+                .HasColumnName("use_escrow");
+            entity.Property(e => e.IsPartialCancelable)
+                .HasComment("부분 취소 가능 여부")
+                .HasColumnName("is_partial_cancelable");
+            entity.Property(e => e.PaymentType)
+                .HasMaxLength(20)
+                .HasComment("결제 타입 (NORMAL, BILLING)")
+                .HasColumnName("payment_type");
+            entity.Property(e => e.LastTransactionKey)
+                .HasMaxLength(255)
+                .HasComment("최종 거래 키 (deprecated: use payment_transactions)")
+                .HasColumnName("last_transaction_key");
+            entity.Property(e => e.CultureExpense)
+                .HasComment("문화비 소득공제 여부")
+                .HasColumnName("culture_expense");
+            entity.Property(e => e.Metadata)
+                .HasColumnType("json")
+                .HasComment("커스텀 메타데이터")
+                .HasColumnName("metadata");
+            entity.Property(e => e.DiscountInfo)
+                .HasColumnType("json")
+                .HasComment("할인 정보")
+                .HasColumnName("discount_info");
 
             entity.HasOne(d => d.Method).WithMany(p => p.Payments)
                 .HasForeignKey(d => d.MethodId)
@@ -1246,6 +1283,67 @@ public partial class TicketContext : DbContext
                 .HasForeignKey(d => d.TransactionId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("fk_payments_trans");
+        });
+
+        modelBuilder.Entity<PaymentTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("payment_transactions", tb => tb.HasComment("결제 거래 히스토리 (승인/취소/부분취소 모든 이벤트 추적)"));
+
+            entity.HasIndex(e => e.TransactionKey, "uk_payment_txn_key").IsUnique();
+            entity.HasIndex(e => e.TransactionType, "idx_payment_txn_type");
+            entity.HasIndex(e => new { e.PaymentId, e.CreatedAt }, "idx_payment_txn_payment_created");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.PaymentId)
+                .HasComment("payments FK")
+                .HasColumnName("payment_id");
+            entity.Property(e => e.TransactionKey)
+                .HasMaxLength(255)
+                .HasComment("거래 키 (토스페이먼츠 제공)")
+                .HasColumnName("transaction_key");
+            entity.Property(e => e.TransactionType)
+                .HasMaxLength(50)
+                .HasComment("거래 유형 (PAYMENT, CANCEL, PARTIAL_CANCEL)")
+                .HasColumnName("transaction_type");
+            entity.Property(e => e.Amount)
+                .HasComment("거래 금액")
+                .HasColumnName("amount");
+            entity.Property(e => e.BalanceAmount)
+                .HasComment("잔액 (부분 취소 후 잔여 금액)")
+                .HasColumnName("balance_amount");
+            entity.Property(e => e.TaxFreeAmount)
+                .HasDefaultValueSql("'0'")
+                .HasComment("비과세 금액")
+                .HasColumnName("tax_free_amount");
+            entity.Property(e => e.Currency)
+                .HasMaxLength(3)
+                .HasDefaultValueSql("'KRW'")
+                .HasComment("통화 코드 (ISO-4217)")
+                .HasColumnName("currency");
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasComment("거래 상태 (DONE, FAILED, PENDING)")
+                .HasColumnName("status");
+            entity.Property(e => e.Reason)
+                .HasColumnName("reason");
+            entity.Property(e => e.TossResponse)
+                .HasColumnName("toss_response");
+            entity.Property(e => e.EventAt)
+                .HasComment("토스 이벤트 발생 시각 (API 제공)")
+                .HasColumnType("timestamp")
+                .HasColumnName("event_at");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasComment("저장 시각 (UTC)")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Payment).WithMany(p => p.Transactions)
+                .HasForeignKey(d => d.PaymentId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_payment_txn_payment");
         });
 
         modelBuilder.Entity<PaymentMethod>(entity =>
