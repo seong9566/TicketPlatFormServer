@@ -3,7 +3,279 @@
 
 ---
 
-# 최근 작업 내역 (2026-01-26)
+# 최근 작업 내역 (2026-01-29)
+
+---
+
+## ✅ 완료: 토스페이먼츠 API 응답 DTO 완전 대응 및 DB 스키마 동기화
+
+### 작업 개요
+토스페이먼츠 결제 성공 시 반환되는 실제 API 응답 형식에 완전히 대응하도록 DTO, DB 스키마, Entity 모델, 서비스 로직을 전면 개선. Codex(gpt-5.2-codex)를 활용한 DB 설계 검증 완료.
+
+### 구현 완료 항목 (2026-01-29)
+
+#### 1. DTO 필드 확장 (TossPaymentResponseDto.cs)
+**추가된 최상위 필드 (16개)**:
+- `mId` (가맹점 ID), `version` (API 버전), `lastTransactionKey` (최종 거래 키)
+- `useEscrow` (에스크로 사용 여부), `cultureExpense` (문화비 지출 여부)
+- `type` (결제 타입: NORMAL, BILLING), `country` (국가 코드)
+- `isPartialCancelable` (부분 취소 가능 여부), `secret` (비밀 정보)
+- `metadata` (메타데이터), `discount` (할인 정보)
+- `checkout` (결제창 URL), `mobilePhone`, `giftCertificate`, `cashReceipt`, `cashReceipts`
+
+**TossCardDto 추가 필드 (5개)**:
+- `issuerCode` (발급사 코드), `acquirerCode` (매입사 코드)
+- `interestPayer` (무이자 할부 부담자), `useCardPoint` (포인트 사용), `amount` (카드 결제 금액)
+
+**TossVirtualAccountDto 추가 필드 (2개)**:
+- `accountType` (계좌 타입), `refundReceiveAccount` (환불 계좌 정보)
+
+**새로운 결제 수단 DTO (4개)**:
+- `TossCheckoutDto` (결제창 정보)
+- `TossMobilePhoneDto` (휴대폰 결제)
+- `TossGiftCertificateDto` (상품권 결제)
+- `TossCashReceiptDto` (현금영수증)
+
+#### 2. MySQL DB 마이그레이션 (Codex 검증 완료)
+**파일**: `migrations/001_improved_toss_payments_integration.sql`
+
+**Phase 1: payments 테이블 확장**
+- PK 타입 변경: `id` BIGINT → BIGINT UNSIGNED
+- Amount 타입 변경: INT → BIGINT UNSIGNED
+- 11개 새 컬럼 추가:
+  - `use_escrow`, `is_partial_cancelable`, `payment_type`, `last_transaction_key`
+  - `merchant_id`, `api_version`, `country` (CHAR(2))
+  - `culture_expense`, `metadata` (JSON), `discount_info` (JSON)
+- Collation 변경: `payment_key`, `order_id` → utf8mb4_0900_as_cs (대소문자 구분)
+- UNIQUE 인덱스 추가: `payment_key`, `order_id`
+- 일반 인덱스 추가: `transaction_id`, `payment_type`, `merchant_id`, `paid_at`, `status_id`
+
+**Phase 2: 결제 수단별 상세 테이블 (4개)**
+- `payment_card_details` (15개 필드) - 카드 결제 상세
+- `payment_virtual_account_details` (12개 필드) - 가상계좌 상세
+- `payment_easy_pay_details` (5개 필드) - 간편결제 상세
+- `payment_cash_receipts` (8개 필드) - 현금영수증
+
+**Phase 3: 거래 히스토리 테이블**
+- `payment_transactions` (13개 필드) - 결제 거래 이벤트 로그
+  - `balance_amount`, `tax_free_amount`, `currency`, `event_at` 포함
+  - 복합 인덱스: `(payment_id, created_at)`
+
+**Codex 검증 결과 반영**:
+- ✅ Online DDL 최적화 (`ALGORITHM=INSTANT, LOCK=NONE`)
+- ✅ 중복 데이터 사전 정리 (ROW_NUMBER() 윈도우 함수)
+- ✅ FK 타입 일관성 (모든 payment_id → BIGINT UNSIGNED)
+- ✅ JSON + 암호화 타입 불일치 해결 (TEXT 타입 사용)
+- ✅ 1:1 관계 강제 (UNIQUE INDEX on payment_id)
+- ✅ ON DELETE RESTRICT (하드 딜리트 방지)
+
+#### 3. EF Core Entity 모델 업데이트 (6개 파일)
+**신규 엔티티 생성 (5개)**:
+- `DBModel/PaymentCardDetail.cs` - 카드 결제 상세
+- `DBModel/PaymentVirtualAccountDetail.cs` - 가상계좌 상세
+- `DBModel/PaymentEasyPayDetail.cs` - 간편결제 상세
+- `DBModel/PaymentCashReceipt.cs` - 현금영수증
+- `DBModel/PaymentTransaction.cs` - 결제 거래 이벤트
+
+**Payment.cs 수정**:
+- 11개 새 필드 추가 (useEscrow, isPartialCancelable, paymentType 등)
+- Navigation Properties 추가 (CardDetail, VirtualAccountDetail, Transactions 등)
+- `Id` 타입 변경: long → ulong
+
+#### 4. 암호화 서비스 구현
+**파일**: `Services/Common/EncryptionService.cs`
+
+**기능**:
+- AES-256-GCM 암호화/복호화
+- Base64 인코딩 자동 적용
+- PBKDF2 키 파생 (100,000 반복)
+- Nullable 헬퍼 메서드 (`EncryptNullable`, `DecryptNullable`)
+
+**암호화 대상 필드**:
+- `payment_virtual_account_details.secret`
+- `payment_virtual_account_details.refund_receive_account`
+- `payment_transactions.toss_response`
+
+**설정**: `appsettings.json`
+```json
+{
+  "Encryption": {
+    "MasterKey": "TicketPlatform-AES256-Encryption-Master-Key-2026-Secure-Payment-Data-Protection"
+  }
+}
+```
+
+#### 5. Repository 메서드 확장 (11개 메서드 추가)
+**IPaymentRepository.cs & PaymentRepository.cs**:
+
+**생성 메서드 (5개)**:
+- `CreateCardDetailAsync`
+- `CreateVirtualAccountDetailAsync`
+- `CreateEasyPayDetailAsync`
+- `CreateCashReceiptAsync`
+- `CreateTransactionAsync`
+
+**조회 메서드 (4개)**:
+- `GetCardDetailByPaymentIdAsync`
+- `GetVirtualAccountDetailByPaymentIdAsync`
+- `GetEasyPayDetailByPaymentIdAsync`
+- `GetTransactionsByPaymentIdAsync`
+
+**기타**:
+- `UpdatePaymentStatusAsync` 시그니처 변경 (long → ulong)
+
+#### 6. PaymentService 로직 개선
+**파일**: `Services/Payment/PaymentService.cs`
+
+**ConfirmPaymentAsync 메서드 수정**:
+- TossPaymentResponseDto의 모든 새 필드 → Payment 엔티티 매핑
+- 카드/가상계좌/간편결제/현금영수증 detail 테이블 저장 로직 추가
+- PaymentTransaction 이벤트 로그 자동 생성
+- 암호화 필요 필드 자동 암호화 (EncryptionService 사용)
+- JSON 필드 직렬화 (`metadata`, `discount_info`)
+
+**수정 내용**:
+```csharp
+// 기존
+var payment = new Payment {
+    TransactionId = transactionId,
+    PgProvider = "toss",
+    Amount = tossResponse.TotalAmount,
+    // ...
+};
+
+// 개선 후
+var payment = new Payment {
+    TransactionId = transactionId,
+    PgProvider = "toss",
+    MerchantId = tossResponse.MId,
+    ApiVersion = tossResponse.Version,
+    Country = tossResponse.Country ?? "KR",
+    Amount = tossResponse.TotalAmount,
+    UseEscrow = tossResponse.UseEscrow,
+    IsPartialCancelable = tossResponse.IsPartialCancelable,
+    Metadata = JsonSerializer.Serialize(tossResponse.Metadata),
+    // ... + 카드/가상계좌/간편결제 detail 저장
+};
+```
+
+### 보안 강화
+
+#### 암호화 필드 (AES-256-GCM + Base64)
+1. **가상계좌 시크릿**: `payment_virtual_account_details.secret`
+2. **환불 계좌 정보**: `payment_virtual_account_details.refund_receive_account`
+3. **토스 API 응답 전문**: `payment_transactions.toss_response`
+
+#### PCI DSS 준수
+- 카드번호는 **마스킹된 값만 저장** (예: 1234-****-****-5678)
+- CVV, 전체 PAN 저장 금지
+- 민감 컬럼 접근 로그 감사 권장
+
+#### 데이터 무결성
+- UNIQUE 제약으로 중복 방지 (`payment_key`, `order_id`, `receipt_key`)
+- FK RESTRICT로 데이터 삭제 방지
+- 1:1 관계 강제 (detail 테이블)
+
+### 기술적 의사결정
+
+#### DB 설계 검증 (Codex gpt-5.2-codex)
+- **검증 단계**: 2회 (초기 설계 → 피드백 반영 → 재검증)
+- **주요 피드백**:
+  1. Online DDL 안전성 (AFTER 제거, ALGORITHM=INSTANT)
+  2. Amount 데이터 타입 (INT → BIGINT UNSIGNED)
+  3. Idempotency 보장 (UNIQUE 인덱스)
+  4. JSON + 암호화 타입 불일치 (JSON → TEXT)
+  5. Case-sensitive collation (utf8mb4_0900_as_cs)
+
+#### 타입 변환 전략
+- MySQL `BIGINT UNSIGNED` ↔ C# `ulong`
+- MySQL `JSON` ↔ C# `string` (JsonSerializer 사용)
+- MySQL `CHAR(2)` ↔ C# `string` (국가 코드)
+
+#### 마이그레이션 순서
+1. FK 제거 (`refunds.payment_id`)
+2. payments.id 타입 변경 (BIGINT → BIGINT UNSIGNED)
+3. refunds.payment_id 타입 변경
+4. FK 재생성
+5. 나머지 컬럼 추가 및 인덱스 생성
+
+### 변경된 파일 목록
+
+**신규 생성 (8개)**:
+1. `DBModel/PaymentCardDetail.cs`
+2. `DBModel/PaymentVirtualAccountDetail.cs`
+3. `DBModel/PaymentEasyPayDetail.cs`
+4. `DBModel/PaymentCashReceipt.cs`
+5. `DBModel/PaymentTransaction.cs`
+6. `Services/Common/EncryptionService.cs`
+7. `migrations/001_improved_toss_payments_integration.sql`
+
+**수정 (8개)**:
+1. `DTO/Payment/TossPaymentResponseDto.cs` - 27개 필드 추가
+2. `DBModel/Payment.cs` - 11개 필드 + Navigation Properties
+3. `Repository/Payment/IPaymentRepository.cs` - 11개 메서드 시그니처
+4. `Repository/Payment/PaymentRepository.cs` - 11개 메서드 구현
+5. `Services/Payment/PaymentService.cs` - ConfirmPaymentAsync 로직 개선
+6. `Program.cs` - EncryptionService DI 등록
+7. `appsettings.json` - Encryption 설정 추가
+
+### 빌드 및 테스트 상태
+- ✅ **빌드 성공** (0 errors, 0 warnings)
+- ✅ **DB 마이그레이션 적용 완료** (MySQL MCP 사용)
+- ✅ **검증 쿼리 실행 완료**
+  - payments 테이블: 11개 새 컬럼 확인
+  - UNIQUE 인덱스: payment_key, order_id 확인
+  - 5개 새 테이블 생성 확인
+
+### 다음 작업 (권장)
+
+#### 필수 작업
+1. **End-to-End 테스트**
+   - 실제 토스페이먼츠 API로 결제 승인 테스트
+   - 카드/가상계좌/간편결제 각 결제 수단별 테스트
+   - detail 테이블 데이터 저장 확인
+   - 암호화된 필드 복호화 테스트
+
+2. **로그 모니터링**
+   - ConfirmPaymentAsync 실행 시 detail 저장 로그 확인
+   - 암호화/복호화 성공 여부 확인
+
+3. **에러 처리 개선**
+   - Detail 저장 실패 시 롤백 로직 확인
+   - 암호화 실패 시 에러 핸들링
+
+#### 선택 작업
+1. **EF Core 마이그레이션 생성** (코드 우선 접근):
+   ```bash
+   dotnet ef migrations add AddTossPaymentsIntegrationFields
+   ```
+
+2. **Swagger 문서 업데이트**
+   - TossPaymentResponseDto 새 필드 문서화
+
+3. **프론트엔드 연동**
+   - 새로운 필드 활용 방안 논의
+   - 결제 상세 정보 표시
+
+### 기술 문서 링크
+- 토스페이먼츠 Payment 객체: https://docs.tosspayments.com/reference#payment-객체
+- MySQL 8.0 Online DDL: https://dev.mysql.com/doc/refman/8.0/en/innate-online-ddl.html
+- AES-GCM 암호화: https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aesgcm
+
+---
+
+**마지막 업데이트**: 2026-01-29
+**상태**:
+- ✅ TossPaymentResponseDto 27개 필드 추가 완료
+- ✅ MySQL DB 스키마 완전 동기화 완료 (Codex 검증)
+- ✅ EF Core Entity 모델 업데이트 완료
+- ✅ AES-256-GCM 암호화 서비스 구현 완료
+- ✅ PaymentService 로직 개선 완료
+- 🔄 다음: End-to-End 결제 테스트 및 암호화 검증
+
+---
+
+# 이전 작업 내역 (2026-01-26)
 
 ---
 
@@ -147,6 +419,47 @@ Toss API 승인 요청 → Payment + Escrow 생성
 ---
 
 ## 🔄 다음 작업 (결제 시스템)
+
+### ✅ 최근 작업 추가 (2026-01-30)
+1. **Payment/Status 시드 정리**
+   - `database_history/seed_payment_statuses.sql` 추가
+   - `database_history/seed_payment_methods.sql` 추가
+   - `database_history/seed_escrow_statuses.sql` 추가
+   - `db_restore.sh`, `db_restore.bat`에서 시드 자동 적용 추가
+
+2. **EF 매핑/트랜잭션 안정화**
+   - `Repository/TicketContext.cs`: `payment_transactions` 매핑 추가
+   - `Repository/Transaction/TransactionRepository.cs`: EF 트랜잭션 공유 처리 (Dapper Update)
+
+3. **결제 상태/수단 자동 생성 제거**
+   - `Services/Payment/PaymentService.cs`: 상태/수단 시드 기반 조회로 복원
+
+### ✅ 결제 완료 이후 해야 할 일
+1. **거래 상태 변경 확인**
+   - `transactions.status_id`가 `paid`로 업데이트되었는지 확인
+
+2. **에스크로 생성 확인**
+   - `escrow` 레코드 생성 여부 확인
+   - `escrow.status_id`가 `holding`인지 확인
+
+3. **결제 상세 저장 확인**
+   - `payment_transactions`에 PAYMENT 로그가 쌓였는지 확인
+   - 결제 수단별 detail 테이블 저장 여부 확인
+     - 카드: `payment_card_details`
+     - 가상계좌: `payment_virtual_account_details`
+     - 간편결제: `payment_easy_pay_details`
+     - 현금영수증: `payment_cash_receipts`
+
+4. **암호화 필드 검증**
+   - `payment_virtual_account_details.secret`
+   - `payment_virtual_account_details.refund_receive_account`
+   - `payment_transactions.toss_response`
+
+5. **Idempotency 확인**
+   - 동일 `order_id`로 재호출 시 기존 결제 반환 여부 확인
+
+6. **결제 후 구매 확정 플로우**
+   - `ReleaseEscrowAsync` 호출 → escrow `released`, transaction `confirmed`
 
 ### Phase 1: 배포 전 필수 작업
 1. **DB 상태 코드 확인 및 추가**
