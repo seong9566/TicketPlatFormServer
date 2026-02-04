@@ -1,10 +1,10 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
 /// <summary>
-/// 가상계좌 결제 상세 정보
-/// 민감정보 암호화 필수
+/// 가상계좌 결제 상세 정보 (민감정보 암호화 필수)
 /// </summary>
 public partial class PaymentVirtualAccountDetail
 {
@@ -13,7 +13,7 @@ public partial class PaymentVirtualAccountDetail
     /// <summary>
     /// payments FK
     /// </summary>
-    public long PaymentId { get; set; }
+    public ulong PaymentId { get; set; }
 
     /// <summary>
     /// 가상계좌 번호 (민감정보: 암호화 권장)
@@ -65,10 +65,9 @@ public partial class PaymentVirtualAccountDetail
     /// </summary>
     public string? Secret { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 
-    // Navigation Property
     public virtual Payment Payment { get; set; } = null!;
 }

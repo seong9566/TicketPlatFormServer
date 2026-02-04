@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
@@ -12,7 +13,7 @@ public partial class PaymentCashReceipt
     /// <summary>
     /// payments FK
     /// </summary>
-    public long PaymentId { get; set; }
+    public ulong PaymentId { get; set; }
 
     /// <summary>
     /// 소득공제/지출증빙
@@ -37,17 +38,16 @@ public partial class PaymentCashReceipt
     /// <summary>
     /// 현금영수증 금액
     /// </summary>
-    public long Amount { get; set; }
+    public ulong Amount { get; set; }
 
     /// <summary>
     /// 비과세 금액
     /// </summary>
-    public long TaxFreeAmount { get; set; }
+    public ulong TaxFreeAmount { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 
-    // Navigation Property
     public virtual Payment Payment { get; set; } = null!;
 }

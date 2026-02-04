@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
@@ -12,7 +13,7 @@ public partial class PaymentEasyPayDetail
     /// <summary>
     /// payments FK
     /// </summary>
-    public long PaymentId { get; set; }
+    public ulong PaymentId { get; set; }
 
     /// <summary>
     /// 간편결제 제공자 (토스페이/카카오페이/네이버페이)
@@ -22,17 +23,16 @@ public partial class PaymentEasyPayDetail
     /// <summary>
     /// 간편결제 금액
     /// </summary>
-    public long Amount { get; set; }
+    public ulong Amount { get; set; }
 
     /// <summary>
     /// 할인 금액
     /// </summary>
-    public long DiscountAmount { get; set; }
+    public ulong DiscountAmount { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 
-    // Navigation Property
     public virtual Payment Payment { get; set; } = null!;
 }

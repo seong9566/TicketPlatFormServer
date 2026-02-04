@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
@@ -12,7 +13,7 @@ public partial class PaymentTransaction
     /// <summary>
     /// payments FK
     /// </summary>
-    public long PaymentId { get; set; }
+    public ulong PaymentId { get; set; }
 
     /// <summary>
     /// 거래 키 (토스페이먼츠 제공)
@@ -27,22 +28,22 @@ public partial class PaymentTransaction
     /// <summary>
     /// 거래 금액
     /// </summary>
-    public long Amount { get; set; }
+    public ulong Amount { get; set; }
 
     /// <summary>
     /// 잔액 (부분 취소 후 잔여 금액)
     /// </summary>
-    public long? BalanceAmount { get; set; }
+    public ulong? BalanceAmount { get; set; }
 
     /// <summary>
     /// 비과세 금액
     /// </summary>
-    public long TaxFreeAmount { get; set; }
+    public ulong TaxFreeAmount { get; set; }
 
     /// <summary>
     /// 통화 코드 (ISO-4217)
     /// </summary>
-    public string Currency { get; set; } = "KRW";
+    public string Currency { get; set; } = null!;
 
     /// <summary>
     /// 거래 상태 (DONE, FAILED, PENDING)
@@ -67,8 +68,7 @@ public partial class PaymentTransaction
     /// <summary>
     /// 저장 시각 (UTC)
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
-    // Navigation Property
     public virtual Payment Payment { get; set; } = null!;
 }

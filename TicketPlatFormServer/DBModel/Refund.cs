@@ -12,10 +12,7 @@ public partial class Refund
 
     public long TransactionId { get; set; }
 
-    /// <summary>
-    /// 결제 FK
-    /// </summary>
-    public long PaymentId { get; set; }
+    public ulong PaymentId { get; set; }
 
     /// <summary>
     /// 환불 금액

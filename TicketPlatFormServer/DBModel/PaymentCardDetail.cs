@@ -1,10 +1,10 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
 /// <summary>
-/// 카드 결제 상세 정보
-/// PCI DSS 주의: 마스킹된 정보만 저장
+/// 카드 결제 상세 정보 (PCI DSS 주의: 마스킹된 정보만 저장)
 /// </summary>
 public partial class PaymentCardDetail
 {
@@ -13,7 +13,7 @@ public partial class PaymentCardDetail
     /// <summary>
     /// payments FK
     /// </summary>
-    public long PaymentId { get; set; }
+    public ulong PaymentId { get; set; }
 
     /// <summary>
     /// 카드사명
@@ -78,12 +78,11 @@ public partial class PaymentCardDetail
     /// <summary>
     /// 카드 결제 금액
     /// </summary>
-    public long Amount { get; set; }
+    public ulong Amount { get; set; }
 
-    public DateTime CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; }
 
-    public DateTime UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 
-    // Navigation Property
     public virtual Payment Payment { get; set; } = null!;
 }

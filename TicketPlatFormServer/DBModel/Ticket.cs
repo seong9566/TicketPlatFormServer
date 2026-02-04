@@ -90,7 +90,7 @@ public partial class Ticket
     public bool? HasTicket { get; set; }
 
     /// <summary>
-    /// 티켓 특이사항 ID 목록 (콤마 구분 문자열: "1,2,5")
+    /// 티켓 특이사항 ID 목록 (콤마 구분)
     /// </summary>
     public string? FeatureIds { get; set; }
 
@@ -100,9 +100,6 @@ public partial class Ticket
 
     public virtual Event? Event { get; set; }
 
-    /// <summary>
-    /// 공연별 좌석 등급 참조 (기존 마스터 참조에서 변경)
-    /// </summary>
     public virtual EventSeatGrade? SeatGrade { get; set; }
 
     public virtual EventSeatLocation? SeatLocation { get; set; }

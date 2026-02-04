@@ -4,14 +4,14 @@ using System.Collections.Generic;
 namespace TicketPlatFormServer.DBModel;
 
 /// <summary>
-/// 티켓 특이사항 마스터
+/// 좌석 등급 마스터
 /// </summary>
-public partial class TicketFeature
+public partial class SeatGrade
 {
     public int Id { get; set; }
 
     /// <summary>
-    /// 특이사항 코드
+    /// 좌석 등급 코드
     /// </summary>
     public string Code { get; set; } = null!;
 
@@ -26,11 +26,6 @@ public partial class TicketFeature
     public string? NameEn { get; set; }
 
     /// <summary>
-    /// 설명
-    /// </summary>
-    public string? Description { get; set; }
-
-    /// <summary>
     /// 정렬 순서
     /// </summary>
     public int? SortOrder { get; set; }
@@ -38,4 +33,6 @@ public partial class TicketFeature
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+
+    public virtual ICollection<EventSeatGrade> EventSeatGrades { get; set; } = new List<EventSeatGrade>();
 }
