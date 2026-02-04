@@ -224,7 +224,7 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
         if (userId == null)
             throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
 
-        var result = await chatService.RequestPayment(req.RoomId, userId.Value);
+        var result = await chatService.RequestPayment(req.RoomId, userId.Value, req.Quantity);
 
         // SignalR로 채팅방에 결제 요청 알림
         await hubContext.Clients.Group($"room_{req.RoomId}")
@@ -257,16 +257,6 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
         req.UserId = userId.Value;
 
         var result = await chatService.ConfirmPurchase(req);
-
-        // SignalR로 채팅방에 구매 확정 알림
-        await hubContext.Clients.Group($"room_{req.RoomId}")
-            .SendAsync("RoomUpdated", new RoomUpdatedSignalDto
-            {
-                RoomId = req.RoomId,
-                Event = "PurchaseConfirmed",
-                TransactionId = result.TransactionId,
-                Message = "구매가 확정되었습니다."
-            });
 
         var resp = new ApiResponse<PurchaseConfirmRespDto>(
             message: "구매 확정이 완료되었습니다",
@@ -303,6 +293,37 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
 
         var resp = new ApiResponse<object>(
             message: "거래가 취소되었습니다",
+            data: null,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
+
+    /// <summary>
+    /// 채팅방 나가기
+    /// </summary>
+    [HttpPost("rooms/leave")]
+    public async Task<IActionResult> LeaveChatRoom([FromBody] LeaveChatRoomReqDto req)
+    {
+        var userId = User.GetUserId();
+        if (userId == null)
+            throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
+
+        req.UserId = userId.Value;
+
+        await chatService.LeaveChatRoom(req);
+
+        await hubContext.Clients.Group($"room_{req.RoomId}")
+            .SendAsync("RoomUpdated", new RoomUpdatedSignalDto
+            {
+                RoomId = req.RoomId,
+                Event = "RoomClosed",
+                StatusCode = "closed",
+                Message = "채팅방이 종료되었습니다."
+            });
+
+        var resp = new ApiResponse<object>(
+            message: "채팅방 나가기 완료",
             data: null,
             statusCode: 200
         );

@@ -100,6 +100,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
             .Include(cr => cr.Transaction).ThenInclude(t => t!.Status)
             .Where(cr => (cr.BuyerId == userId || cr.SellerId == userId)
                       && cr.DeletedAt == null
+                      && cr.ClosedAt == null
                       && cr.LastMessageAt != null)
             .OrderByDescending(cr => cr.LastMessageAt)
             .Skip(offset)
@@ -254,6 +255,20 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
             chatRoom.TransactionId = transactionId;
             await db.SaveChangesAsync();
             logger.LogInformation("[ChatRepository.SetTransactionId] RoomId: {RoomId}, TransactionId: {TransactionId}", roomId, transactionId);
+        }
+    }
+
+    /// <summary>
+    /// 채팅방 거래 ID 해제
+    /// </summary>
+    public async Task ClearTransactionId(long roomId)
+    {
+        var chatRoom = await db.ChatRooms.FindAsync(roomId);
+        if (chatRoom != null)
+        {
+            chatRoom.TransactionId = null;
+            await db.SaveChangesAsync();
+            logger.LogInformation("[ChatRepository.ClearTransactionId] RoomId: {RoomId}", roomId);
         }
     }
 

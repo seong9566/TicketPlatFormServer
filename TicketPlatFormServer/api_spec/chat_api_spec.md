@@ -59,6 +59,7 @@ Content-Type: application/json
 ### `GET /api/chat/rooms`
 
 **설명**: 내가 참여 중인 채팅방 목록을 페이징하여 조회합니다.
+**참고**: `closed` 상태(ClosedAt 설정된 채팅방)는 목록에서 제외됩니다.
 
 **Request**
 ```
@@ -81,6 +82,7 @@ Authorization: Bearer {token}
       "roomId": 1,
       "ticketId": 123,
       "ticketTitle": "아이유 콘서트 티켓",
+      "ticketThumbnailUrl": "https://...",
       "otherUserNickname": "판매자",
       "otherUserProfileImage": "https://...",
       "lastMessage": "안녕하세요",
@@ -92,6 +94,8 @@ Authorization: Bearer {token}
   "statusCode": 200
 }
 ```
+
+**Note**: `ticketThumbnailUrl`은 이벤트 포스터 이미지 URL입니다.
 
 ---
 
@@ -118,23 +122,53 @@ Authorization: Bearer {token}
   "message": "채팅방 상세 조회 성공",
   "data": {
     "roomId": 1,
-    "ticketId": 123,
-    "ticketTitle": "아이유 콘서트 티켓",
-    "ticketPrice": 150000,
-    "ticketImageUrl": "https://...",
-    "sellerId": 10,
-    "sellerNickname": "판매자",
-    "sellerProfileImage": "https://...",
-    "buyerId": 20,
-    "buyerNickname": "구매자",
-    "buyerProfileImage": "https://...",
-    "status": "active",
-    "transactionId": 456,
-    "transactionStatus": "pending"
+    "ticket": {
+      "ticketId": 123,
+      "title": "아이유 콘서트 티켓",
+      "price": 150000,
+      "unitPrice": 150000,
+      "totalQuantity": 5,
+      "remainingQuantity": 2,
+      "thumbnailUrl": "https://...",
+      "seatInfo": "1층 VIP A구역 3열",
+      "eventDateTime": "2026-02-20T19:30:00",
+      "venueName": "올림픽홀"
+    },
+    "buyer": {
+      "userId": 20,
+      "nickname": "구매자",
+      "profileImageUrl": "https://...",
+      "mannerTemperature": 36.8
+    },
+    "seller": {
+      "userId": 10,
+      "nickname": "판매자",
+      "profileImageUrl": "https://...",
+      "mannerTemperature": 37.2
+    },
+    "statusCode": "active",
+    "statusName": "활성",
+    "transaction": {
+      "transactionId": 456,
+      "statusCode": "pending_payment",
+      "statusName": "결제대기",
+      "confirmedAt": null,
+      "cancelledAt": null
+    },
+    "canSendMessage": true,
+    "canRequestPayment": true,
+    "canConfirmPurchase": false,
+    "canCancelTransaction": true,
+    "messages": []
   },
   "statusCode": 200
 }
 ```
+
+**추가 필드**
+- `ticket.unitPrice`: 티켓 1장당 가격
+- `ticket.totalQuantity`: 총 판매중인 수량
+- `ticket.remainingQuantity`: 남은 판매 가능 수량
 
 **Error Response** `401 Unauthorized`
 ```json
@@ -393,7 +427,7 @@ Content-Type: application/json
 ```json
 {
   "roomId": 1,
-  "transactionId": 456
+  "quantity": 2
 }
 ```
 
@@ -403,7 +437,8 @@ Content-Type: application/json
   "message": "결제 요청이 전송되었습니다",
   "data": {
     "paymentUrl": "https://payment.example.com/...",
-    "transactionId": 456
+    "transactionId": 456,
+    "amount": 300000
   },
   "statusCode": 200
 }
@@ -421,7 +456,10 @@ Event: "RoomUpdated"
 }
 ```
 
-**참고**: 판매자만 결제 요청을 할 수 있습니다.
+**참고**:
+- 판매자만 결제 요청을 할 수 있습니다.
+- 결제 요청 시 `quantity`만큼 재고가 즉시 예약됩니다. (`remaining_quantity` 감소)
+- 예약 만료 시(24시간) 재고가 복구되고, 채팅방에 시스템 메시지가 전송됩니다.
 
 ---
 
@@ -459,16 +497,21 @@ Content-Type: application/json
 ```
 
 **SignalR 실시간 알림**
-구매 확정 시 채팅방 참여자에게 실시간으로 알림:
+구매 확정 시 채팅방 참여자에게 실시간 메시지 전송:
 ```json
-Event: "RoomUpdated"
+Event: "ReceiveMessage" (room_{roomId})
 {
+  "messageId": 789,
   "roomId": 1,
-  "event": "PurchaseConfirmed",
-  "transactionId": 456,
-  "message": "구매가 확정되었습니다."
+  "senderId": 20,
+  "senderNickname": "구매자",
+  "message": null,
+  "type": "PURCHASE_CONFIRMED",
+  "createdAt": "2026-01-14T10:35:00"
 }
 ```
+
+추가로 사용자 그룹(`user_{userId}`)에도 `NewMessage` 이벤트가 전송됩니다.
 
 **참고**:
 - 구매자만 구매 확정을 할 수 있습니다.
@@ -527,7 +570,69 @@ Event: "RoomUpdated"
 
 ---
 
-## 10. 메시지 이미지 URL 재발급
+## 10. 채팅방 나가기
+
+### `POST /api/chat/rooms/leave`
+
+**설명**: 채팅방에서 나갑니다. 나가기 시 채팅방이 종료(`closed`) 처리됩니다.
+
+**Request**
+```
+POST /api/chat/rooms/leave
+Authorization: Bearer {token}
+Content-Type: application/json
+```
+
+**Request Body**
+```json
+{
+  "roomId": 1
+}
+```
+
+**Response** `200 OK`
+```json
+{
+  "message": "채팅방 나가기 완료",
+  "data": null,
+  "statusCode": 200
+}
+```
+
+**SignalR 실시간 알림**
+
+1) 채팅방 종료 알림
+```json
+Event: "RoomUpdated"
+{
+  "roomId": 1,
+  "event": "RoomClosed",
+  "statusCode": "closed",
+  "message": "채팅방이 종료되었습니다."
+}
+```
+
+2) 채팅 메시지 전송
+```json
+Event: "ReceiveMessage" (room_{roomId})
+{
+  "messageId": 790,
+  "roomId": 1,
+  "senderId": 20,
+  "senderNickname": "구매자",
+  "message": "구매자가 채팅방을 나갔습니다.",
+  "type": "TEXT",
+  "createdAt": "2026-01-14T10:40:00"
+}
+```
+
+**참고**:
+- 채팅방이 종료되면 목록에서 제외됩니다.
+- 종료된 채팅방에서는 메시지를 보낼 수 없습니다.
+
+---
+
+## 11. 메시지 이미지 URL 재발급
 
 ### `GET /api/chat/messages/image-url`
 
@@ -672,6 +777,7 @@ await connection.invoke("JoinRoom", roomId);
 ```
 1. 채팅방에서 협상
 2. POST /api/chat/rooms/request-payment (판매자가 결제 요청)
+   - 요청 수량만큼 재고 예약 (remaining_quantity 감소)
 3. 구매자가 결제 진행 (외부 결제 시스템)
 4. POST /api/chat/rooms/confirm-purchase (구매자가 구매 확정)
 5. 거래 완료
@@ -684,9 +790,25 @@ await connection.invoke("JoinRoom", roomId);
 3. 거래 취소 완료
 ```
 
+### 4. 채팅방 나가기 플로우
+```
+1. POST /api/chat/rooms/leave (구매자 또는 판매자)
+2. 채팅방 상태 closed 처리 및 ClosedAt 설정
+3. 채팅방 목록에서 제외
+```
+
 ---
 
 ## 변경 이력
+
+### v2.2 (2026-02-02)
+- ✅ **채팅방 나가기 API 추가**
+  - POST /api/chat/rooms/leave
+  - 채팅방 종료 및 RoomUpdated 알림
+- ✅ **채팅방 목록에서 closed 상태 제외**
+  - closed 상태(ClosedAt 설정) 채팅방은 목록에서 제외
+- ✅ **구매 확정 SignalR 이벤트 정리**
+  - PURCHASE_CONFIRMED 메시지 ReceiveMessage 전송
 
 ### v2.1 (2026-01-22)
 - ✅ **이미지 + 텍스트 동시 전송 기능 추가**
@@ -707,5 +829,5 @@ await connection.invoke("JoinRoom", roomId);
 ---
 
 **작성일**: 2026-01-14
-**버전**: v2.1
-**최종 업데이트**: 2026-01-22 - 이미지 + 텍스트 동시 전송 기능 및 Supabase Storage 개선
+**버전**: v2.2
+**최종 업데이트**: 2026-02-02 - 채팅방 나가기 및 closed 상태 목록 제외

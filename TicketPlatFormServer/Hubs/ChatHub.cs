@@ -18,12 +18,20 @@ public class ChatHub(IChatRepository chatRepo, ILogger<ChatHub> logger) : Hub
     public override async Task OnConnectedAsync()
     {
         var userId = Context.User?.GetUserId();
+        if (!userId.HasValue)
+        {
+            var claimTypes = Context.User?.Claims.Select(c => c.Type).Distinct().ToList() ?? new List<string>();
+            logger.LogWarning("[ChatHub.OnConnectedAsync] Missing userId claim. ConnectionId={ConnectionId}, Claims={Claims}",
+                Context.ConnectionId, string.Join(",", claimTypes));
+        }
         if (userId.HasValue)
         {
             // 사용자별 그룹에 추가
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
             logger.LogInformation("[ChatHub.OnConnectedAsync] User {UserId} connected with ConnectionId: {ConnectionId}",
                 userId, Context.ConnectionId);
+            logger.LogInformation("[ChatHub.OnConnectedAsync] User {UserId} joined group user_{GroupUserId}. ConnectionId={ConnectionId}",
+                userId, userId, Context.ConnectionId);
         }
         else
         {

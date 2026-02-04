@@ -1,9 +1,12 @@
 using System.Net;
+using Microsoft.AspNetCore.SignalR;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
 using TicketPlatFormServer.DBModel;
 using TicketPlatFormServer.DTO.Chat;
 using TicketPlatFormServer.DTO.Payment;
+using TicketPlatFormServer.Enum;
+using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Transactions;
@@ -19,6 +22,7 @@ public class ChatService(
     ITransactionItemRepository transactionItemRepo,
     IFileUploadService fileUploadService,
     IPaymentService paymentService,
+    IHubContext<ChatHub> hubContext,
     SupabaseStorageSettings supabaseSettings,
     ILogger<ChatService> logger) : IChatService
 {
@@ -46,8 +50,19 @@ public class ChatService(
 
         if (existingRoom != null)
         {
-            var messages = await GetRecentMessages(existingRoom.Id, userId);
-            return await MapToRoomDetailDto(existingRoom, userId, messages);
+            // 닫힌 방이면 soft delete 후 새 방 생성
+            if (existingRoom.ClosedAt != null)
+            {
+                await chatRepo.SoftDeleteChatRoom(existingRoom.Id);
+                logger.LogInformation("[ChatService.GetOrCreateChatRoom] 닫힌 채팅방 삭제 후 새 방 생성: OldRoomId={OldRoomId}, TicketId={TicketId}, BuyerId={BuyerId}",
+                    existingRoom.Id, ticketId, userId);
+            }
+            else
+            {
+                // 활성 방이면 재사용
+                var messages = await GetRecentMessages(existingRoom.Id, userId);
+                return await MapToRoomDetailDto(existingRoom, userId, messages);
+            }
         }
 
         // 새 채팅방 생성
@@ -80,12 +95,24 @@ public class ChatService(
             .Where(url => !string.IsNullOrEmpty(url) &&
                           !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                           !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .Select(url => url!)
             .Distinct()
             .ToList();
 
+        var posterKeys = rooms
+            .Select(room => room.Ticket?.Event?.PosterImageUrl)
+            .Where(url => !string.IsNullOrEmpty(url) &&
+                          !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                          !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .Select(url => url!)
+            .Distinct()
+            .ToList();
+
+        var allKeys = profileKeys.Concat(posterKeys).Distinct().ToList();
+
         // 2. 배치로 Signed URL 발급
-        var signedUrls = profileKeys.Count > 0
-            ? await fileUploadService.RefreshSignedUrlsBatchAsync(profileKeys!)
+        var signedUrls = allKeys.Count > 0
+            ? await fileUploadService.RefreshSignedUrlsBatchAsync(allKeys)
             : new Dictionary<string, SignedUrlResult>();
 
         // 3. 마지막 메시지 조회
@@ -112,14 +139,26 @@ public class ChatService(
 
             lastMessages.TryGetValue(room.Id, out var lastMsg);
 
+            string? ticketThumbnailUrl = room.Ticket?.Event?.PosterImageUrl;
+            if (!string.IsNullOrEmpty(ticketThumbnailUrl) &&
+                !ticketThumbnailUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !ticketThumbnailUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                if (signedUrls.TryGetValue(ticketThumbnailUrl, out var ticketImageResult))
+                {
+                    ticketThumbnailUrl = ticketImageResult.SignedUrl;
+                }
+            }
+
             return new ChatRoomListRespDto
             {
                 RoomId = room.Id,
-                TicketId = room.TicketId,
+                TicketId = (int)room.TicketId,
                 TicketTitle = room.Ticket?.Event?.Title ?? "",
+                TicketThumbnailUrl = ticketThumbnailUrl,
                 OtherUser = new OtherUserInfo
                 {
-                    UserId = room.BuyerId == userId ? room.SellerId : room.BuyerId,
+                    UserId = (int)(room.BuyerId == userId ? room.SellerId : room.BuyerId),
                     Nickname = room.BuyerId == userId
                         ? room.Seller?.UserProfile?.Nickname ?? "Unknown"
                         : room.Buyer?.UserProfile?.Nickname ?? "Unknown",
@@ -180,6 +219,11 @@ public class ChatService(
         var existingRoom = await chatRepo.GetChatRoomByTicketAndUser(ticketId, userId);
 
         if (existingRoom == null)
+        {
+            return null; // Controller에서 404 처리
+        }
+
+        if (existingRoom.ClosedAt != null || string.Equals(existingRoom.Status?.Code, "closed", StringComparison.OrdinalIgnoreCase))
         {
             return null; // Controller에서 404 처리
         }
@@ -361,7 +405,7 @@ public class ChatService(
     /// 결제 요청 (판매자가 구매자에게)
     /// Transaction 자동 생성 및 결제 요청
     /// </summary>
-    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, int userId)
+    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, int userId, int quantity)
     {
         // 권한 확인
         await ValidateUserInRoom(roomId, userId);
@@ -384,77 +428,102 @@ public class ChatService(
             throw new AppException("이미 결제 요청된 거래입니다.", HttpStatusCode.BadRequest);
         }
 
+        if (quantity <= 0)
+        {
+            throw new AppException("유효하지 않은 수량입니다.", HttpStatusCode.BadRequest);
+        }
+
         // Ticket 정보 확인
         if (room.Ticket == null)
         {
             throw new AppException("티켓 정보를 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
-        // 1. Transaction 생성
-        var pendingStatus = await transactionRepo.GetTransactionStatusByCodeAsync("pending_payment");
-        if (pendingStatus == null)
+        // 재고 예약 (원자적 감소)
+        var isReserved = await ticketRepo.TryReserveTicketQuantityAsync((int)room.TicketId, quantity);
+        if (!isReserved)
         {
-            throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+            throw new AppException("판매 가능한 수량이 부족합니다.", HttpStatusCode.BadRequest);
         }
 
-        var transaction = new DBModel.Transaction
+        try
         {
-            BuyerId = room.BuyerId,
-            SellerId = room.SellerId,
-            StatusId = pendingStatus.Id,
-            ReservedAt = DateTime.UtcNow,
-            ReservationExpiresAt = DateTime.UtcNow.AddHours(24), // 24시간 후 만료
-        };
+            // 1. Transaction 생성
+            var pendingStatus = await transactionRepo.GetTransactionStatusByCodeAsync("pending_payment");
+            if (pendingStatus == null)
+            {
+                throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+            }
 
-        var createdTransaction = await transactionRepo.CreateTransactionAsync(transaction);
+            var totalAmount = room.Ticket.Price * quantity;
 
-        // 2. TransactionItem 생성 (티켓 정보)
-        var transactionItem = new TransactionItem
+            var transaction = new DBModel.Transaction
+            {
+                BuyerId = room.BuyerId,
+                SellerId = room.SellerId,
+                StatusId = pendingStatus.Id,
+                Amount = totalAmount,
+                ReservedAt = DateTime.UtcNow,
+                ReservationExpiresAt = DateTime.UtcNow.AddHours(24) // 24시간 후 만료
+            };
+
+            var createdTransaction = await transactionRepo.CreateTransactionAsync(transaction);
+
+            // 2. TransactionItem 생성 (티켓 정보)
+            var transactionItem = new TransactionItem
+            {
+                TransactionId = createdTransaction.Id,
+                TicketId = (int)room.TicketId,
+                Quantity = quantity,
+                UnitPrice = room.Ticket.Price,
+                TotalPrice = totalAmount
+            };
+
+            await transactionItemRepo.CreateTransactionItemAsync(transactionItem);
+
+            // 3. ChatRoom에 Transaction 연결
+            await chatRepo.SetTransactionId(roomId, createdTransaction.Id);
+
+            // 4. 시스템 메시지 전송
+            var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null, Enum.MessageType.PAYMENT_REQUEST);
+
+            // LastMessageAt 업데이트
+            await chatRepo.UpdateLastMessageAt(roomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
+
+            // 상대방 읽지 않은 수 증가
+            var isSenderBuyer = room.BuyerId == userId;
+            await chatRepo.IncrementUnreadCount(roomId, !isSenderBuyer);
+
+            logger.LogInformation("[ChatService.RequestPayment] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}, Quantity={Quantity}",
+                roomId, createdTransaction.Id, userId, quantity);
+
+            // 5. 결제 요청 준비 (OrderId 생성)
+            var paymentRequest = new PaymentRequestDto
+            {
+                TransactionId = createdTransaction.Id,
+                Amount = totalAmount,
+                OrderName = $"{room.Ticket.Event?.Title} 티켓 {quantity}장",
+                CustomerName = room.Buyer?.UserProfile?.Nickname,
+                CustomerEmail = room.Buyer?.Email
+            };
+
+            var paymentData = await paymentService.InitiatePaymentAsync(paymentRequest, userId);
+            var paymentUrl = $"/payment/checkout?orderId={paymentData.OrderId}";
+
+            return new PaymentUrlRespDto
+            {
+                PaymentUrl = paymentUrl,
+                TransactionId = createdTransaction.Id,
+                Amount = paymentData.Amount
+            };
+        }
+        catch (Exception ex)
         {
-            TransactionId = createdTransaction.Id,
-            TicketId = room.TicketId,
-            Quantity = 1,
-            UnitPrice = room.Ticket.Price,
-            TotalPrice = room.Ticket.Price,
-        };
-
-        await transactionItemRepo.CreateTransactionItemAsync(transactionItem);
-
-        // 3. ChatRoom에 Transaction 연결
-        await chatRepo.SetTransactionId(roomId, createdTransaction.Id);
-
-        // 4. 시스템 메시지 전송
-        var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null, Enum.MessageType.PAYMENT_REQUEST);
-
-        // LastMessageAt 업데이트
-        await chatRepo.UpdateLastMessageAt(roomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
-
-        // 상대방 읽지 않은 수 증가
-        var isSenderBuyer = room.BuyerId == userId;
-        await chatRepo.IncrementUnreadCount(roomId, !isSenderBuyer);
-
-        logger.LogInformation("[ChatService.RequestPayment] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}",
-            roomId, createdTransaction.Id, userId);
-
-        // 5. 결제 요청 준비 (OrderId 생성)
-        var paymentRequest = new PaymentRequestDto
-        {
-            TransactionId = createdTransaction.Id,
-            Amount = room.Ticket.Price,
-            OrderName = $"{room.Ticket.Event?.Title} 티켓",
-            CustomerName = room.Buyer?.UserProfile?.Nickname,
-            CustomerEmail = room.Buyer?.Email
-        };
-
-        var paymentData = await paymentService.InitiatePaymentAsync(paymentRequest, userId);
-        var paymentUrl = $"/payment/checkout?orderId={paymentData.OrderId}";
-
-        return new PaymentUrlRespDto
-        {
-            PaymentUrl = paymentUrl,
-            TransactionId = createdTransaction.Id,
-            Amount = paymentData.Amount
-        };
+            await ticketRepo.ReleaseTicketQuantityAsync((int)room.TicketId, quantity);
+            logger.LogError(ex, "[ChatService.RequestPayment] 결제 요청 실패 - 재고 복구 완료 (RoomId={RoomId}, TicketId={TicketId}, Quantity={Quantity})",
+                roomId, room.TicketId, quantity);
+            throw;
+        }
     }
 
     /// <summary>
@@ -489,15 +558,38 @@ public class ChatService(
         // 채팅방 잠금
         await chatRepo.LockChatRoom(req.RoomId);
 
-        // 시스템 메시지 전송
-        var systemMessage = await chatRepo.CreateMessage(req.RoomId, req.UserId, "구매가 확정되었습니다.", null);
+        // PURCHASE_CONFIRMED 메시지 생성
+        var message = await chatRepo.CreateMessage(
+            roomId: req.RoomId,
+            senderId: req.UserId,
+            message: null,
+            imageUrl: null,
+            type: MessageType.PURCHASE_CONFIRMED
+        );
 
-        // LastMessageAt 업데이트
-        await chatRepo.UpdateLastMessageAt(req.RoomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
+        // ChatRoom 업데이트
+        await chatRepo.UpdateLastMessageAt(req.RoomId, message.CreatedAt ?? DateTime.UtcNow);
+        await chatRepo.IncrementUnreadCount(req.RoomId, false);
 
-        // 상대방 읽지 않은 수 증가
-        var isSenderBuyer = room.BuyerId == req.UserId;
-        await chatRepo.IncrementUnreadCount(req.RoomId, !isSenderBuyer);
+        // SignalR 실시간 브로드캐스트
+        var signalDto = new NewMessageSignalDto
+        {
+            MessageId = message.Id,
+            RoomId = req.RoomId,
+            SenderId = req.UserId,
+            SenderNickname = room.Buyer?.UserProfile?.Nickname ?? "구매자",
+            Message = null,
+            Type = MessageType.PURCHASE_CONFIRMED.ToString(),
+            CreatedAt = message.CreatedAt ?? DateTime.UtcNow
+        };
+
+        await hubContext.Clients.Group($"room_{req.RoomId}")
+            .SendAsync("ReceiveMessage", signalDto);
+
+        await hubContext.Clients.Group($"user_{room.BuyerId}")
+            .SendAsync("NewMessage", signalDto);
+        await hubContext.Clients.Group($"user_{room.SellerId}")
+            .SendAsync("NewMessage", signalDto);
 
         logger.LogInformation("[ChatService.ConfirmPurchase] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}",
             req.RoomId, req.TransactionId, req.UserId);
@@ -536,9 +628,39 @@ public class ChatService(
             throw new AppException("거래 정보가 일치하지 않습니다.", HttpStatusCode.BadRequest);
         }
 
-        // TODO: Transaction 취소 및 Refund 처리 (별도 Transaction Repository 필요)
-        // await transactionRepo.CancelTransaction(req.TransactionId, DateTime.UtcNow);
-        // await refundRepo.CreateRefund(req.TransactionId, req.CancelReason, req.UserId);
+        var transaction = await transactionRepo.GetTransactionWithDetailsAsync(req.TransactionId);
+        if (transaction == null)
+        {
+            throw new AppException("거래를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        if (string.Equals(transaction.Status?.Code, "paid", StringComparison.OrdinalIgnoreCase))
+        {
+            var cancelRequest = new PaymentCancelRequestDto
+            {
+                TransactionId = req.TransactionId,
+                CancelReason = req.CancelReason,
+                CancelAmount = null
+            };
+
+            await paymentService.CancelPaymentAsync(cancelRequest, req.UserId);
+        }
+        else
+        {
+            foreach (var item in transaction.TransactionItems)
+            {
+                await ticketRepo.ReleaseTicketQuantityAsync((int)item.TicketId, item.Quantity);
+            }
+
+            var cancelledStatus = await transactionRepo.GetTransactionStatusByCodeAsync("cancelled");
+            if (cancelledStatus == null)
+            {
+                throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+            }
+
+            await transactionRepo.UpdateTransactionStatusAsync(req.TransactionId, cancelledStatus.Id);
+            await transactionRepo.UpdateTransactionCancelledAtAsync(req.TransactionId, DateTime.UtcNow);
+        }
 
         // 채팅방 상태 변경 (CANCELLED)
         var cancelledStatusId = await chatRepo.GetStatusIdByCode("cancelled");
@@ -556,6 +678,62 @@ public class ChatService(
 
         logger.LogInformation("[ChatService.CancelTransaction] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}, Reason={Reason}",
             req.RoomId, req.TransactionId, req.UserId, req.CancelReason);
+    }
+
+    /// <summary>
+    /// 채팅방 나가기
+    /// </summary>
+    public async Task LeaveChatRoom(LeaveChatRoomReqDto req)
+    {
+        await ValidateUserInRoom(req.RoomId, req.UserId);
+
+        var room = await chatRepo.GetChatRoomById(req.RoomId);
+        if (room == null)
+        {
+            throw new AppException("채팅방을 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        if (room.ClosedAt != null || string.Equals(room.Status?.Code, "closed", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var isBuyer = room.BuyerId == req.UserId;
+        var leaveMessage = isBuyer
+            ? "구매자가 채팅방을 나갔습니다."
+            : "판매자가 채팅방을 나갔습니다.";
+
+        var message = await chatRepo.CreateMessage(req.RoomId, req.UserId, leaveMessage, null, MessageType.TEXT);
+
+        await chatRepo.UpdateLastMessageAt(req.RoomId, message.CreatedAt ?? DateTime.UtcNow);
+        await chatRepo.IncrementUnreadCount(req.RoomId, !isBuyer);
+
+        var closedStatusId = await chatRepo.GetStatusIdByCode("closed");
+        await chatRepo.UpdateChatRoomStatus(req.RoomId, closedStatusId);
+        await chatRepo.CloseChatRoom(req.RoomId);
+
+        var (senderNickname, senderProfileImage) = await GetSenderInfoForSignalR(message.Id);
+
+        var signalDto = new NewMessageSignalDto
+        {
+            MessageId = message.Id,
+            RoomId = req.RoomId,
+            SenderId = req.UserId,
+            SenderNickname = senderNickname,
+            SenderProfileImage = senderProfileImage,
+            Message = leaveMessage,
+            Type = MessageType.TEXT.ToString(),
+            CreatedAt = message.CreatedAt ?? DateTime.UtcNow
+        };
+
+        await hubContext.Clients.Group($"room_{req.RoomId}")
+            .SendAsync("ReceiveMessage", signalDto);
+
+        var receiverId = isBuyer ? room.SellerId : room.BuyerId;
+        await hubContext.Clients.Group($"user_{receiverId}")
+            .SendAsync("ReceiveMessage", signalDto);
+
+        logger.LogInformation("[ChatService.LeaveChatRoom] RoomId={RoomId}, UserId={UserId}", req.RoomId, req.UserId);
     }
 
     /// <summary>
@@ -687,7 +865,7 @@ public class ChatService(
             {
                 MessageId = m.Id,
                 RoomId = m.RoomId,
-                SenderId = m.SenderId,
+                SenderId = (int)m.SenderId,
                 SenderNickname = m.Sender?.UserProfile?.Nickname ?? "Unknown",
                 SenderProfileImage = finalProfileImageUrl,
                 Message = m.Message,
@@ -748,9 +926,12 @@ public class ChatService(
             RoomId = room.Id,
             Ticket = new TicketInfo
             {
-                TicketId = room.TicketId,
+                TicketId = (int)room.TicketId,
                 Title = room.Ticket?.Event?.Title ?? "",
                 Price = room.Ticket?.Price ?? 0,
+                UnitPrice = room.Ticket?.SeatGrade?.OriginalPrice ?? room.Ticket?.Price ?? 0,
+                TotalQuantity = room.Ticket?.Quantity ?? 0,
+                RemainingQuantity = room.Ticket?.RemainingQuantity ?? 0,
                 ThumbnailUrl = eventPosterUrl,
                 SeatInfo = BuildSeatInfo(room.Ticket),
                 EventDateTime = room.Ticket?.EventDatetime,
@@ -758,14 +939,14 @@ public class ChatService(
             },
             Buyer = new UserInfo
             {
-                UserId = room.BuyerId,
+                UserId = (int)room.BuyerId,
                 Nickname = room.Buyer?.UserProfile?.Nickname ?? "Unknown",
                 ProfileImageUrl = buyerProfileUrl,
                 MannerTemperature = room.Buyer?.UserProfile?.MannerTemperature ?? 36.5
             },
             Seller = new UserInfo
             {
-                UserId = room.SellerId,
+                UserId = (int)room.SellerId,
                 Nickname = room.Seller?.UserProfile?.Nickname ?? "Unknown",
                 ProfileImageUrl = sellerProfileUrl,
                 MannerTemperature = room.Seller?.UserProfile?.MannerTemperature ?? 36.5
@@ -777,6 +958,7 @@ public class ChatService(
                 TransactionId = transaction.Id,
                 StatusCode = transaction.Status?.Code ?? "",
                 StatusName = transaction.Status?.NameKo ?? "",
+                Amount = transaction.Amount,
                 ConfirmedAt = transaction.ConfirmedAt,
                 CancelledAt = transaction.CancelledAt
             } : null,

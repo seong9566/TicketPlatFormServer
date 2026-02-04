@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
@@ -30,19 +30,11 @@ public partial class ChatMessage
     /// </summary>
     public string? ImageUrl { get; set; }
 
-    /// <summary>
-    /// 메시지 타입
-    /// </summary>
-    public Enum.MessageType Type { get; set; } = Enum.MessageType.TEXT;
+    public string MessageType { get; set; } = null!;
 
     public DateTime? CreatedAt { get; set; }
 
+    public virtual ICollection<ChatMessageImage> ChatMessageImages { get; set; } = new List<ChatMessageImage>();
+
     public virtual ChatRoom Room { get; set; } = null!;
-
-    public virtual User Sender { get; set; } = null!;
-
-    /// <summary>
-    /// 메시지에 첨부된 이미지들
-    /// </summary>
-    public virtual ICollection<ChatMessageImage> Images { get; set; } = new List<ChatMessageImage>();
 }

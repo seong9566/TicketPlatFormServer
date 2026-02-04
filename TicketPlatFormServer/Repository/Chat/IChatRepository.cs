@@ -19,6 +19,7 @@ public interface IChatRepository
     Task CloseChatRoom(long roomId);
     Task<bool> IsUserInChatRoom(long roomId, int userId);
     Task SetTransactionId(long roomId, long transactionId);
+    Task ClearTransactionId(long roomId);
 
     // Message Operations
     Task<ChatMessage> CreateMessage(long roomId, int senderId, string? message, string? imageUrl, Enum.MessageType type = Enum.MessageType.TEXT);

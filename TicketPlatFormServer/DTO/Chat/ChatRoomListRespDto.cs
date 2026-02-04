@@ -5,6 +5,7 @@ public class ChatRoomListRespDto
     public long RoomId { get; set; }
     public int TicketId { get; set; }
     public string TicketTitle { get; set; } = null!;
+    public string? TicketThumbnailUrl { get; set; }
     public OtherUserInfo OtherUser { get; set; } = null!;
     public string? LastMessage { get; set; }
     public DateTime? LastMessageAt { get; set; }
