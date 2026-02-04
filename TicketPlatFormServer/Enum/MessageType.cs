@@ -5,5 +5,6 @@ public enum MessageType
     TEXT,
     IMAGE,
     PAYMENT_REQUEST,
-    PAYMENT_SUCCESS
+    PAYMENT_SUCCESS,
+    PURCHASE_CONFIRMED
 }

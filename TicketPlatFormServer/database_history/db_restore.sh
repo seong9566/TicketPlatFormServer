@@ -39,6 +39,14 @@ if [ $? -eq 0 ]; then
                     mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < seed_seat_grades.sql
                     if [ $? -eq 0 ]; then
                         echo "시드 적용 완료!"
+                        echo "정산 상태 코드 시드 적용 중..."
+                        mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < seed_settlement_statuses.sql
+                        if [ $? -eq 0 ]; then
+                            echo "시드 적용 완료!"
+                        else
+                            echo "시드 적용 실패. 오류를 확인하세요."
+                            exit 1
+                        fi
                     else
                         echo "시드 적용 실패. 오류를 확인하세요."
                         exit 1

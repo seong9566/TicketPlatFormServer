@@ -122,7 +122,7 @@ public class PaymentRepository(
     public async Task ReleaseEscrowAsync(long escrowId, long statusId, DateTime releasedAt)
     {
         const string query = @"
-            UPDATE escrows
+            UPDATE escrow
             SET status_id = @StatusId,
                 released_at = @ReleasedAt,
                 updated_at = @UpdatedAt
@@ -144,7 +144,7 @@ public class PaymentRepository(
     public async Task RefundEscrowAsync(long escrowId, long statusId, DateTime refundedAt)
     {
         const string query = @"
-            UPDATE escrows
+            UPDATE escrow
             SET status_id = @StatusId,
                 refunded_at = @RefundedAt,
                 updated_at = @UpdatedAt
@@ -230,6 +230,20 @@ public class PaymentRepository(
         });
     }
 
+    public async Task<SettlementStatus?> GetSettlementStatusByCodeAsync(string code)
+    {
+        var cacheKey = $"{CacheKeyPrefix}SettlementStatus_{code}";
+
+        return await cache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheExpiration;
+
+            return await context.SettlementStatuses
+                .Where(ss => ss.Code == code && ss.IsActive == true)
+                .FirstOrDefaultAsync();
+        });
+    }
+
     // ==================== 결제 수단별 상세 정보 ====================
 
     /// <summary>
@@ -288,7 +302,7 @@ public class PaymentRepository(
     public async Task<PaymentCardDetail?> GetCardDetailByPaymentIdAsync(long paymentId)
     {
         return await context.Set<PaymentCardDetail>()
-            .Where(c => c.PaymentId == paymentId)
+            .Where(c => c.PaymentId == (ulong)paymentId)
             .FirstOrDefaultAsync();
     }
 
@@ -298,7 +312,7 @@ public class PaymentRepository(
     public async Task<PaymentVirtualAccountDetail?> GetVirtualAccountDetailByPaymentIdAsync(long paymentId)
     {
         return await context.Set<PaymentVirtualAccountDetail>()
-            .Where(v => v.PaymentId == paymentId)
+            .Where(v => v.PaymentId == (ulong)paymentId)
             .FirstOrDefaultAsync();
     }
 
@@ -308,7 +322,7 @@ public class PaymentRepository(
     public async Task<PaymentEasyPayDetail?> GetEasyPayDetailByPaymentIdAsync(long paymentId)
     {
         return await context.Set<PaymentEasyPayDetail>()
-            .Where(e => e.PaymentId == paymentId)
+            .Where(e => e.PaymentId == (ulong)paymentId)
             .FirstOrDefaultAsync();
     }
 
@@ -318,7 +332,7 @@ public class PaymentRepository(
     public async Task<List<PaymentTransaction>> GetTransactionsByPaymentIdAsync(long paymentId)
     {
         return await context.Set<PaymentTransaction>()
-            .Where(t => t.PaymentId == paymentId)
+            .Where(t => t.PaymentId == (ulong)paymentId)
             .OrderBy(t => t.CreatedAt)
             .ToListAsync();
     }

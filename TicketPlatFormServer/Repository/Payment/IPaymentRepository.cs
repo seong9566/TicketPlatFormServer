@@ -107,6 +107,13 @@ public interface IPaymentRepository
     /// <returns>EscrowStatus 정보 (없으면 null)</returns>
     Task<EscrowStatus?> GetEscrowStatusByCodeAsync(string code);
 
+    /// <summary>
+    /// Code로 SettlementStatus 조회
+    /// </summary>
+    /// <param name="code">정산 상태 코드 (예: pending, processing, completed, failed)</param>
+    /// <returns>SettlementStatus 정보 (없으면 null)</returns>
+    Task<SettlementStatus?> GetSettlementStatusByCodeAsync(string code);
+
     // ==================== 결제 수단별 상세 정보 ====================
 
     /// <summary>

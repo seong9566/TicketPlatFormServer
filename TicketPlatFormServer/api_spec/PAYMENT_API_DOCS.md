@@ -39,7 +39,9 @@ headers: {
 ```
 [1] 판매자: 채팅방에서 "결제 요청" 버튼 클릭
     → POST /api/chat/rooms/request-payment
+    → 판매 수량 입력 (quantity)
     → Transaction 생성 (pending_payment) + TransactionItem 생성
+    → 재고 예약 (remaining_quantity 감소)
     → OrderId 생성, paymentUrl/transactionId/amount 반환
     ↓
 [2] Flutter: paymentUrl로 결제 화면 오픈 (WebView/외부 브라우저)
@@ -64,6 +66,7 @@ headers: {
 **참고**
 - 채팅 기반 플로우에서는 `/api/chat/rooms/request-payment`를 사용합니다. 결제 위젯을 직접 붙이는 경우에만 `/api/payment/request`를 사용합니다.
 - 결제 요청 전에는 채팅방 상세의 `transaction`이 `null`입니다.
+- 결제 요청 시 amount = ticket.price * quantity 로 계산됩니다.
 
 ### 트랜잭션 상태
 

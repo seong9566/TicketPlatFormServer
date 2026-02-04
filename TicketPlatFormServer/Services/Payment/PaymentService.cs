@@ -46,6 +46,16 @@ public class PaymentService(
             throw new AppException("거래를 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
+        if (!string.Equals(transaction.Status.Code, "pending_payment", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AppException("결제 요청 상태가 올바르지 않습니다.", HttpStatusCode.BadRequest);
+        }
+
+        if (transaction.ReservationExpiresAt != null && transaction.ReservationExpiresAt < DateTime.UtcNow)
+        {
+            throw new AppException("결제 요청이 만료되었습니다.", HttpStatusCode.BadRequest);
+        }
+
         // 2. 거래 금액 검증 (TransactionItems 합계)
         var totalAmount = await context.TransactionItems
             .Where(ti => ti.TransactionId == request.TransactionId)
@@ -105,6 +115,16 @@ public class PaymentService(
             throw new AppException("거래를 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
+        if (!string.Equals(transaction.Status.Code, "pending_payment", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AppException("결제 요청 상태가 올바르지 않습니다.", HttpStatusCode.BadRequest);
+        }
+
+        if (transaction.ReservationExpiresAt != null && transaction.ReservationExpiresAt < DateTime.UtcNow)
+        {
+            throw new AppException("결제 요청이 만료되었습니다.", HttpStatusCode.BadRequest);
+        }
+
         // 4. Toss API 승인 호출
         TossPaymentResponseDto tossResponse;
         try
@@ -149,7 +169,7 @@ public class PaymentService(
                 Country = tossResponse.Country ?? "KR",
                 PaymentKey = tossResponse.PaymentKey,
                 OrderId = tossResponse.OrderId,
-                Amount = tossResponse.TotalAmount,
+                Amount = (ulong)tossResponse.TotalAmount,
                 MethodId = paymentMethod.Id,
                 PaidAt = string.IsNullOrEmpty(tossResponse.ApprovedAt)
                     ? DateTime.UtcNow
@@ -184,7 +204,7 @@ public class PaymentService(
                     AcquirerCode = tossResponse.Card.AcquirerCode,
                     InterestPayer = tossResponse.Card.InterestPayer,
                     UseCardPoint = tossResponse.Card.UseCardPoint,
-                    Amount = tossResponse.Card.Amount,
+                    Amount = (ulong)tossResponse.Card.Amount,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -223,8 +243,8 @@ public class PaymentService(
                 {
                     PaymentId = payment.Id,
                     Provider = tossResponse.EasyPay.Provider,
-                    Amount = tossResponse.EasyPay.Amount,
-                    DiscountAmount = tossResponse.EasyPay.DiscountAmount,
+                    Amount = (ulong)tossResponse.EasyPay.Amount,
+                    DiscountAmount = (ulong)tossResponse.EasyPay.DiscountAmount,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -241,8 +261,8 @@ public class PaymentService(
                     ReceiptKey = tossResponse.CashReceipt.ReceiptKey,
                     IssueNumber = tossResponse.CashReceipt.IssueNumber,
                     ReceiptUrl = tossResponse.CashReceipt.ReceiptUrl,
-                    Amount = tossResponse.CashReceipt.Amount,
-                    TaxFreeAmount = tossResponse.CashReceipt.TaxFreeAmount,
+                    Amount = (ulong)tossResponse.CashReceipt.Amount,
+                    TaxFreeAmount = (ulong)tossResponse.CashReceipt.TaxFreeAmount,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -255,9 +275,9 @@ public class PaymentService(
                 PaymentId = payment.Id,
                 TransactionKey = tossResponse.PaymentKey, // 승인 시에는 PaymentKey가 TransactionKey
                 TransactionType = "PAYMENT",
-                Amount = tossResponse.TotalAmount,
-                BalanceAmount = tossResponse.BalanceAmount,
-                TaxFreeAmount = tossResponse.TaxFreeAmount,
+                Amount = (ulong)tossResponse.TotalAmount,
+                BalanceAmount = (ulong)tossResponse.BalanceAmount,
+                TaxFreeAmount = (ulong)tossResponse.TaxFreeAmount,
                 Currency = tossResponse.Currency ?? "KRW",
                 Status = "DONE",
                 Reason = null,
@@ -364,15 +384,81 @@ public class PaymentService(
 
             await transactionRepository.UpdateTransactionStatusAsync(transactionId, transactionStatus.Id);
 
-            // 3-4. Transaction.ConfirmedAt 업데이트 (별도 메서드 필요 시 추가)
-            var transaction = await context.Transactions.FindAsync(transactionId);
-            if (transaction != null)
+            // 3-4. Transaction.ConfirmedAt 업데이트 및 티켓 정보 조회
+            var transaction = await context.Transactions
+                .Include(t => t.TransactionItems)
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+            
+            if (transaction == null)
             {
-                transaction.ConfirmedAt = DateTime.UtcNow;
+                throw new AppException("거래를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+            }
+            
+            transaction.ConfirmedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            // 3-4-1. 티켓 소유권 이전 (RemainingQuantity 감소)
+            // 결제 요청 시 재고 예약이 완료된 경우 ReservedAt이 설정됨
+            if (transaction.ReservedAt == null)
+            {
+                foreach (var item in transaction.TransactionItems)
+                {
+                    var ticket = await context.Tickets.FindAsync((int)item.TicketId);
+                    if (ticket != null)
+                    {
+                        ticket.RemainingQuantity -= item.Quantity;
+                        
+                        if (ticket.RemainingQuantity < 0)
+                        {
+                            logger.LogWarning("[PaymentService.ReleaseEscrowAsync] Ticket RemainingQuantity < 0 - TicketId: {TicketId}, RemainingQuantity: {RemainingQuantity}",
+                                ticket.Id, ticket.RemainingQuantity);
+                            ticket.RemainingQuantity = 0;
+                        }
+                        
+                        logger.LogInformation("[PaymentService.ReleaseEscrowAsync] Ticket 소유권 이전 - TicketId: {TicketId}, Quantity: {Quantity}, RemainingQuantity: {RemainingQuantity}",
+                            ticket.Id, item.Quantity, ticket.RemainingQuantity);
+                    }
+                }
                 await context.SaveChangesAsync();
             }
 
-            // 3-5. 커밋
+            // 3-5. Settlement 레코드 생성
+            var settlementStatusPending = await paymentRepository.GetSettlementStatusByCodeAsync("pending");
+            if (settlementStatusPending == null)
+            {
+                throw new AppException("정산 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+            }
+
+            var defaultBankAccount = await context.BankAccounts
+                .Where(ba => ba.UserId == transaction.SellerId && ba.Verified == true)
+                .FirstOrDefaultAsync();
+            
+            if (defaultBankAccount == null)
+            {
+                logger.LogWarning("[PaymentService.ReleaseEscrowAsync] 판매자 인증된 계좌 없음 - SellerId: {SellerId}", 
+                    transaction.SellerId);
+            }
+
+            var settlement = new Settlement
+            {
+                TransactionId = transactionId,
+                SellerId = transaction.SellerId,
+                Amount = escrow.Amount,
+                Fee = escrow.FeeAmount,
+                NetAmount = escrow.SellerAmount,
+                BankAccountId = defaultBankAccount?.Id ?? 0,
+                StatusId = settlementStatusPending.Id,
+                ScheduledAt = DateTime.UtcNow.AddDays(1),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await context.Settlements.AddAsync(settlement);
+            await context.SaveChangesAsync();
+
+            logger.LogInformation("[PaymentService.ReleaseEscrowAsync] Settlement 생성 완료 - SettlementId: {SettlementId}, NetAmount: {NetAmount}",
+                settlement.Id, settlement.NetAmount);
+
+            // 3-6. 커밋
             await dbTransaction.CommitAsync();
 
             logger.LogInformation("[PaymentService.ReleaseEscrowAsync] 에스크로 해제 완료 - EscrowId: {EscrowId}, SellerAmount: {SellerAmount}",
@@ -400,7 +486,7 @@ public class PaymentService(
             var senderId = room.BuyerId;
             var message = await chatRepository.CreateMessage(
                 room.Id,
-                senderId,
+                (int)senderId,
                 null,
                 null,
                 Enum.MessageType.PAYMENT_SUCCESS);
@@ -415,7 +501,7 @@ public class PaymentService(
             {
                 MessageId = message.Id,
                 RoomId = room.Id,
-                SenderId = senderId,
+                SenderId = (int)senderId,
                 SenderNickname = senderNickname,
                 SenderProfileImage = senderProfileImage,
                 Message = null,
@@ -489,7 +575,7 @@ public class PaymentService(
             }
 
             // 4-2. Payment 상태 업데이트
-            await paymentRepository.UpdatePaymentStatusAsync(payment.Id, paymentStatus.Id);
+            await paymentRepository.UpdatePaymentStatusAsync((long)payment.Id, paymentStatus.Id);
 
             // 4-3. Escrow 환불 처리
             var escrow = await paymentRepository.GetEscrowByTransactionIdAsync(request.TransactionId);
@@ -521,11 +607,37 @@ public class PaymentService(
                 await context.SaveChangesAsync();
             }
 
-            // 4-6. 커밋
+            // 4-6. 예약 재고 복구 (전액 취소만 처리)
+            var transactionWithItems = await transactionRepository.GetTransactionWithDetailsAsync(request.TransactionId);
+            if (transactionWithItems != null)
+            {
+                var totalAmount = transactionWithItems.TransactionItems.Sum(ti => ti.TotalPrice);
+                var shouldRelease = !request.CancelAmount.HasValue || request.CancelAmount.Value >= totalAmount;
+
+                if (shouldRelease)
+                {
+                    foreach (var item in transactionWithItems.TransactionItems)
+                    {
+                        var ticket = await context.Tickets.FindAsync((int)item.TicketId);
+                        if (ticket != null)
+                        {
+                            ticket.RemainingQuantity = Math.Min(ticket.Quantity, ticket.RemainingQuantity + item.Quantity);
+                        }
+                    }
+                    await context.SaveChangesAsync();
+                }
+                else
+                {
+                    logger.LogWarning("[PaymentService.CancelPaymentAsync] 부분 취소로 인한 재고 복구 생략 - TransactionId: {TransactionId}, CancelAmount: {CancelAmount}",
+                        request.TransactionId, request.CancelAmount);
+                }
+            }
+
+            // 4-7. 커밋
             await dbTransaction.CommitAsync();
 
             logger.LogInformation("[PaymentService.CancelPaymentAsync] 결제 취소 완료 - PaymentId: {PaymentId}, CancelAmount: {CancelAmount}",
-                payment.Id, request.CancelAmount ?? payment.Amount);
+                payment.Id, request.CancelAmount ?? (int)payment.Amount);
 
             // 5. 응답 생성
             var canceledAt = tossResponse.Cancels?.LastOrDefault()?.CanceledAt;
@@ -571,7 +683,7 @@ public class PaymentService(
             var paymentStatus = await paymentRepository.GetPaymentStatusByCodeAsync("cancelled");
             if (paymentStatus != null)
             {
-                await paymentRepository.UpdatePaymentStatusAsync(payment.Id, paymentStatus.Id);
+                await paymentRepository.UpdatePaymentStatusAsync((long)payment.Id, paymentStatus.Id);
 
                 // 3. Escrow도 환불 처리
                 var escrow = await paymentRepository.GetEscrowByTransactionIdAsync(payment.TransactionId);
