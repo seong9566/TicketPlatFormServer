@@ -119,6 +119,17 @@ builder.Services
                 var accessToken = context.Request.Query["access_token"];
                 var path = context.HttpContext.Request.Path;
 
+                if (path.StartsWithSegments("/hubs"))
+                {
+                    if (string.IsNullOrEmpty(accessToken))
+                    {
+                        var logger = context.HttpContext.RequestServices
+                            .GetRequiredService<ILogger<Program>>();
+                        logger.LogWarning("[SignalR.Auth] access_token missing. Path={Path}, ConnectionId={ConnectionId}",
+                            path, context.HttpContext.Connection.Id);
+                    }
+                }
+
                 // SignalR Hub 경로에서 쿼리스트링으로 토큰 받기
                 if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
                 {
@@ -281,6 +292,7 @@ builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionSer
 
 // Background 서비스
 builder.Services.AddHostedService<ChatCleanupService>();
+builder.Services.AddHostedService<TransactionReservationCleanupService>();
 
 var app = builder.Build();
 

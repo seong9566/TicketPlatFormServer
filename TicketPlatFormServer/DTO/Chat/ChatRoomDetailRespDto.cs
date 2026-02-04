@@ -21,6 +21,18 @@ public class TicketInfo
     public int TicketId { get; set; }
     public string Title { get; set; } = null!;
     public int Price { get; set; }
+    /// <summary>
+    /// 티켓 1장당 가격
+    /// </summary>
+    public int UnitPrice { get; set; }
+    /// <summary>
+    /// 총 판매중인 수량
+    /// </summary>
+    public int TotalQuantity { get; set; }
+    /// <summary>
+    /// 남은 판매 가능 수량
+    /// </summary>
+    public int RemainingQuantity { get; set; }
     public string? ThumbnailUrl { get; set; }
     
     /// <summary>
@@ -52,6 +64,7 @@ public class TransactionInfo
     public long TransactionId { get; set; }
     public string StatusCode { get; set; } = null!;
     public string StatusName { get; set; } = null!;
+    public int? Amount { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 }

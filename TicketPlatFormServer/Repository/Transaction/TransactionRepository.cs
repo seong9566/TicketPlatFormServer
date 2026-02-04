@@ -79,6 +79,37 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
     }
 
     /// <summary>
+    /// 거래 취소 시각 업데이트
+    /// </summary>
+    public async Task UpdateTransactionCancelledAtAsync(long transactionId, DateTime cancelledAt)
+    {
+        const string query = @"
+            UPDATE transactions
+            SET cancelled_at = @CancelledAt
+            WHERE id = @TransactionId
+              AND deleted_at IS NULL
+        ";
+
+        var currentTransaction = context.Database.CurrentTransaction;
+        if (currentTransaction != null)
+        {
+            var connection = context.Database.GetDbConnection();
+            await connection.ExecuteAsync(query, new
+            {
+                TransactionId = transactionId,
+                CancelledAt = cancelledAt
+            }, transaction: currentTransaction.GetDbTransaction());
+            return;
+        }
+
+        await dapper.ExecuteAsync(query, new
+        {
+            TransactionId = transactionId,
+            CancelledAt = cancelledAt
+        });
+    }
+
+    /// <summary>
     /// 상세 정보와 함께 거래 조회 (Buyer, Seller, TransactionItems)
     /// </summary>
     public async Task<DBModel.Transaction?> GetTransactionWithDetailsAsync(long transactionId)
@@ -89,6 +120,23 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
             .Include(t => t.TransactionItems)
             .AsSplitQuery()
             .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
+    /// 예약 만료된 거래 목록 조회 (pending_payment)
+    /// </summary>
+    public async Task<List<DBModel.Transaction>> GetExpiredPendingTransactionsAsync(DateTime utcNow)
+    {
+        return await context.Transactions
+            .Where(t => t.DeletedAt == null
+                        && t.CancelledAt == null
+                        && t.ReservationExpiresAt != null
+                        && t.ReservationExpiresAt < utcNow
+                        && t.Status.Code == "pending_payment")
+            .Include(t => t.Status)
+            .Include(t => t.TransactionItems)
+            .AsSplitQuery()
+            .ToListAsync();
     }
 
     /// <summary>

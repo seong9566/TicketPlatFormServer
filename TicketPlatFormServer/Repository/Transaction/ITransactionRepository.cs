@@ -31,11 +31,25 @@ public interface ITransactionRepository
     Task UpdateTransactionStatusAsync(long transactionId, long statusId);
 
     /// <summary>
+    /// 거래 취소 시각 업데이트
+    /// </summary>
+    /// <param name="transactionId">거래 ID</param>
+    /// <param name="cancelledAt">취소 시각</param>
+    Task UpdateTransactionCancelledAtAsync(long transactionId, DateTime cancelledAt);
+
+    /// <summary>
     /// 상세 정보와 함께 거래 조회 (Buyer, Seller, TransactionItems with Ticket & Event)
     /// </summary>
     /// <param name="transactionId">거래 ID</param>
     /// <returns>상세 거래 정보 (없으면 null)</returns>
     Task<DBModel.Transaction?> GetTransactionWithDetailsAsync(long transactionId);
+
+    /// <summary>
+    /// 예약 만료된 거래 목록 조회 (pending_payment)
+    /// </summary>
+    /// <param name="utcNow">현재 시각 (UTC)</param>
+    /// <returns>만료된 거래 목록</returns>
+    Task<List<DBModel.Transaction>> GetExpiredPendingTransactionsAsync(DateTime utcNow);
 
     /// <summary>
     /// 거래 생성

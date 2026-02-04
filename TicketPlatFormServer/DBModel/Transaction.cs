@@ -62,6 +62,11 @@ public partial class Transaction
     /// </summary>
     public DateTime? DeletedAt { get; set; }
 
+    /// <summary>
+    /// 총 거래 금액 (TransactionItem의 TotalPrice 합계)
+    /// </summary>
+    public int? Amount { get; set; }
+
     public virtual ICollection<ChatRoom> ChatRooms { get; set; } = new List<ChatRoom>();
 
     public virtual TransactionConfirmedBy? ConfirmedBy { get; set; }
