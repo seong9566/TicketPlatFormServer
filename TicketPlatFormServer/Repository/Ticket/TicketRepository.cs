@@ -270,6 +270,24 @@ public class TicketRepository(
 
         return features.ToList();
     }
+
+    public async Task<bool> TryReserveTicketQuantityAsync(int ticketId, int quantity)
+    {
+        var affected = await dapper.ExecuteAsync(
+            TicketQueries.ReserveTicketQuantity,
+            new { TicketId = ticketId, Quantity = quantity }
+        );
+
+        return affected > 0;
+    }
+
+    public async Task ReleaseTicketQuantityAsync(int ticketId, int quantity)
+    {
+        await dapper.ExecuteAsync(
+            TicketQueries.ReleaseTicketQuantity,
+            new { TicketId = ticketId, Quantity = quantity }
+        );
+    }
     
     /// <summary>
     /// 티켓 목록의 특이사항을 배치로 로드하는 헬퍼 메서드
@@ -347,5 +365,5 @@ public class TicketRepository(
             }
         }
     }
-}
 
+}

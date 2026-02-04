@@ -262,4 +262,25 @@ internal static class TicketQueries
           AND t.status_id = 1
           AND t.deleted_at IS NULL
           AND t.remaining_quantity > 0";
+
+    /// <summary>
+    /// 티켓 재고 예약 (remaining_quantity 감소)
+    /// </summary>
+    internal const string ReserveTicketQuantity = @"
+        UPDATE tickets
+        SET remaining_quantity = remaining_quantity - @Quantity
+        WHERE id = @TicketId
+          AND status_id = 1
+          AND deleted_at IS NULL
+          AND remaining_quantity >= @Quantity";
+
+    /// <summary>
+    /// 티켓 재고 복구 (remaining_quantity 증가)
+    /// </summary>
+    internal const string ReleaseTicketQuantity = @"
+        UPDATE tickets
+        SET remaining_quantity = LEAST(quantity, remaining_quantity + @Quantity)
+        WHERE id = @TicketId
+          AND status_id = 1
+          AND deleted_at IS NULL";
 }

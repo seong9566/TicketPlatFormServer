@@ -34,5 +34,20 @@ public interface ITicketRepository
     /// <param name="ticketId">티켓 ID</param>
     /// <returns>특이사항 목록</returns>
     Task<List<TicketFeatureReadModel>> GetTicketFeaturesAsync(int ticketId);
-}
 
+    /// <summary>
+    /// 티켓 재고 예약 (remaining_quantity 감소)
+    /// </summary>
+    /// <param name="ticketId">티켓 ID</param>
+    /// <param name="quantity">예약 수량</param>
+    /// <returns>예약 성공 여부</returns>
+    Task<bool> TryReserveTicketQuantityAsync(int ticketId, int quantity);
+
+    /// <summary>
+    /// 티켓 재고 복구 (remaining_quantity 증가)
+    /// </summary>
+    /// <param name="ticketId">티켓 ID</param>
+    /// <param name="quantity">복구 수량</param>
+    Task ReleaseTicketQuantityAsync(int ticketId, int quantity);
+
+}
