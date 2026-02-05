@@ -267,6 +267,8 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionItemRepository, TransactionItemRepository>();
+builder.Services.AddScoped<ITransactionHistoryRepository, TransactionHistoryRepository>();
+builder.Services.AddScoped<TicketPlatFormServer.Services.Transaction.ITransactionService, TicketPlatFormServer.Services.Transaction.TransactionService>();
 
 // Sell 서비스
 builder.Services.AddScoped<ISellRepository, SellRepository>();
