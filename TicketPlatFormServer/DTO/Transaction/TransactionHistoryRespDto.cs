@@ -11,7 +11,11 @@ public class TransactionHistoryRespDto
     public List<TransactionHistoryItemDto> Items { get; set; } = new();
     public string? NextCursor { get; set; }
     public bool HasMore { get; set; }
-    public int TotalCount { get; set; }
+
+    /// <summary>
+    /// 전체 건수 (성능 최적화를 위해 첫 페이지에서만 조회하며, 이후 페이지에서는 null)
+    /// </summary>
+    public int? TotalCount { get; set; }
 }
 
 /// <summary>

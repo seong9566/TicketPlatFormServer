@@ -1,169 +1,262 @@
 using System.Data;
+using System.Net;
 using Dapper;
+using Microsoft.Extensions.Logging;
+using MySqlConnector;
+using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO.Transaction;
 
 namespace TicketPlatFormServer.Repository.Transactions;
 
-public class TransactionHistoryRepository(IDbConnection db) : ITransactionHistoryRepository
+public class TransactionHistoryRepository(
+    IDbConnection db,
+    ILogger<TransactionHistoryRepository> logger) : ITransactionHistoryRepository
 {
-    public async Task<(List<TransactionHistoryItemDto> Items, int TotalCount)> GetPurchaseHistoryAsync(
+    public async Task<(List<TransactionHistoryItemDto> Items, int? TotalCount)> GetPurchaseHistoryAsync(
         int userId,
         string? statusFilter,
         string? periodFilter,
         string sortBy,
         long? cursorId,
         DateTime? cursorCreatedAt,
-        int limit)
+        int limit,
+        bool includeTotalCount = false)
     {
-        var (whereClause, parameters) = BuildWhereClause(userId, "t.buyer_id", statusFilter, periodFilter, sortBy, cursorId, cursorCreatedAt);
-        var orderByClause = BuildOrderByClause(sortBy);
+        try
+        {
+            logger.LogDebug(
+                "구매 내역 DB 조회 시작 - UserId: {UserId}, StatusFilter: {StatusFilter}, PeriodFilter: {PeriodFilter}, IncludeTotalCount: {IncludeTotalCount}",
+                userId, statusFilter, periodFilter, includeTotalCount);
 
-        var countQuery = $@"
-            SELECT COUNT(DISTINCT t.id)
-            FROM transactions t
-            INNER JOIN transaction_statuses ts ON t.status_id = ts.id
-            {whereClause}
-        ";
+            var (whereClause, parameters) = BuildWhereClause(userId, "t.buyer_id", statusFilter, periodFilter, sortBy, cursorId, cursorCreatedAt);
+            var orderByClause = BuildOrderByClause(sortBy);
 
-        var dataQuery = $@"
-            SELECT 
-                t.id AS TransactionId,
-                ti.ticket_id AS TicketId,
-                COALESCE(e.title, '티켓 정보 없음') AS TicketTitle,
-                e.poster_image_url AS TicketThumbnailUrl,
-                tick.event_datetime AS EventDateTime,
-                e.venue_name AS VenueName,
-                CONCAT_WS(' ',
-                    COALESCE(sl.location_name, ''),
-                    COALESCE(a.area_name, ''),
-                    COALESCE(sg.name_ko, ''),
-                    COALESCE(tick.row, '')
-                ) AS SeatInfo,
-                ti.quantity AS Quantity,
-                ti.unit_price AS UnitPrice,
-                ti.total_price AS TotalAmount,
-                ts.code AS StatusCode,
-                ts.name_ko AS StatusName,
-                t.seller_id AS SellerId,
-                COALESCE(up_seller.nickname, '판매자') AS SellerNickname,
-                up_seller.profile_image_url AS SellerProfileImageUrl,
-                cr.id AS RoomId,
-                t.created_at AS CreatedAt,
-                p.paid_at AS PaidAt,
-                t.confirmed_at AS ConfirmedAt,
-                t.cancelled_at AS CancelledAt
-            FROM transactions t
-            INNER JOIN transaction_statuses ts ON t.status_id = ts.id
-            INNER JOIN transaction_items ti ON t.id = ti.transaction_id
-            INNER JOIN tickets tick ON ti.ticket_id = tick.id
-            LEFT JOIN events e ON tick.event_id = e.id
-            LEFT JOIN event_seat_locations sl ON tick.seat_location_id = sl.id
-            LEFT JOIN event_seat_areas a ON tick.area_id = a.id
-            LEFT JOIN event_seat_grades sg ON tick.seat_grade_id = sg.id
-            LEFT JOIN user_profile up_seller ON t.seller_id = up_seller.user_id
-            LEFT JOIN chat_rooms cr ON t.id = cr.transaction_id
-            LEFT JOIN payments p ON t.id = p.transaction_id
-            LEFT JOIN payment_statuses ps ON p.status_id = ps.id AND ps.code = 'done'
-            {whereClause}
-            {orderByClause}
-            LIMIT @Limit
-        ";
-
-        parameters.Add("@Limit", limit);
-
-        var totalCount = await db.ExecuteScalarAsync<int>(countQuery, parameters);
-        var items = await db.QueryAsync<TransactionHistoryItemDto, TransactionUserDto?, TransactionHistoryItemDto>(
-            dataQuery,
-            (transaction, seller) =>
+            // 성능 최적화: 첫 페이지에서만 전체 건수 조회
+            int? totalCount = null;
+            if (includeTotalCount)
             {
-                transaction.Seller = seller;
-                return transaction;
-            },
-            parameters,
-            splitOn: "SellerId"
-        );
+                var countQuery = $@"
+                    SELECT COUNT(DISTINCT t.id)
+                    FROM transactions t
+                    INNER JOIN transaction_statuses ts ON t.status_id = ts.id
+                    {whereClause}
+                ";
 
-        return (items.ToList(), totalCount);
+                totalCount = await db.ExecuteScalarAsync<int>(countQuery, parameters);
+                logger.LogDebug("구매 내역 전체 건수 조회 - TotalCount: {TotalCount}", totalCount);
+            }
+
+            var dataQuery = $@"
+                SELECT
+                    t.id AS TransactionId,
+                    ti.ticket_id AS TicketId,
+                    COALESCE(e.title, '티켓 정보 없음') AS TicketTitle,
+                    e.poster_image_url AS TicketThumbnailUrl,
+                    tick.event_datetime AS EventDateTime,
+                    e.venue_name AS VenueName,
+                    CONCAT_WS(' ',
+                        COALESCE(sl.location_name, ''),
+                        COALESCE(a.area_name, ''),
+                        COALESCE(sg.name_ko, ''),
+                        COALESCE(tick.row, '')
+                    ) AS SeatInfo,
+                    ti.quantity AS Quantity,
+                    ti.unit_price AS UnitPrice,
+                    ti.total_price AS TotalAmount,
+                    ts.code AS StatusCode,
+                    ts.name_ko AS StatusName,
+                    t.seller_id AS SellerId,
+                    COALESCE(up_seller.nickname, '판매자') AS SellerNickname,
+                    up_seller.profile_image_url AS SellerProfileImageUrl,
+                    cr.id AS RoomId,
+                    t.created_at AS CreatedAt,
+                    p.paid_at AS PaidAt,
+                    t.confirmed_at AS ConfirmedAt,
+                    t.cancelled_at AS CancelledAt
+                FROM transactions t
+                INNER JOIN transaction_statuses ts ON t.status_id = ts.id
+                INNER JOIN transaction_items ti ON t.id = ti.transaction_id
+                INNER JOIN tickets tick ON ti.ticket_id = tick.id
+                LEFT JOIN events e ON tick.event_id = e.id
+                LEFT JOIN event_seat_locations sl ON tick.seat_location_id = sl.id
+                LEFT JOIN event_seat_areas a ON tick.area_id = a.id
+                LEFT JOIN event_seat_grades sg ON tick.seat_grade_id = sg.id
+                LEFT JOIN user_profile up_seller ON t.seller_id = up_seller.user_id
+                LEFT JOIN chat_rooms cr ON t.id = cr.transaction_id
+                LEFT JOIN payments p ON t.id = p.transaction_id
+                LEFT JOIN payment_statuses ps ON p.status_id = ps.id AND ps.code = 'done'
+                {whereClause}
+                {orderByClause}
+                LIMIT @Limit
+            ";
+
+            parameters.Add("@Limit", limit);
+
+            var items = await db.QueryAsync<TransactionHistoryItemDto, TransactionUserDto?, TransactionHistoryItemDto>(
+                dataQuery,
+                (transaction, seller) =>
+                {
+                    transaction.Seller = seller;
+                    return transaction;
+                },
+                parameters,
+                splitOn: "SellerId"
+            );
+
+            logger.LogDebug("구매 내역 DB 조회 완료 - UserId: {UserId}, 결과 수: {Count}", userId, items.Count());
+
+            return (items.ToList(), totalCount);
+        }
+        catch (MySqlException ex)
+        {
+            logger.LogError(ex,
+                "구매 내역 DB 조회 중 MySQL 예외 발생 - UserId: {UserId}, ErrorCode: {ErrorCode}, SqlState: {SqlState}",
+                userId, ex.ErrorCode, ex.SqlState);
+
+            // MySQL 에러 코드별 처리
+            var errorMessage = ex.ErrorCode switch
+            {
+                MySqlErrorCode.LockWaitTimeout => "데이터베이스 락 대기 시간 초과",
+                MySqlErrorCode.LockDeadlock => "데이터베이스 데드락 발생",
+                MySqlErrorCode.UnableToConnectToHost => "데이터베이스 연결 실패",
+                _ => "데이터베이스 조회 중 오류가 발생했습니다"
+            };
+
+            throw new AppException(errorMessage, HttpStatusCode.InternalServerError, ex);
+        }
+        catch (TimeoutException ex)
+        {
+            logger.LogError(ex, "구매 내역 DB 조회 타임아웃 - UserId: {UserId}", userId);
+            throw new AppException("데이터베이스 조회 시간이 초과되었습니다.", HttpStatusCode.RequestTimeout, ex);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "구매 내역 DB 조회 중 예상치 못한 예외 발생 - UserId: {UserId}", userId);
+            throw new AppException("데이터베이스 조회 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError, ex);
+        }
     }
 
-    public async Task<(List<TransactionHistoryItemDto> Items, int TotalCount)> GetSalesHistoryAsync(
+    public async Task<(List<TransactionHistoryItemDto> Items, int? TotalCount)> GetSalesHistoryAsync(
         int userId,
         string? statusFilter,
         string? periodFilter,
         string sortBy,
         long? cursorId,
         DateTime? cursorCreatedAt,
-        int limit)
+        int limit,
+        bool includeTotalCount = false)
     {
-        var (whereClause, parameters) = BuildWhereClause(userId, "t.seller_id", statusFilter, periodFilter, sortBy, cursorId, cursorCreatedAt);
-        var orderByClause = BuildOrderByClause(sortBy);
+        try
+        {
+            logger.LogDebug(
+                "판매 내역 DB 조회 시작 - UserId: {UserId}, StatusFilter: {StatusFilter}, PeriodFilter: {PeriodFilter}, IncludeTotalCount: {IncludeTotalCount}",
+                userId, statusFilter, periodFilter, includeTotalCount);
 
-        var countQuery = $@"
-            SELECT COUNT(DISTINCT t.id)
-            FROM transactions t
-            INNER JOIN transaction_statuses ts ON t.status_id = ts.id
-            {whereClause}
-        ";
+            var (whereClause, parameters) = BuildWhereClause(userId, "t.seller_id", statusFilter, periodFilter, sortBy, cursorId, cursorCreatedAt);
+            var orderByClause = BuildOrderByClause(sortBy);
 
-        var dataQuery = $@"
-            SELECT 
-                t.id AS TransactionId,
-                ti.ticket_id AS TicketId,
-                COALESCE(e.title, '티켓 정보 없음') AS TicketTitle,
-                e.poster_image_url AS TicketThumbnailUrl,
-                tick.event_datetime AS EventDateTime,
-                e.venue_name AS VenueName,
-                CONCAT_WS(' ',
-                    COALESCE(sl.location_name, ''),
-                    COALESCE(a.area_name, ''),
-                    COALESCE(sg.name_ko, ''),
-                    COALESCE(tick.row, '')
-                ) AS SeatInfo,
-                ti.quantity AS Quantity,
-                ti.unit_price AS UnitPrice,
-                ti.total_price AS TotalAmount,
-                ts.code AS StatusCode,
-                ts.name_ko AS StatusName,
-                t.buyer_id AS BuyerId,
-                COALESCE(up_buyer.nickname, '구매자') AS BuyerNickname,
-                up_buyer.profile_image_url AS BuyerProfileImageUrl,
-                cr.id AS RoomId,
-                t.created_at AS CreatedAt,
-                p.paid_at AS PaidAt,
-                t.confirmed_at AS ConfirmedAt,
-                t.cancelled_at AS CancelledAt
-            FROM transactions t
-            INNER JOIN transaction_statuses ts ON t.status_id = ts.id
-            INNER JOIN transaction_items ti ON t.id = ti.transaction_id
-            INNER JOIN tickets tick ON ti.ticket_id = tick.id
-            LEFT JOIN events e ON tick.event_id = e.id
-            LEFT JOIN event_seat_locations sl ON tick.seat_location_id = sl.id
-            LEFT JOIN event_seat_areas a ON tick.area_id = a.id
-            LEFT JOIN event_seat_grades sg ON tick.seat_grade_id = sg.id
-            LEFT JOIN user_profile up_buyer ON t.buyer_id = up_buyer.user_id
-            LEFT JOIN chat_rooms cr ON t.id = cr.transaction_id
-            LEFT JOIN payments p ON t.id = p.transaction_id
-            LEFT JOIN payment_statuses ps ON p.status_id = ps.id AND ps.code = 'done'
-            {whereClause}
-            {orderByClause}
-            LIMIT @Limit
-        ";
-
-        parameters.Add("@Limit", limit);
-
-        var totalCount = await db.ExecuteScalarAsync<int>(countQuery, parameters);
-        var items = await db.QueryAsync<TransactionHistoryItemDto, TransactionUserDto?, TransactionHistoryItemDto>(
-            dataQuery,
-            (transaction, buyer) =>
+            // 성능 최적화: 첫 페이지에서만 전체 건수 조회
+            int? totalCount = null;
+            if (includeTotalCount)
             {
-                transaction.Buyer = buyer;
-                return transaction;
-            },
-            parameters,
-            splitOn: "BuyerId"
-        );
+                var countQuery = $@"
+                    SELECT COUNT(DISTINCT t.id)
+                    FROM transactions t
+                    INNER JOIN transaction_statuses ts ON t.status_id = ts.id
+                    {whereClause}
+                ";
 
-        return (items.ToList(), totalCount);
+                totalCount = await db.ExecuteScalarAsync<int>(countQuery, parameters);
+                logger.LogDebug("판매 내역 전체 건수 조회 - TotalCount: {TotalCount}", totalCount);
+            }
+
+            var dataQuery = $@"
+                SELECT
+                    t.id AS TransactionId,
+                    ti.ticket_id AS TicketId,
+                    COALESCE(e.title, '티켓 정보 없음') AS TicketTitle,
+                    e.poster_image_url AS TicketThumbnailUrl,
+                    tick.event_datetime AS EventDateTime,
+                    e.venue_name AS VenueName,
+                    CONCAT_WS(' ',
+                        COALESCE(sl.location_name, ''),
+                        COALESCE(a.area_name, ''),
+                        COALESCE(sg.name_ko, ''),
+                        COALESCE(tick.row, '')
+                    ) AS SeatInfo,
+                    ti.quantity AS Quantity,
+                    ti.unit_price AS UnitPrice,
+                    ti.total_price AS TotalAmount,
+                    ts.code AS StatusCode,
+                    ts.name_ko AS StatusName,
+                    t.buyer_id AS BuyerId,
+                    COALESCE(up_buyer.nickname, '구매자') AS BuyerNickname,
+                    up_buyer.profile_image_url AS BuyerProfileImageUrl,
+                    cr.id AS RoomId,
+                    t.created_at AS CreatedAt,
+                    p.paid_at AS PaidAt,
+                    t.confirmed_at AS ConfirmedAt,
+                    t.cancelled_at AS CancelledAt
+                FROM transactions t
+                INNER JOIN transaction_statuses ts ON t.status_id = ts.id
+                INNER JOIN transaction_items ti ON t.id = ti.transaction_id
+                INNER JOIN tickets tick ON ti.ticket_id = tick.id
+                LEFT JOIN events e ON tick.event_id = e.id
+                LEFT JOIN event_seat_locations sl ON tick.seat_location_id = sl.id
+                LEFT JOIN event_seat_areas a ON tick.area_id = a.id
+                LEFT JOIN event_seat_grades sg ON tick.seat_grade_id = sg.id
+                LEFT JOIN user_profile up_buyer ON t.buyer_id = up_buyer.user_id
+                LEFT JOIN chat_rooms cr ON t.id = cr.transaction_id
+                LEFT JOIN payments p ON t.id = p.transaction_id
+                LEFT JOIN payment_statuses ps ON p.status_id = ps.id AND ps.code = 'done'
+                {whereClause}
+                {orderByClause}
+                LIMIT @Limit
+            ";
+
+            parameters.Add("@Limit", limit);
+
+            var items = await db.QueryAsync<TransactionHistoryItemDto, TransactionUserDto?, TransactionHistoryItemDto>(
+                dataQuery,
+                (transaction, buyer) =>
+                {
+                    transaction.Buyer = buyer;
+                    return transaction;
+                },
+                parameters,
+                splitOn: "BuyerId"
+            );
+
+            logger.LogDebug("판매 내역 DB 조회 완료 - UserId: {UserId}, 결과 수: {Count}", userId, items.Count());
+
+            return (items.ToList(), totalCount);
+        }
+        catch (MySqlException ex)
+        {
+            logger.LogError(ex,
+                "판매 내역 DB 조회 중 MySQL 예외 발생 - UserId: {UserId}, ErrorCode: {ErrorCode}, SqlState: {SqlState}",
+                userId, ex.ErrorCode, ex.SqlState);
+
+            var errorMessage = ex.ErrorCode switch
+            {
+                MySqlErrorCode.LockWaitTimeout => "데이터베이스 락 대기 시간 초과",
+                MySqlErrorCode.LockDeadlock => "데이터베이스 데드락 발생",
+                MySqlErrorCode.UnableToConnectToHost => "데이터베이스 연결 실패",
+                _ => "데이터베이스 조회 중 오류가 발생했습니다"
+            };
+
+            throw new AppException(errorMessage, HttpStatusCode.InternalServerError, ex);
+        }
+        catch (TimeoutException ex)
+        {
+            logger.LogError(ex, "판매 내역 DB 조회 타임아웃 - UserId: {UserId}", userId);
+            throw new AppException("데이터베이스 조회 시간이 초과되었습니다.", HttpStatusCode.RequestTimeout, ex);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "판매 내역 DB 조회 중 예상치 못한 예외 발생 - UserId: {UserId}", userId);
+            throw new AppException("데이터베이스 조회 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError, ex);
+        }
     }
 
     private (string WhereClause, DynamicParameters Parameters) BuildWhereClause(
