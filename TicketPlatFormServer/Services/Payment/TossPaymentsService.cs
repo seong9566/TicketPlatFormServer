@@ -27,7 +27,13 @@ public class TossPaymentsService : ITossPaymentsService
         _logger = logger;
 
         // Basic Authentication 설정 (SecretKey를 Base64 인코딩)
-        var authToken = "dGVzdF9nc2tfZG9jc19PYVB6OEw1S2RtUVhrelJ6M3k0N0JNdzY6";
+        if (string.IsNullOrWhiteSpace(_settings.SecretKey))
+        {
+            throw new InvalidOperationException("TossPayments SecretKey is not configured.");
+        }
+
+        var rawToken = $"{_settings.SecretKey}:";
+        var authToken = Convert.ToBase64String(Encoding.UTF8.GetBytes(rawToken));
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", authToken);
         _httpClient.BaseAddress = new Uri(_settings.ApiBaseUrl);
     }
