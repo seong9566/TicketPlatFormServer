@@ -281,6 +281,7 @@ TicketPlatFormServer/db_connect.env
 # Environment-specific settings (개발 환경별로 다름)
 .mcp.json
 TicketPlatFormServer/appsettings.Development.json
+TicketPlatFormServer/appsettings.Production.json
 
 # macOS system files
 .DS_Store
