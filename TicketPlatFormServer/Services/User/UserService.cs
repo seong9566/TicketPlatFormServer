@@ -17,6 +17,16 @@ public class UserService : IUserService
     private readonly IRefreshTokenRepository _refreshTokenRepo;
     private readonly IFileUploadService _fileUploadService;
 
+    // Flutter 팀 요구사항: 프로필 이미지 형식 및 크기 제한
+    private static readonly HashSet<string> AllowedProfileExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png",  // 일반 이미지
+        ".webp",                  // 웹 최적화 형식
+        ".heic", ".heif",        // iOS 기본 형식
+        ".avif"                   // 차세대 이미지 형식
+    };
+    private const long MaxProfileImageSizeBytes = 5L * 1024 * 1024; // 5MB
+
     public UserService(
         IUserRepository repo,
         ITokenService tokenService,
@@ -248,16 +258,31 @@ public class UserService : IUserService
             throw new AppException(message: "프로필을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
         }
 
-        // 2. 닉네임 검증 및 변경
+        // 2. 닉네임 검증 및 변경 (Flutter 팀 요구사항 적용)
         if (!string.IsNullOrEmpty(nickname))
         {
-            // 길이 검증
-            if (nickname.Length > 50)
+            // 공백 제거 (앞뒤 공백만)
+            nickname = nickname.Trim();
+
+            // 2-1. 길이 검증 (2~20자)
+            if (nickname.Length < 2)
             {
-                throw new AppException(message: "닉네임은 최대 50자까지 입력 가능합니다.", statusCode: HttpStatusCode.BadRequest);
+                throw new AppException(message: "닉네임은 최소 2자 이상이어야 합니다.", statusCode: HttpStatusCode.BadRequest);
+            }
+            if (nickname.Length > 20)
+            {
+                throw new AppException(message: "닉네임은 최대 20자까지 입력 가능합니다.", statusCode: HttpStatusCode.BadRequest);
             }
 
-            // 중복 체크 (다른 닉네임으로 변경하는 경우만)
+            // 2-2. 정규식 검증 (한글/영문/숫자/언더스코어/하이픈만 허용)
+            if (!System.Text.RegularExpressions.Regex.IsMatch(nickname, @"^[가-힣a-zA-Z0-9_-]{2,20}$"))
+            {
+                throw new AppException(
+                    message: "닉네임에 허용되지 않는 문자가 포함되어 있습니다. 한글, 영문, 숫자, 언더스코어(_), 하이픈(-)만 사용 가능합니다.",
+                    statusCode: HttpStatusCode.BadRequest);
+            }
+
+            // 2-3. 중복 체크 (다른 닉네임으로 변경하는 경우만)
             if (nickname != profile.Nickname)
             {
                 var nicknameExists = await _repo.IsNicknameExistsAsync(nickname);
@@ -269,13 +294,13 @@ public class UserService : IUserService
             }
         }
 
-        // 3. Bio 검증 및 업데이트
+        // 3. Bio 검증 및 업데이트 (Flutter 팀 요구사항: 최대 200자)
         if (bio != null)
         {
             // 길이 검증
-            if (bio.Length > 500)
+            if (bio.Length > 200)
             {
-                throw new AppException(message: "자기소개는 최대 500자까지 입력 가능합니다.", statusCode: HttpStatusCode.BadRequest);
+                throw new AppException(message: "자기소개는 최대 200자까지 입력 가능합니다.", statusCode: HttpStatusCode.BadRequest);
             }
             profile.Bio = bio;
         }
@@ -301,6 +326,25 @@ public class UserService : IUserService
         else if (profileImage != null)
         {
             // 4-2. 새 이미지 업로드 (기존 이미지 삭제는 성공 후)
+            // Flutter 팀 요구사항: 파일 크기 및 형식 검증
+
+            // 4-2-1. 파일 크기 검증 (5MB 제한)
+            if (profileImage.Length > MaxProfileImageSizeBytes)
+            {
+                throw new AppException(
+                    message: "프로필 이미지 크기는 5MB를 초과할 수 없습니다.",
+                    statusCode: HttpStatusCode.BadRequest);
+            }
+
+            // 4-2-2. 파일 확장자 검증 (다양한 이미지 형식 허용)
+            var fileExtension = Path.GetExtension(profileImage.FileName);
+            if (string.IsNullOrEmpty(fileExtension) || !AllowedProfileExtensions.Contains(fileExtension))
+            {
+                throw new AppException(
+                    message: "지원하지 않는 이미지 형식입니다. (허용: JPEG, PNG, WebP, HEIC, HEIF, AVIF)",
+                    statusCode: HttpStatusCode.BadRequest);
+            }
+
             // 기존 이미지 키 백업
             if (!string.IsNullOrEmpty(profile.ProfileImageUrl))
             {

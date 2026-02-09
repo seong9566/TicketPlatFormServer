@@ -46,6 +46,12 @@ builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+// Flutter 팀 요구사항: 프로필 이미지 업로드를 위한 Form 크기 제한 (10MB)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10MB
+});
+
 // Swagger 서비스 등록
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
