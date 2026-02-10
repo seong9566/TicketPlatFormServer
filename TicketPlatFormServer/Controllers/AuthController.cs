@@ -10,7 +10,7 @@ using TicketPlatFormServer.Services.User;
 namespace TicketPlatFormServer.Controllers
 {
     [ApiController]
-    [Route("auth")]
+    [Route("api/auth")]
     public class AuthController : Controller
     {
         // 1. Service 의존성 주입
