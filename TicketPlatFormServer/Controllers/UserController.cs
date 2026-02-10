@@ -116,5 +116,27 @@ namespace TicketPlatFormServer.Controllers
 
             return Ok(resp);
         }
+
+        /// <summary>
+        /// 비밀번호 변경
+        /// </summary>
+        /// <param name="request">비밀번호 변경 요청 DTO</param>
+        /// <returns>성공 메시지</returns>
+        [HttpPut("password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordReqDto request)
+        {
+            var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
+            var tokenEmail = User.GetEmail();
+
+            await _userService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword, tokenEmail);
+
+            ApiResponse<object> resp = new ApiResponse<object>(
+                message: "비밀번호 변경 성공",
+                data: null,
+                statusCode: 200
+            );
+
+            return Ok(resp);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.DTO.User;
@@ -81,7 +82,7 @@ public class UserService : IUserService
         // 4. 비밀번호 암호화
         // providerEnum은 이미 위에서 TryParse 된 Enum 값이므로, 가입 유형이 Email인지만 비교하면 됨
         string passwordHash = (providerEnum == UserRegisterProviderEnum.email
-            ? BCrypt.Net.BCrypt.HashPassword(dto.Password)
+            ? BCrypt.Net.BCrypt.HashPassword(dto.Password.Trim())
             : null)!;
          
         // 5. Dto -> Entity
@@ -147,7 +148,9 @@ public class UserService : IUserService
             }
 
             // BCrypt로 비밀번호 검증
-            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash);
+            var normalizedPassword = dto.Password.Trim();
+            bool isPasswordValid = BCrypt.Net.BCrypt.Verify(normalizedPassword, user.PasswordHash);
+            
             if (!isPasswordValid)
             {
                 throw new AppException(message: "이메일 또는 비밀번호가 올바르지 않습니다.", statusCode: HttpStatusCode.Unauthorized);
@@ -433,5 +436,79 @@ public class UserService : IUserService
         // 4. Object Key인 경우: 새 Signed URL 발급
         var signedUrlResult = await _fileUploadService.RefreshSignedUrlAsync(profile.ProfileImageUrl);
         return signedUrlResult.SignedUrl;
+    }
+
+    /// <summary>
+    /// 비밀번호 변경
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <param name="currentPassword">현재 비밀번호</param>
+    /// <param name="newPassword">새 비밀번호</param>
+    public async Task ChangePasswordAsync(int userId, string currentPassword, string newPassword, string? tokenEmail)
+    {
+        var user = await _repo.GetByIdAsync(userId);
+        if (user == null)
+        {
+            throw new AppException("사용자를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        var normalizedTokenEmail = tokenEmail?.Trim();
+        if (string.IsNullOrEmpty(normalizedTokenEmail))
+        {
+            throw new AppException("사용자 인증 정보가 유효하지 않습니다.", HttpStatusCode.Unauthorized);
+        }
+
+        if (!string.Equals(normalizedTokenEmail, user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AppException("사용자 인증 정보가 일치하지 않습니다.", HttpStatusCode.Unauthorized);
+        }
+
+        if (string.IsNullOrEmpty(user.PasswordHash))
+        {
+            throw new AppException("소셜 로그인 사용자는 비밀번호를 변경할 수 없습니다.", HttpStatusCode.Forbidden);
+        }
+
+        var normalizedCurrentPassword = currentPassword.Trim();
+        var normalizedNewPassword = newPassword.Trim();
+        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(normalizedCurrentPassword, user.PasswordHash);
+        
+        if (!isPasswordValid)
+        {
+            throw new AppException("현재 비밀번호가 일치하지 않습니다.", HttpStatusCode.Unauthorized);
+        }
+
+        ValidatePassword(normalizedNewPassword);
+
+        if (BCrypt.Net.BCrypt.Verify(normalizedNewPassword, user.PasswordHash))
+        {
+            throw new AppException("새 비밀번호는 현재 비밀번호와 달라야 합니다.", HttpStatusCode.BadRequest);
+        }
+
+        var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(normalizedNewPassword);
+        
+        var affectedRows = await _repo.UpdatePasswordHashAsync(userId, newPasswordHash);
+        if (affectedRows != 1)
+        {
+            throw new AppException("비밀번호 업데이트에 실패했습니다.", HttpStatusCode.InternalServerError);
+        }
+    }
+
+    private void ValidatePassword(string password)
+    {
+        if (password.Length < 8)
+        {
+            throw new AppException("비밀번호는 8자 이상이어야 하며, 영문 대소문자, 숫자, 특수문자 중 3가지 이상을 조합해야 합니다.", HttpStatusCode.BadRequest);
+        }
+
+        int criteriaCount = 0;
+        if (Regex.IsMatch(password, "[A-Z]")) criteriaCount++;
+        if (Regex.IsMatch(password, "[a-z]")) criteriaCount++;
+        if (Regex.IsMatch(password, "[0-9]")) criteriaCount++;
+        if (Regex.IsMatch(password, "[^a-zA-Z0-9]")) criteriaCount++;
+
+        if (criteriaCount < 3)
+        {
+            throw new AppException("비밀번호는 8자 이상이어야 하며, 영문 대소문자, 숫자, 특수문자 중 3가지 이상을 조합해야 합니다.", HttpStatusCode.BadRequest);
+        }
     }
 }

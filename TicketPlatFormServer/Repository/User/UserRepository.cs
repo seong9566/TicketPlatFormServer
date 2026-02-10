@@ -151,4 +151,12 @@ public class UserRepository(TicketContext db) : IUserRepository
         db.UserProfiles.Update(profile);
         await db.SaveChangesAsync();
     }
+
+    public async Task<int> UpdatePasswordHashAsync(int userId, string passwordHash, CancellationToken ct = default)
+    {
+        return await db.Users
+            .Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.PasswordHash, passwordHash), ct);
+    }
 } 

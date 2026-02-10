@@ -78,4 +78,13 @@ public interface IUserRepository
     /// </summary>
     /// <param name="profile">업데이트할 UserProfile 엔티티</param>
     Task UpdateUserProfileAsync(UserProfile profile);
+
+    /// <summary>
+    /// 사용자 비밀번호 해시 업데이트
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <param name="passwordHash">새 비밀번호 해시</param>
+    /// <param name="ct">취소 토큰</param>
+    /// <returns>영향받은 행 수 (0 또는 1)</returns>
+    Task<int> UpdatePasswordHashAsync(int userId, string passwordHash, CancellationToken ct = default);
 }

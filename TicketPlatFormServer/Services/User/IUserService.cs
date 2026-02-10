@@ -47,4 +47,13 @@ public interface IUserService
     /// <param name="userId">사용자 ID</param>
     /// <returns>새로 발급된 Signed URL (이미지 없으면 null)</returns>
     Task<string?> RefreshProfileImageUrlAsync(int userId);
+
+    /// <summary>
+    /// 비밀번호 변경
+    /// </summary>
+    /// <param name="userId">사용자 ID</param>
+    /// <param name="currentPassword">현재 비밀번호</param>
+    /// <param name="newPassword">새 비밀번호</param>
+    /// <param name="tokenEmail">JWT에서 추출한 이메일 (nullable)</param>
+    Task ChangePasswordAsync(int userId, string currentPassword, string newPassword, string? tokenEmail);
 }
