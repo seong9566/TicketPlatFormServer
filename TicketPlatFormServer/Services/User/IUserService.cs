@@ -56,4 +56,6 @@ public interface IUserService
     /// <param name="newPassword">새 비밀번호</param>
     /// <param name="tokenEmail">JWT에서 추출한 이메일 (nullable)</param>
     Task ChangePasswordAsync(int userId, string currentPassword, string newPassword, string? tokenEmail);
+
+    Task<SocialLoginRespDto> SocialLoginAsync(string providerCode, SocialUserInfoDto socialUserInfo);
 }
