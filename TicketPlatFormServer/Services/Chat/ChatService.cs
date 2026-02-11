@@ -12,6 +12,7 @@ using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Payment;
+using TicketPlatFormServer.Services.Notification;
 
 namespace TicketPlatFormServer.Services.Chat;
 
@@ -22,6 +23,7 @@ public class ChatService(
     ITransactionItemRepository transactionItemRepo,
     IFileUploadService fileUploadService,
     IPaymentService paymentService,
+    INotificationService notificationService,
     IHubContext<ChatHub> hubContext,
     SupabaseStorageSettings supabaseSettings,
     ILogger<ChatService> logger) : IChatService
@@ -297,6 +299,23 @@ public class ChatService(
                 // 상대방 읽지 않은 메시지 수 증가
                 var isSenderBuyer = room.BuyerId == req.UserId;
                 await chatRepo.IncrementUnreadCount(req.RoomId, !isSenderBuyer);
+
+                if (messageType == Enum.MessageType.TEXT || messageType == Enum.MessageType.IMAGE)
+                {
+                    var receiverId = isSenderBuyer ? room.SellerId : room.BuyerId;
+                    await notificationService.CreateAndSendAsync(
+                        receiverId,
+                        "CHAT_MESSAGE",
+                        "새 메시지가 도착했습니다",
+                        "채팅방에 새로운 메시지가 있습니다.",
+                        new Dictionary<string, string>
+                        {
+                            ["type"] = "CHAT_MESSAGE",
+                            ["roomId"] = req.RoomId.ToString(),
+                            ["senderId"] = req.UserId.ToString(),
+                            ["messageId"] = message.Id.ToString()
+                        });
+                }
             }
             catch (Exception metadataEx)
             {
@@ -494,6 +513,19 @@ public class ChatService(
             var isSenderBuyer = room.BuyerId == userId;
             await chatRepo.IncrementUnreadCount(roomId, !isSenderBuyer);
 
+            var receiverId = isSenderBuyer ? room.SellerId : room.BuyerId;
+            await notificationService.CreateAndSendAsync(
+                receiverId,
+                "PAYMENT_REQUEST",
+                "결제 요청이 도착했습니다",
+                "판매자가 결제를 요청했습니다.",
+                new Dictionary<string, string>
+                {
+                    ["type"] = "PAYMENT_REQUEST",
+                    ["transactionId"] = createdTransaction.Id.ToString(),
+                    ["roomId"] = roomId.ToString()
+                });
+
             logger.LogInformation("[ChatService.RequestPayment] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}, Quantity={Quantity}",
                 roomId, createdTransaction.Id, userId, quantity);
 
@@ -570,6 +602,18 @@ public class ChatService(
         // ChatRoom 업데이트
         await chatRepo.UpdateLastMessageAt(req.RoomId, message.CreatedAt ?? DateTime.UtcNow);
         await chatRepo.IncrementUnreadCount(req.RoomId, false);
+
+        await notificationService.CreateAndSendAsync(
+            room.SellerId,
+            "PURCHASE_CONFIRMED",
+            "구매가 확정되었습니다",
+            "구매자가 거래를 확정했습니다.",
+            new Dictionary<string, string>
+            {
+                ["type"] = "PURCHASE_CONFIRMED",
+                ["transactionId"] = req.TransactionId.ToString(),
+                ["roomId"] = req.RoomId.ToString()
+            });
 
         // SignalR 실시간 브로드캐스트
         var signalDto = new NewMessageSignalDto
