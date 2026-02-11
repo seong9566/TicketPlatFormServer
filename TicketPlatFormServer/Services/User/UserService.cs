@@ -1,4 +1,6 @@
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
@@ -191,6 +193,91 @@ public class UserService : IUserService
             ExpiresIn = tokenResponse.ExpiresIn,
             TokenType = tokenResponse.TokenType,
             ExpiresAt = tokenResponse.ExpiresAt
+        };
+    }
+
+    public async Task<SocialLoginRespDto> SocialLoginAsync(string providerCode, SocialUserInfoDto socialUserInfo)
+    {
+        var normalizedProviderCode = providerCode.Trim().ToLowerInvariant();
+        if (normalizedProviderCode is not ("google" or "kakao"))
+        {
+            throw new AppException(message: "지원하지 않는 provider입니다", statusCode: HttpStatusCode.BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(socialUserInfo.ProviderId))
+        {
+            throw new AppException(message: "유효하지 않은 Access Token입니다", statusCode: HttpStatusCode.Unauthorized);
+        }
+
+        var normalizedEmail = ResolveSocialEmail(normalizedProviderCode, socialUserInfo);
+
+        var user = await _repo.GetByEmail(normalizedEmail);
+        var isNewUser = false;
+
+        if (user == null)
+        {
+            var provider = await _repo.GetProviderByCode(normalizedProviderCode);
+            if (provider == null)
+            {
+                throw new AppException(message: "지원하지 않는 provider입니다", statusCode: HttpStatusCode.BadRequest);
+            }
+
+            var role = await _repo.GetRoleByCode("user");
+            if (role == null)
+            {
+                throw new AppException(message: "허용되지 않은 역할 입니다.", statusCode: HttpStatusCode.BadRequest);
+            }
+
+            var reqEntity = new DBModel.User
+            {
+                Email = normalizedEmail,
+                Phone = null,
+                PasswordHash = null,
+                ProviderId = provider.Id,
+                RoleId = role.Id
+            };
+
+            var randomNickname = await NicknameGenerator.GenerateUniqueAsync(
+                async nickname => await _repo.IsNicknameExistsAsync(nickname)
+            );
+
+            var userProfile = new DBModel.UserProfile
+            {
+                Nickname = randomNickname,
+                ProfileImageUrl = socialUserInfo.ProfileImageUrl,
+                Bio = null,
+                MannerTemperature = 36.5f,
+                TotalTradeCount = 0
+            };
+
+            var saved = await _repo.CreateUserWithProfile(reqEntity, userProfile);
+            user = await _repo.GetByEmail(saved.Email);
+            if (user == null)
+            {
+                throw new AppException(message: "소셜 로그인 후 사용자 정보를 조회할 수 없습니다.", statusCode: HttpStatusCode.InternalServerError);
+            }
+
+            isNewUser = true;
+        }
+
+        await _repo.UpdateLastLoginAt(user.Id);
+
+        var tokenResponse = await _tokenService.GenerateTokensAsync(user, 7);
+
+        var refreshToken = new DBModel.RefreshToken
+        {
+            UserId = user.Id,
+            Token = tokenResponse.RefreshToken,
+            ExpiryDate = DateTime.UtcNow.AddDays(7)
+        };
+        await _refreshTokenRepo.SaveRefreshTokenAsync(refreshToken);
+
+        return new SocialLoginRespDto
+        {
+            UserId = user.Id,
+            AccessToken = tokenResponse.AccessToken,
+            RefreshToken = tokenResponse.RefreshToken,
+            IsNewUser = isNewUser
         };
     }
 
@@ -510,5 +597,18 @@ public class UserService : IUserService
         {
             throw new AppException("비밀번호는 8자 이상이어야 하며, 영문 대소문자, 숫자, 특수문자 중 3가지 이상을 조합해야 합니다.", HttpStatusCode.BadRequest);
         }
+    }
+
+    private static string ResolveSocialEmail(string providerCode, SocialUserInfoDto socialUserInfo)
+    {
+        var candidate = socialUserInfo.Email?.Trim();
+        if (!string.IsNullOrWhiteSpace(candidate))
+        {
+            return candidate.ToLowerInvariant();
+        }
+
+        var providerId = socialUserInfo.ProviderId.Trim();
+        var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{providerCode}:{providerId}"))).ToLowerInvariant();
+        return $"{providerCode}_{hash[..24]}@social.local";
     }
 }
