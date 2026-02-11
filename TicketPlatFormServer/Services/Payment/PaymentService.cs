@@ -13,6 +13,7 @@ using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Payment;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.Common;
+using TicketPlatFormServer.Services.Notification;
 
 namespace TicketPlatFormServer.Services.Payment;
 
@@ -28,6 +29,7 @@ public class PaymentService(
     TicketContext context,
     TossPaymentsSettings settings,
     EncryptionService encryptionService,
+    INotificationService notificationService,
     IHubContext<ChatHub> hubContext,
     ILogger<PaymentService> logger) : IPaymentService
 {
@@ -516,6 +518,30 @@ public class PaymentService(
                 .SendAsync("ReceiveMessage", messageDto);
             await hubContext.Clients.Group($"user_{room.SellerId}")
                 .SendAsync("ReceiveMessage", messageDto);
+
+            await notificationService.CreateAndSendAsync(
+                room.BuyerId,
+                "PAYMENT_SUCCESS",
+                "결제가 완료되었습니다",
+                "결제가 정상적으로 완료되었습니다.",
+                new Dictionary<string, string>
+                {
+                    ["type"] = "PAYMENT_SUCCESS",
+                    ["transactionId"] = transactionId.ToString(),
+                    ["roomId"] = room.Id.ToString()
+                });
+
+            await notificationService.CreateAndSendAsync(
+                room.SellerId,
+                "PAYMENT_SUCCESS",
+                "결제가 완료되었습니다",
+                "구매자의 결제가 완료되었습니다.",
+                new Dictionary<string, string>
+                {
+                    ["type"] = "PAYMENT_SUCCESS",
+                    ["transactionId"] = transactionId.ToString(),
+                    ["roomId"] = room.Id.ToString()
+                });
         }
         catch (Exception ex)
         {

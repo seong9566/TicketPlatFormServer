@@ -12,6 +12,7 @@ using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Payment;
+using TicketPlatFormServer.Repository.Notifications;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Transactions;
@@ -25,6 +26,7 @@ using TicketPlatFormServer.Services.Favorite;
 using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Payment;
+using TicketPlatFormServer.Services.Notification;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
@@ -162,6 +164,10 @@ var tossPaymentsSettings = new TossPaymentsSettings();
 builder.Configuration.GetSection("TossPayments").Bind(tossPaymentsSettings);
 builder.Services.AddSingleton(tossPaymentsSettings);
 
+var fcmSettings = new FcmSettings();
+builder.Configuration.GetSection("FCM").Bind(fcmSettings);
+builder.Services.AddSingleton(fcmSettings);
+
 // Resilience settings for HttpClient (loaded in Supabase Storage section below)
 // HttpClient for TossPaymentsService - will use resilienceSettings after it's loaded
 #endregion
@@ -275,6 +281,11 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddHttpClient("OAuthProvider", client => { client.Timeout = TimeSpan.FromSeconds(10); });
 builder.Services.AddScoped<IOAuthService, GoogleOAuthService>();
 builder.Services.AddScoped<IOAuthService, KakaoOAuthService>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationTokenRepository, NotificationTokenRepository>();
+builder.Services.AddScoped<IFcmService, FcmService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHttpClient("FCM", client => { client.Timeout = TimeSpan.FromSeconds(10); });
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionItemRepository, TransactionItemRepository>();
 builder.Services.AddScoped<ITransactionHistoryRepository, TransactionHistoryRepository>();

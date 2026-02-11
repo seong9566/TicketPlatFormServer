@@ -286,3 +286,4 @@ TicketPlatFormServer/appsettings.Production.json
 # macOS system files
 .DS_Store
 .mcp.json
+TicketPlatFormServer/ticket_firebase_auth.json
