@@ -70,4 +70,9 @@ public class PaymentRequestResponseDto
     /// 실패 리다이렉트 URL
     /// </summary>
     public string FailUrl { get; set; } = null!;
+
+    /// <summary>
+    /// 토스페이먼츠 클라이언트 키 (프론트엔드에서 위젯 초기화에 사용)
+    /// </summary>
+    public string ClientKey { get; set; } = null!;
 }
