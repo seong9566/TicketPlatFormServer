@@ -73,7 +73,6 @@ public class PaymentService(
 
         logger.LogInformation("[PaymentService.InitiatePaymentAsync] OrderId generated: {OrderId}", orderId);
 
-        // 4. PaymentRequestResponseDto 반환
         return new PaymentRequestResponseDto
         {
             OrderId = orderId,
@@ -82,7 +81,8 @@ public class PaymentService(
             CustomerName = request.CustomerName,
             CustomerEmail = request.CustomerEmail,
             SuccessUrl = settings.SuccessUrl,
-            FailUrl = settings.FailUrl
+            FailUrl = settings.FailUrl,
+            ClientKey = settings.ClientKey
         };
     }
 
@@ -191,10 +191,12 @@ public class PaymentService(
             // 6-3-1. 카드 결제 상세 정보 저장
             if (tossResponse.Card != null)
             {
+                var cardCompany = tossResponse.Card.Company ?? tossResponse.EasyPay?.Provider ?? "UNKNOWN";
+
                 var cardDetail = new PaymentCardDetail
                 {
                     PaymentId = payment.Id,
-                    Company = tossResponse.Card.Company,
+                    Company = cardCompany,
                     CardNumber = tossResponse.Card.Number,
                     InstallmentPlanMonths = tossResponse.Card.InstallmentPlanMonths,
                     ApproveNo = tossResponse.Card.ApproveNo,
@@ -359,6 +361,35 @@ public class PaymentService(
         // 2. 이미 해제된 경우
         if (escrow.ReleasedAt != null)
         {
+            var transaction = await context.Transactions
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction != null)
+            {
+                var confirmedStatus = await paymentRepository.GetTransactionStatusByCodeAsync("confirmed");
+                if (confirmedStatus != null)
+                {
+                    var needsSave = false;
+
+                    if (transaction.StatusId != confirmedStatus.Id)
+                    {
+                        transaction.StatusId = confirmedStatus.Id;
+                        needsSave = true;
+                    }
+
+                    if (transaction.ConfirmedAt == null)
+                    {
+                        transaction.ConfirmedAt = escrow.ReleasedAt ?? DateTime.UtcNow;
+                        needsSave = true;
+                    }
+
+                    if (needsSave)
+                    {
+                        await context.SaveChangesAsync();
+                    }
+                }
+            }
+
             logger.LogWarning("[PaymentService.ReleaseEscrowAsync] 이미 해제된 에스크로: {EscrowId}", escrow.Id);
             return;
         }
