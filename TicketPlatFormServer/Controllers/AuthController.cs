@@ -97,27 +97,16 @@ namespace TicketPlatFormServer.Controllers
         [HttpPost("refresh")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenReqDto dto)
         {
-            // 1. Refresh Token 조회 (User, Role, Provider 포함)
-            var refreshToken = await _refreshTokenRepo.GetRefreshTokenAsync(dto.RefreshToken);
+            var tempToken = Guid.NewGuid().ToString();
+            
+            var refreshToken = await _refreshTokenRepo.ValidateAndRevokeTokenAsync(dto.RefreshToken, tempToken);
             if (refreshToken == null)
-            {
-                throw new AppException(message: "유효하지 않은 Refresh Token입니다.", statusCode: HttpStatusCode.Unauthorized);
-            }
-
-            // 2. Refresh Token 유효성 검증 (만료 여부 + 무효화 여부)
-            var isValid = await _refreshTokenRepo.IsTokenValidAsync(dto.RefreshToken);
-            if (!isValid)
             {
                 throw new AppException(message: "만료되었거나 무효화된 Refresh Token입니다.", statusCode: HttpStatusCode.Unauthorized);
             }
 
-            // 3. 새로운 Access Token + Refresh Token 생성
             var newTokenResponse = await _tokenService.GenerateTokensAsync(refreshToken.User, 7);
 
-            // 4. 이전 Refresh Token 무효화 (Token Rotation)
-            await _refreshTokenRepo.RevokeRefreshTokenAsync(dto.RefreshToken, newTokenResponse.RefreshToken);
-
-            // 5. 새로운 Refresh Token DB 저장
             var newRefreshToken = new DBModel.RefreshToken
             {
                 UserId = refreshToken.UserId,
@@ -126,7 +115,6 @@ namespace TicketPlatFormServer.Controllers
             };
             await _refreshTokenRepo.SaveRefreshTokenAsync(newRefreshToken);
 
-            // 6. 응답
             ApiResponse<TokenResponseDto> resp = new ApiResponse<TokenResponseDto>(
                 message: "Token 갱신 성공",
                 data: newTokenResponse,

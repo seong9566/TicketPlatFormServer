@@ -275,6 +275,7 @@ __pycache__/
 
 # Local secrets
 TicketPlatFormServer/appsettings.SupabaseStorage.json
+TicketPlatFormServer/appsettings.TossPayments.json
 TicketPlatFormServer/.env
 TicketPlatFormServer/db_connect.env
 

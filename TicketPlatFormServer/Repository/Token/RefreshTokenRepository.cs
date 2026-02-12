@@ -49,6 +49,15 @@ public class RefreshTokenRepository(
         if (refreshToken == null)
             return false;
 
+        if (refreshToken.IsRevoked == true)
+        {
+            logger.LogWarning(
+                "[RefreshTokenRepository.RevokeRefreshTokenAsync] 이미 무효화된 토큰 | UserId: {UserId}, TokenId: {TokenId}",
+                refreshToken.UserId, refreshToken.Id
+            );
+            return false;
+        }
+
         refreshToken.IsRevoked = true;
         refreshToken.RevokedAt = DateTime.UtcNow;
         refreshToken.ReplacedByToken = replacedByToken;
@@ -118,10 +127,58 @@ public class RefreshTokenRepository(
         if (refreshToken == null)
             return false;
 
-        // 무효화되었거나 만료된 경우 false
         if (refreshToken.IsRevoked == true || refreshToken.ExpiryDate < now)
             return false;
 
         return true;
+    }
+
+    public async Task<RefreshToken?> ValidateAndRevokeTokenAsync(string token, string replacedByToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var refreshToken = await db.RefreshTokens
+            .Include(rt => rt.User)
+                .ThenInclude(u => u.Role)
+            .Include(rt => rt.User)
+                .ThenInclude(u => u.Provider)
+            .FirstOrDefaultAsync(rt => rt.Token == token);
+
+        if (refreshToken == null)
+        {
+            logger.LogWarning("[RefreshTokenRepository.ValidateAndRevokeTokenAsync] Token not found");
+            return null;
+        }
+
+        if (refreshToken.IsRevoked == true)
+        {
+            logger.LogWarning(
+                "[RefreshTokenRepository.ValidateAndRevokeTokenAsync] 이미 무효화된 토큰 | UserId: {UserId}, TokenId: {TokenId}",
+                refreshToken.UserId, refreshToken.Id
+            );
+            return null;
+        }
+
+        if (refreshToken.ExpiryDate < now)
+        {
+            logger.LogWarning(
+                "[RefreshTokenRepository.ValidateAndRevokeTokenAsync] 만료된 토큰 | UserId: {UserId}, TokenId: {TokenId}, ExpiryDate: {ExpiryDate}",
+                refreshToken.UserId, refreshToken.Id, refreshToken.ExpiryDate
+            );
+            return null;
+        }
+
+        refreshToken.IsRevoked = true;
+        refreshToken.RevokedAt = now;
+        refreshToken.ReplacedByToken = replacedByToken;
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "[RefreshTokenRepository.ValidateAndRevokeTokenAsync] Token 검증 및 무효화 완료 | UserId: {UserId}, TokenId: {TokenId}",
+            refreshToken.UserId, refreshToken.Id
+        );
+
+        return refreshToken;
     }
 }

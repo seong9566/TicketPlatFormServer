@@ -44,6 +44,10 @@ builder.Configuration.AddJsonFile(
     "appsettings.SupabaseStorage.json",
     optional: true,
     reloadOnChange: true);
+builder.Configuration.AddJsonFile(
+    "appsettings.TossPayments.json",
+    optional: true,
+    reloadOnChange: true);
 builder.Configuration.AddEnvironmentVariables();
 
 // Add services to the container.
