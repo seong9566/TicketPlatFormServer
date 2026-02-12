@@ -383,7 +383,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
             .Where(m => roomIdsList.Contains(m.RoomId))
             .GroupBy(m => m.RoomId)
             .Select(g => g.OrderByDescending(m => m.Id)
-                .Select(m => new { m.RoomId, m.Message, m.ImageUrl })
+                .Select(m => new { m.RoomId, m.Message, m.ImageUrl, m.MessageType })
                 .FirstOrDefault())
             .ToListAsync();
 
@@ -395,7 +395,14 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
                 {
                     if (!string.IsNullOrEmpty(m!.Message)) return m.Message;
                     if (!string.IsNullOrEmpty(m.ImageUrl)) return "(사진)";
-                    return (string?)null;
+
+                    return m.MessageType switch
+                    {
+                        "PAYMENT_REQUEST" => "결제가 요청되었습니다.",
+                        "PAYMENT_SUCCESS" => "결제가 완료되었습니다.",
+                        "PURCHASE_CONFIRMED" => "구매가 확정되었습니다.",
+                        _ => (string?)null
+                    };
                 }
             );
     }

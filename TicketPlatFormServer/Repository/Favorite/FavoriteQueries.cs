@@ -56,6 +56,7 @@ internal static class FavoriteQueries
             t.`row` AS `Row`,
             t.price AS Price,
             COALESCE(esg.original_price, t.price) AS OriginalPrice,
+            t.quantity AS Quantity,
             t.remaining_quantity AS RemainingQuantity,
             t.is_consecutive AS IsConsecutive,
             t.trade_method_id AS TradeMethodId,

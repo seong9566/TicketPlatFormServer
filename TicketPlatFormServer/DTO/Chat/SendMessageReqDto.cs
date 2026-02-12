@@ -11,6 +11,7 @@ public class SendMessageReqDto
     public long RoomId { get; set; }
     public int UserId { get; set; }
     public string? Message { get; set; }
+    public string? ClientMessageId { get; set; }
     
     /// <summary>
     /// 이미지 파일들 (최대 5개)

@@ -128,34 +128,49 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
             ? room.SellerId
             : room.BuyerId;
 
-        var messageDto = new NewMessageSignalDto
+        var senderMessageDto = new NewMessageSignalDto
         {
             MessageId = result.MessageId,
             RoomId = result.RoomId,
             SenderId = userId.Value,
+            ClientMessageId = result.ClientMessageId,
             SenderNickname = result.SenderNickname,
             SenderProfileImage = result.SenderProfileImage,
             Message = result.Message,
             Type = result.Type,
             Images = result.Images,
-            CreatedAt = result.CreatedAt
+            CreatedAt = result.CreatedAt,
+            IsMyMessage = true
+        };
+
+        var receiverMessageDto = new NewMessageSignalDto
+        {
+            MessageId = result.MessageId,
+            RoomId = result.RoomId,
+            SenderId = userId.Value,
+            ClientMessageId = result.ClientMessageId,
+            SenderNickname = result.SenderNickname,
+            SenderProfileImage = result.SenderProfileImage,
+            Message = result.Message,
+            Type = result.Type,
+            Images = result.Images,
+            CreatedAt = result.CreatedAt,
+            IsMyMessage = false
         };
 
         logger.LogInformation(
             "[ChatController.SendMessage] Broadcasting message to room_{RoomId}. MessageId: {MessageId}, SenderId: {SenderId}, ReceiverId: {ReceiverId}",
             req.RoomId, result.MessageId, userId.Value, receiverId);
 
-        // 채팅방 안에 있는 사람들에게 전송 (기존)
-        await hubContext.Clients.Group($"room_{req.RoomId}")
-            .SendAsync("ReceiveMessage", messageDto);
+        await hubContext.Clients.Group($"user_{userId.Value}")
+            .SendAsync("ReceiveMessage", senderMessageDto);
 
-        // 수신자에게 직접 전송 (어느 화면에 있든 수신 가능)
         await hubContext.Clients.Group($"user_{receiverId}")
-            .SendAsync("ReceiveMessage", messageDto);
+            .SendAsync("ReceiveMessage", receiverMessageDto);
 
         logger.LogInformation(
-            "[ChatController.SendMessage]  SignalR broadcast completed: room_{RoomId} and user_{ReceiverId}",
-            req.RoomId, receiverId);
+            "[ChatController.SendMessage] SignalR broadcast completed: user_{SenderId} and user_{ReceiverId}",
+            userId.Value, receiverId);
 
         var resp = new ApiResponse<SendMessageRespDto>(
             message: "메시지 전송 성공",

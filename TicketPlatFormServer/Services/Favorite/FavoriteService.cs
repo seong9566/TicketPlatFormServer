@@ -67,7 +67,7 @@ public class FavoriteService(IFavoriteRepository repo) : IFavoriteService
             SeatGradeName = rm.SeatGradeName,
             Area = rm.Area,
             Row = rm.Row,
-            Price = rm.Price,
+            Price = rm.Price * rm.Quantity,
             OriginalPrice = rm.OriginalPrice,
             RemainingQuantity = rm.RemainingQuantity,
             IsConsecutive = rm.IsConsecutive,
