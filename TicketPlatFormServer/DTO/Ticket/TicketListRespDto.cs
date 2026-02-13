@@ -58,6 +58,8 @@ public class TicketListRespDto
     /// 판매가
     /// </summary>
     public int Price { get; set; }
+
+    public int TotalPrice { get; set; }
     
     /// <summary>
     /// 정가

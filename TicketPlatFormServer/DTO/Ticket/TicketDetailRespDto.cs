@@ -57,6 +57,8 @@ public class TicketDetailRespDto
     /// </summary>
     public int Price { get; set; }
 
+    public int TotalPrice { get; set; }
+
     /// <summary>
     /// 정가
     /// </summary>
