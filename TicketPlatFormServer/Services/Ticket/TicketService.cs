@@ -137,7 +137,8 @@ public class TicketService : ITicketService
             LocationName = readModel.LocationName,
             // 기존 필드
             Row = readModel.Row,
-            Price = readModel.Price * readModel.Quantity,
+            Price = readModel.Price,
+            TotalPrice = readModel.Price * readModel.Quantity,
             OriginalPrice = readModel.OriginalPrice,
             IsConsecutive = readModel.IsConsecutive,
             TradeMethodId = readModel.TradeMethodId,
@@ -173,4 +174,3 @@ public class TicketService : ITicketService
         };
     }
 }
-
