@@ -353,6 +353,59 @@ public class FileUploadService(
         }
     }
 
+    public async Task<DisputeEvidenceUploadResult> UploadDisputeEvidenceAsync(IFormFile file, long disputeId, long userId)
+    {
+        if (file == null || file.Length == 0)
+        {
+            throw new AppException("파일이 비어 있습니다.", HttpStatusCode.BadRequest);
+        }
+
+        var maxSizeBytes = supabaseSettings.MaxFileSizeMB * 1024 * 1024;
+        if (file.Length > maxSizeBytes)
+        {
+            throw new AppException($"파일 크기는 {supabaseSettings.MaxFileSizeMB}MB를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
+        }
+
+        using var stream = file.OpenReadStream();
+        var detectedExtension = await MagicBytesValidator.DetectFileTypeAsync(stream);
+        if (detectedExtension == null)
+        {
+            throw new AppException("지원하지 않는 파일 형식입니다.", HttpStatusCode.BadRequest);
+        }
+
+        if (!supabaseSettings.AllowedExtensions.Contains(detectedExtension))
+        {
+            throw new AppException(
+                $"허용되지 않는 파일 형식입니다. 허용된 형식: {string.Join(", ", supabaseSettings.AllowedExtensions)}",
+                HttpStatusCode.BadRequest);
+        }
+
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var guid = Guid.NewGuid().ToString("N");
+        var objectKey = $"tickets/disputes/{disputeId}/{userId}_{timestamp}_{guid}{detectedExtension}";
+
+        try
+        {
+            stream.Position = 0;
+            await storageUploader.UploadAsync(stream, objectKey, file.ContentType, supabaseSettings.BucketNames.TicketImage);
+
+            var signedUrl = await storageUploader.GetSignedUrlAsync(
+                objectKey,
+                supabaseSettings.UploadSignedUrlExpirySec,
+                supabaseSettings.BucketNames.TicketImage);
+            var expiresAt = DateTime.UtcNow.AddSeconds(supabaseSettings.UploadSignedUrlExpirySec);
+
+            await cacheService.SetAsync(objectKey, signedUrl, supabaseSettings.UploadSignedUrlExpirySec);
+
+            return new DisputeEvidenceUploadResult(objectKey, signedUrl, expiresAt);
+        }
+        catch (Exception ex) when (ex is not AppException)
+        {
+            logger.LogError(ex, "[FileUploadService.UploadDisputeEvidenceAsync] Upload failed: ObjectKey={ObjectKey}", objectKey);
+            throw new AppException("파일 업로드 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
+        }
+    }
+
     /// <summary>
     /// Object Key 패턴으로 버킷명 추론
     /// </summary>
