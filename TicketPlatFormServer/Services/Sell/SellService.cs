@@ -170,10 +170,15 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
             throw new AppException("해당 공연의 좌석 등급에 대한 정가 정보를 찾을 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 4. 가격 검증 (판매가는 정가 이하만 가능)
-        if (request.Price > seatPrice.OriginalPrice * request.Quantity)
+        if (request.Quantity <= 0)
         {
-            throw new AppException("판매가는 정가를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
+            throw new AppException("수량은 1 이상이어야 합니다.", HttpStatusCode.BadRequest);
+        }
+        var unitPrice = request.Price / request.Quantity;
+
+        if (unitPrice > seatPrice.OriginalPrice)
+        {
+            throw new AppException("장당 판매가는 정가를 초과할 수 없습니다.", HttpStatusCode.BadRequest);
         }
 
         // 5. 공연 일시 계산
@@ -207,7 +212,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                     Row = request.Row,
                     Quantity = request.Quantity,
                     RemainingQuantity = request.Quantity,
-                    Price = request.Price,
+                    Price = unitPrice,
                     TradeMethodId = request.TradeMethodId,
                     IsConsecutive = request.IsConsecutive,
                     HasTicket = request.HasTicket,
@@ -323,7 +328,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
                 Row = t.Row,
                 Quantity = t.Quantity,
                 RemainingQuantity = t.RemainingQuantity,
-                Price = t.Price,
+                Price = t.Price * t.Quantity,
                 OriginalPrice = t.SeatGrade?.OriginalPrice ?? 0,
                 Status = t.Status.NameKo ?? t.Status.Code,
                 CreatedAt = t.CreatedAt,

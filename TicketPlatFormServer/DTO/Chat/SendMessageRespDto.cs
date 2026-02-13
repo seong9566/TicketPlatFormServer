@@ -11,6 +11,7 @@ public class SendMessageRespDto
     public long MessageId { get; set; }
     public long RoomId { get; set; }
     public int SenderId { get; set; }
+    public string? ClientMessageId { get; set; }
     public string SenderNickname { get; set; } = null!;
     public string? SenderProfileImage { get; set; }
     public string? Message { get; set; }

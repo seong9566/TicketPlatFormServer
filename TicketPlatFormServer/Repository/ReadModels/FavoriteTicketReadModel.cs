@@ -38,6 +38,11 @@ public class FavoriteTicketReadModel
     public int OriginalPrice { get; set; }
 
     /// <summary>
+    /// 총 수량
+    /// </summary>
+    public int Quantity { get; set; }
+
+    /// <summary>
     /// 남은 수량
     /// </summary>
     public int RemainingQuantity { get; set; }

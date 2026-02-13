@@ -8,6 +8,7 @@ using TicketPlatFormServer.DTO.Payment;
 using TicketPlatFormServer.Enum;
 using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository.Chat;
+using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.FileUpload;
@@ -18,6 +19,7 @@ namespace TicketPlatFormServer.Services.Chat;
 
 public class ChatService(
     IChatRepository chatRepo,
+    ISellRepository sellRepository,
     ITicketRepository ticketRepo,
     ITransactionRepository transactionRepo,
     ITransactionItemRepository transactionItemRepo,
@@ -303,15 +305,27 @@ public class ChatService(
                 if (messageType == Enum.MessageType.TEXT || messageType == Enum.MessageType.IMAGE)
                 {
                     var receiverId = isSenderBuyer ? room.SellerId : room.BuyerId;
+                    var ticketTitle = room.Ticket?.Event?.Title ?? "새 채팅 메시지";
+                    var messagePreview = messageType == Enum.MessageType.IMAGE
+                        ? "[이미지]"
+                        : (req.Message?.Trim() ?? string.Empty);
+                    var ticketImageUrl = await GetTicketImageUrlForNotificationAsync(room.TicketId);
+
                     await notificationService.CreateAndSendAsync(
                         receiverId,
                         "CHAT_MESSAGE",
-                        "새 메시지가 도착했습니다",
-                        "채팅방에 새로운 메시지가 있습니다.",
+                        ticketTitle,
+                        messagePreview,
                         new Dictionary<string, string>
                         {
                             ["type"] = "CHAT_MESSAGE",
+                            ["title"] = ticketTitle,
+                            ["body"] = messagePreview,
                             ["roomId"] = req.RoomId.ToString(),
+                            ["message"] = messagePreview,
+                            ["messageType"] = messageType.ToString(),
+                            ["ticketTitle"] = ticketTitle,
+                            ["ticketImageUrl"] = ticketImageUrl,
                             ["senderId"] = req.UserId.ToString(),
                             ["messageId"] = message.Id.ToString()
                         });
@@ -336,6 +350,7 @@ public class ChatService(
                 MessageId = message.Id,
                 RoomId = req.RoomId,
                 SenderId = req.UserId,
+                ClientMessageId = req.ClientMessageId,
                 SenderNickname = senderNickname,
                 SenderProfileImage = senderProfileImage,
                 Message = req.Message,
@@ -504,7 +519,8 @@ public class ChatService(
             await chatRepo.SetTransactionId(roomId, createdTransaction.Id);
 
             // 4. 시스템 메시지 전송
-            var systemMessage = await chatRepo.CreateMessage(roomId, userId, "결제가 요청되었습니다.", null, Enum.MessageType.PAYMENT_REQUEST);
+            var paymentMessage = $"결제가 요청되었습니다. (수량: {quantity}장, 총 금액: {totalAmount:N0}원)";
+            var systemMessage = await chatRepo.CreateMessage(roomId, userId, paymentMessage, null, Enum.MessageType.PAYMENT_REQUEST);
 
             // LastMessageAt 업데이트
             await chatRepo.UpdateLastMessageAt(roomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
@@ -705,10 +721,6 @@ public class ChatService(
             await transactionRepo.UpdateTransactionStatusAsync(req.TransactionId, cancelledStatus.Id);
             await transactionRepo.UpdateTransactionCancelledAtAsync(req.TransactionId, DateTime.UtcNow);
         }
-
-        // 채팅방 상태 변경 (CANCELLED)
-        var cancelledStatusId = await chatRepo.GetStatusIdByCode("cancelled");
-        await chatRepo.UpdateChatRoomStatus(req.RoomId, cancelledStatusId);
 
         // 시스템 메시지 전송
         var systemMessage = await chatRepo.CreateMessage(req.RoomId, req.UserId, $"거래가 취소되었습니다. 사유: {req.CancelReason}", null);
@@ -1072,5 +1084,33 @@ public class ChatService(
         }
 
         return parts.Count > 0 ? string.Join(" ", parts) : null;
+    }
+
+    private async Task<string> GetTicketImageUrlForNotificationAsync(int ticketId)
+    {
+        try
+        {
+            var images = await sellRepository.GetTicketImagesByTicketIdAsync(ticketId);
+            var objectKey = images.FirstOrDefault()?.ImageUrl;
+
+            if (string.IsNullOrWhiteSpace(objectKey))
+            {
+                return string.Empty;
+            }
+
+            if (objectKey.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                objectKey.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return objectKey;
+            }
+
+            var signedUrl = await fileUploadService.RefreshSignedUrlAsync(objectKey);
+            return signedUrl.SignedUrl;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[ChatService.GetTicketImageUrlForNotificationAsync] 티켓 이미지 URL 생성 실패: TicketId={TicketId}", ticketId);
+            return string.Empty;
+        }
     }
 }

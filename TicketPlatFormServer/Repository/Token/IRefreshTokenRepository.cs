@@ -48,4 +48,6 @@ public interface IRefreshTokenRepository
     /// <param name="token">확인할 Token 문자열</param>
     /// <returns>유효하면 true, 아니면 false</returns>
     Task<bool> IsTokenValidAsync(string token);
+
+    Task<RefreshToken?> ValidateAndRevokeTokenAsync(string token, string replacedByToken);
 }

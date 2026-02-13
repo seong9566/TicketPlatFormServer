@@ -211,6 +211,7 @@ public class EventService : IEventService
                 LocationName = tm.LocationName, // NEW
                 Row = tm.Row,
                 Price = tm.Price,
+                TotalPrice = tm.Price * tm.Quantity,
                 OriginalPrice = tm.OriginalPrice,
                 IsConsecutive = tm.IsConsecutive,
                 TradeMethodId = tm.TradeMethodId,

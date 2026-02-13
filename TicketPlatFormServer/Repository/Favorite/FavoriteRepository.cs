@@ -91,6 +91,7 @@ public class FavoriteRepository(
                 Row = row.Row,
                 Price = Convert.ToInt32(row.Price),
                 OriginalPrice = Convert.ToInt32(row.OriginalPrice),
+                Quantity = Convert.ToInt32(row.Quantity),
                 RemainingQuantity = Convert.ToInt32(row.RemainingQuantity),
                 IsConsecutive = row.IsConsecutive != null ? (bool?)Convert.ToBoolean(row.IsConsecutive) : null,
                 TradeMethodId = row.TradeMethodId != null ? (int?)Convert.ToInt32(row.TradeMethodId) : null,

@@ -11,6 +11,7 @@ using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
+using TicketPlatFormServer.Repository.Disputes;
 using TicketPlatFormServer.Repository.Payment;
 using TicketPlatFormServer.Repository.Notifications;
 using TicketPlatFormServer.Repository.Ticket;
@@ -24,6 +25,7 @@ using TicketPlatFormServer.Services.Chat;
 using TicketPlatFormServer.Services.Event;
 using TicketPlatFormServer.Services.Favorite;
 using TicketPlatFormServer.Services.FileUpload;
+using TicketPlatFormServer.Services.Dispute;
 using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Payment;
 using TicketPlatFormServer.Services.Notification;
@@ -42,6 +44,10 @@ EnvFileLoader.Load(Path.Combine(builder.Environment.ContentRootPath, "db_connect
 
 builder.Configuration.AddJsonFile(
     "appsettings.SupabaseStorage.json",
+    optional: true,
+    reloadOnChange: true);
+builder.Configuration.AddJsonFile(
+    "appsettings.TossPayments.json",
     optional: true,
     reloadOnChange: true);
 builder.Configuration.AddEnvironmentVariables();
@@ -286,6 +292,8 @@ builder.Services.AddScoped<INotificationTokenRepository, NotificationTokenReposi
 builder.Services.AddScoped<IFcmService, FcmService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHttpClient("FCM", client => { client.Timeout = TimeSpan.FromSeconds(10); });
+builder.Services.AddScoped<IDisputeRepository, DisputeRepository>();
+builder.Services.AddScoped<IDisputeService, DisputeService>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionItemRepository, TransactionItemRepository>();
 builder.Services.AddScoped<ITransactionHistoryRepository, TransactionHistoryRepository>();
