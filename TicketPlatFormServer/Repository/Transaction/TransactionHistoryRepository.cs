@@ -65,14 +65,14 @@ public class TransactionHistoryRepository(
                     ti.total_price AS TotalAmount,
                     ts.code AS StatusCode,
                     ts.name_ko AS StatusName,
-                    t.seller_id AS SellerId,
-                    COALESCE(up_seller.nickname, '판매자') AS SellerNickname,
-                    up_seller.profile_image_url AS SellerProfileImageUrl,
                     cr.id AS RoomId,
                     t.created_at AS CreatedAt,
                     p.paid_at AS PaidAt,
                     t.confirmed_at AS ConfirmedAt,
-                    t.cancelled_at AS CancelledAt
+                    t.cancelled_at AS CancelledAt,
+                    t.seller_id AS UserId,
+                    COALESCE(up_seller.nickname, '판매자') AS Nickname,
+                    up_seller.profile_image_url AS ProfileImageUrl
                 FROM transactions t
                 INNER JOIN transaction_statuses ts ON t.status_id = ts.id
                 INNER JOIN transaction_items ti ON t.id = ti.transaction_id
@@ -100,7 +100,7 @@ public class TransactionHistoryRepository(
                     return transaction;
                 },
                 parameters,
-                splitOn: "SellerId"
+                splitOn: "UserId"
             );
 
             logger.LogDebug("구매 내역 DB 조회 완료 - UserId: {UserId}, 결과 수: {Count}", userId, items.Count());
@@ -188,15 +188,18 @@ public class TransactionHistoryRepository(
                     ti.unit_price AS UnitPrice,
                     ti.total_price AS TotalAmount,
                     ts.code AS StatusCode,
-                    ts.name_ko AS StatusName,
-                    t.buyer_id AS BuyerId,
-                    COALESCE(up_buyer.nickname, '구매자') AS BuyerNickname,
-                    up_buyer.profile_image_url AS BuyerProfileImageUrl,
+                    CASE
+                        WHEN ts.code = 'confirmed' THEN '판매 완료'
+                        ELSE ts.name_ko
+                    END AS StatusName,
                     cr.id AS RoomId,
                     t.created_at AS CreatedAt,
                     p.paid_at AS PaidAt,
                     t.confirmed_at AS ConfirmedAt,
-                    t.cancelled_at AS CancelledAt
+                    t.cancelled_at AS CancelledAt,
+                    t.buyer_id AS UserId,
+                    COALESCE(up_buyer.nickname, '구매자') AS Nickname,
+                    up_buyer.profile_image_url AS ProfileImageUrl
                 FROM transactions t
                 INNER JOIN transaction_statuses ts ON t.status_id = ts.id
                 INNER JOIN transaction_items ti ON t.id = ti.transaction_id
@@ -224,7 +227,7 @@ public class TransactionHistoryRepository(
                     return transaction;
                 },
                 parameters,
-                splitOn: "BuyerId"
+                splitOn: "UserId"
             );
 
             logger.LogDebug("판매 내역 DB 조회 완료 - UserId: {UserId}, 결과 수: {Count}", userId, items.Count());
