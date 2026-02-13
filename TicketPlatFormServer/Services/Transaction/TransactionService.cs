@@ -4,19 +4,16 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO.Transaction;
-using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Repository.Transactions;
 
 namespace TicketPlatFormServer.Services.Transaction;
 
 public class TransactionService(
     ITransactionHistoryRepository repository,
-    ISellRepository sellRepository,
     ILogger<TransactionService> logger) : ITransactionService
 {
     private const int DefaultLimit = 20;
     private const int MaxLimit = 50;
-    private const int MaxActiveListingCount = 50;
 
     // 유효한 status 값 목록
     private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
@@ -166,55 +163,9 @@ public class TransactionService(
                 "판매 내역 조회 성공 - UserId: {UserId}, 조회된 항목 수: {Count}, 전체 수: {TotalCount}",
                 userId, items.Count, totalCount?.ToString() ?? "N/A");
 
-            var mergedItems = items;
-            if (ShouldIncludeActiveListings(status, cursor))
-            {
-                var (activeListings, listingTotalCount) = await sellRepository.GetMyTicketsAsync(
-                    userId,
-                    "available",
-                    page: 1,
-                    size: MaxActiveListingCount);
-
-                if (activeListings.Count > 0)
-                {
-                    var listingItems = activeListings
-                        .Select(x => new TransactionHistoryItemDto
-                        {
-                            TransactionId = -x.Id,
-                            TicketId = x.Id,
-                            TicketTitle = x.Event?.Title ?? string.Empty,
-                            TicketThumbnailUrl = null,
-                            EventDateTime = x.EventDatetime,
-                            VenueName = null,
-                            SeatInfo = BuildSeatInfo(x),
-                            Quantity = x.RemainingQuantity,
-                            UnitPrice = x.Price,
-                            TotalAmount = x.Price * x.RemainingQuantity,
-                            StatusCode = x.Status.Code,
-                            StatusName = x.Status.NameKo ?? "판매중",
-                            Buyer = null,
-                            Seller = null,
-                            RoomId = null,
-                            CreatedAt = x.CreatedAt ?? DateTime.UtcNow,
-                            PaidAt = null,
-                            ConfirmedAt = null,
-                            CancelledAt = null
-                        })
-                        .OrderByDescending(x => x.CreatedAt)
-                        .ToList();
-
-                    mergedItems = listingItems.Concat(items).ToList();
-
-                    if (totalCount.HasValue)
-                    {
-                        totalCount += listingTotalCount;
-                    }
-                }
-            }
-
             return new TransactionHistoryRespDto
             {
-                Items = mergedItems,
+                Items = items,
                 NextCursor = nextCursor,
                 HasMore = hasMore,
                 TotalCount = totalCount
@@ -324,30 +275,4 @@ public class TransactionService(
         public DateTime CreatedAt { get; set; }
     }
 
-    private static bool ShouldIncludeActiveListings(string? status, string? cursor)
-    {
-        return string.IsNullOrWhiteSpace(status) && string.IsNullOrWhiteSpace(cursor);
-    }
-
-    private static string BuildSeatInfo(DBModel.Ticket ticket)
-    {
-        var parts = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(ticket.SeatGrade?.NameKo))
-        {
-            parts.Add(ticket.SeatGrade.NameKo);
-        }
-
-        if (!string.IsNullOrWhiteSpace(ticket.Area?.AreaName))
-        {
-            parts.Add(ticket.Area.AreaName);
-        }
-
-        if (!string.IsNullOrWhiteSpace(ticket.Row))
-        {
-            parts.Add(ticket.Row);
-        }
-
-        return string.Join(" ", parts);
-    }
 }
