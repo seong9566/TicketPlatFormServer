@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace TicketPlatFormServer.DTO.Home;
 
 /// <summary>
@@ -24,5 +26,7 @@ public class HomeRespDto
     /// 추천 공연 목록 (RecommendedEventList 섹션 - Just for you)
     /// </summary>
     public List<RecommendedEventDto> RecommendedEvents { get; set; } = new();
-}
 
+    [JsonPropertyName("deadlineDeals")]
+    public List<DeadlineDealDto> DeadlineDeals { get; set; } = new();
+}

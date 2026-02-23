@@ -265,4 +265,35 @@ internal static class HomeQueries
         HAVING AvailableTicketCount > 0
         ORDER BY RecommendationScore DESC
         LIMIT @Limit";
+
+    internal const string GetDeadlineDeals = @"
+        SELECT
+            e.id AS EventId,
+            e.title AS EventTitle,
+            DATE_FORMAT(e.start_at, '%Y.%m.%d') AS EventDate,
+            e.venue_name AS Venue,
+            DATEDIFF(DATE(e.start_at), CURDATE()) AS DaysLeft,
+            CAST(MIN(t.price) AS SIGNED) AS MinTicketPrice,
+            CAST(MIN(COALESCE(esg.original_price, t.price)) AS SIGNED) AS OriginalMinTicketPrice,
+            CAST(MAX(CASE
+                WHEN COALESCE(esg.original_price, t.price) > 0
+                THEN ROUND((COALESCE(esg.original_price, t.price) - t.price) / COALESCE(esg.original_price, t.price) * 100)
+                ELSE 0
+            END) AS SIGNED) AS TicketDiscountRate,
+            e.poster_image_url AS PosterImageUrl,
+            CAST(SUM(t.remaining_quantity) AS SIGNED) AS AvailableTicketCount,
+            e.category_id AS CategoryId
+        FROM events e
+        INNER JOIN tickets t ON e.id = t.event_id
+        LEFT JOIN event_seat_grades esg ON t.seat_grade_id = esg.id
+        WHERE e.is_active = 1
+            AND t.status_id = 1
+            AND t.deleted_at IS NULL
+            AND t.remaining_quantity > 0
+            AND DATE(e.start_at) >= CURDATE()
+            AND DATE(e.start_at) <= DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+        GROUP BY e.id, e.title, e.start_at, e.venue_name, e.poster_image_url, e.category_id
+        HAVING AvailableTicketCount > 0
+        ORDER BY TicketDiscountRate DESC, DaysLeft ASC, AvailableTicketCount DESC
+        LIMIT @Limit";
 }

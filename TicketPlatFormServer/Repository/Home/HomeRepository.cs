@@ -53,6 +53,16 @@ public class HomeRepository(IDbConnection dapper) : IHomeRepository
         return result.ToList();
     }
 
+    public async Task<List<DeadlineDealDto>> GetDeadlineDeals(int limit = 10)
+    {
+        var result = await dapper.QueryAsync<DeadlineDealDto>(
+            HomeQueries.GetDeadlineDeals,
+            new { Limit = limit }
+        );
+
+        return result.ToList();
+    }
+
     /// <summary>
     /// 카테고리 코드를 Material Icon 이름으로 매핑
     /// </summary>

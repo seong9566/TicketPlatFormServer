@@ -26,5 +26,6 @@ public interface IHomeRepository
     /// 추천 이벤트 목록 조회 (사용자 찜 기반)
     /// </summary>
     Task<List<RecommendedEventDto>> GetRecommendedEvents(int? userId, int limit = 5);
-}
 
+    Task<List<DeadlineDealDto>> GetDeadlineDeals(int limit = 10);
+}
