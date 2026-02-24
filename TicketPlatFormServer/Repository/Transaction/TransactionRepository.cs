@@ -3,6 +3,7 @@ using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using TicketPlatFormServer.Repository;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Transactions;
 
@@ -139,6 +140,20 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
             .ToListAsync();
     }
 
+    public async Task<List<DBModel.Transaction>> GetAutoConfirmDueTransactionsAsync(DateTime utcNow)
+    {
+        return await context.Transactions
+            .Where(t => t.DeletedAt == null
+                        && t.CancelledAt == null
+                        && t.ConfirmedAt == null
+                        && t.AutoConfirmAt != null
+                        && t.AutoConfirmAt <= utcNow
+                        && t.Status.Code == "paid")
+            .Include(t => t.Status)
+            .AsSplitQuery()
+            .ToListAsync();
+    }
+
     /// <summary>
     /// 거래 생성
     /// </summary>
@@ -158,5 +173,44 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
         return await context.TransactionStatuses
             .Where(ts => ts.Code == code && ts.IsActive == true)
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<PaymentPreviewReadModel?> GetPaymentPreviewAsync(long transactionId, int buyerId)
+    {
+        const string query = @"
+            SELECT
+                CAST(MIN(tick.id) AS SIGNED) AS TicketId,
+                MIN(e.poster_image_url) AS ThumbnailUrl,
+                MIN(CONCAT_WS(' ',
+                    NULLIF(sl.location_name, ''),
+                    NULLIF(a.area_name, ''),
+                    NULLIF(sg.name_ko, ''),
+                    NULLIF(tick.row, '')
+                )) AS SeatInfo,
+                CAST(SUM(ti.quantity) AS SIGNED) AS Quantity,
+                CAST(MIN(ti.unit_price) AS SIGNED) AS UnitPrice,
+                CAST(SUM(ti.total_price) AS SIGNED) AS TotalAmount,
+                CAST(MIN(e.id) AS SIGNED) AS EventId,
+                MIN(e.title) AS EventTitle,
+                MIN(tick.event_datetime) AS EventDateTime,
+                MIN(e.venue_name) AS VenueName
+            FROM transactions t
+            INNER JOIN transaction_items ti ON ti.transaction_id = t.id
+            INNER JOIN tickets tick ON tick.id = ti.ticket_id
+            LEFT JOIN events e ON e.id = tick.event_id
+            LEFT JOIN event_seat_locations sl ON sl.id = tick.seat_location_id
+            LEFT JOIN event_seat_areas a ON a.id = tick.area_id
+            LEFT JOIN event_seat_grades sg ON sg.id = tick.seat_grade_id
+            WHERE t.id = @TransactionId
+              AND t.buyer_id = @BuyerId
+              AND t.deleted_at IS NULL
+            GROUP BY t.id
+        ";
+
+        return await dapper.QuerySingleOrDefaultAsync<PaymentPreviewReadModel>(query, new
+        {
+            TransactionId = transactionId,
+            BuyerId = buyerId
+        });
     }
 }

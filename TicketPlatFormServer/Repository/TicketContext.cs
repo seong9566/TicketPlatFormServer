@@ -2677,6 +2677,9 @@ public partial class TicketContext : DbContext
                 .HasComment("자기소개")
                 .HasColumnType("text")
                 .HasColumnName("bio");
+            entity.Property(e => e.AverageRating)
+                .HasPrecision(3, 2)
+                .HasColumnName("average_rating");
             entity.Property(e => e.MannerTemperature)
                 .HasDefaultValueSql("'36.5'")
                 .HasComment("매너 온도 (36.5~99.9)")
@@ -2688,6 +2691,9 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(500)
                 .HasComment("프로필 이미지 URL")
                 .HasColumnName("profile_image_url");
+            entity.Property(e => e.ReviewCount)
+                .HasDefaultValueSql("'0'")
+                .HasColumnName("review_count");
             entity.Property(e => e.TotalTradeCount)
                 .HasDefaultValueSql("'0'")
                 .HasComment("총 거래 횟수")
@@ -2706,13 +2712,11 @@ public partial class TicketContext : DbContext
 
             entity.HasIndex(e => e.TransactionId, "idx_reputation_trans");
 
+            entity.HasIndex(e => new { e.TransactionId, e.ReviewerId }, "uk_reputation_tx_reviewer").IsUnique();
+
             entity.HasIndex(e => new { e.UserId, e.CreatedAt }, "idx_reputation_user");
 
             entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.Comment)
-                .HasComment("리뷰 내용")
-                .HasColumnType("text")
-                .HasColumnName("comment");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp")

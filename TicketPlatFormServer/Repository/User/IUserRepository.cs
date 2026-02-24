@@ -73,6 +73,8 @@ public interface IUserRepository
     /// <returns>UserProfile 엔티티 (없으면 null)</returns>
     Task<UserProfile?> GetUserProfileByIdAsync(int userId);
 
+    Task<int> GetTotalTradeCountAsync(int userId);
+
     /// <summary>
     /// 사용자 프로필 업데이트
     /// </summary>

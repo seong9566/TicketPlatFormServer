@@ -8,6 +8,8 @@ using TicketPlatFormServer.DTO.Payment;
 using TicketPlatFormServer.Enum;
 using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository.Chat;
+using TicketPlatFormServer.Repository.Disputes;
+using TicketPlatFormServer.Repository.Reputation;
 using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Transactions;
@@ -22,6 +24,8 @@ public class ChatService(
     ISellRepository sellRepository,
     ITicketRepository ticketRepo,
     ITransactionRepository transactionRepo,
+    IReputationRepository reputationRepository,
+    IDisputeRepository disputeRepository,
     ITransactionItemRepository transactionItemRepo,
     IFileUploadService fileUploadService,
     IPaymentService paymentService,
@@ -555,7 +559,7 @@ public class ChatService(
                 CustomerEmail = room.Buyer?.Email
             };
 
-            var paymentData = await paymentService.InitiatePaymentAsync(paymentRequest, userId);
+            var paymentData = await paymentService.InitiatePaymentAsync(paymentRequest, room.BuyerId);
             var paymentUrl = $"/payment/checkout?orderId={paymentData.OrderId}";
 
             return new PaymentUrlRespDto
@@ -627,6 +631,19 @@ public class ChatService(
             new Dictionary<string, string>
             {
                 ["type"] = "PURCHASE_CONFIRMED",
+                ["transactionId"] = req.TransactionId.ToString(),
+                ["roomId"] = req.RoomId.ToString()
+            });
+
+        var sellerNickname = room.Seller?.UserProfile?.Nickname ?? "판매자";
+        await notificationService.CreateAndSendAsync(
+            room.BuyerId,
+            "REVIEW_REQUEST",
+            "거래는 어떠셨나요?",
+            $"{sellerNickname} 판매자에 대한 리뷰를 남겨주세요.",
+            new Dictionary<string, string>
+            {
+                ["type"] = "REVIEW_REQUEST",
                 ["transactionId"] = req.TransactionId.ToString(),
                 ["roomId"] = req.RoomId.ToString()
             });
@@ -937,6 +954,8 @@ public class ChatService(
     {
         var isBuyer = room.BuyerId == userId;
         var transaction = room.Transaction;
+        var hasReviewedSeller = false;
+        var canWriteReview = false;
 
         // 프로필 이미지 및 이벤트 포스터 배치 처리
         var imageKeys = new List<string>();
@@ -975,6 +994,26 @@ public class ChatService(
         if (!string.IsNullOrEmpty(eventPosterKey) && signedUrls.TryGetValue(eventPosterKey, out var posterResult))
         {
             eventPosterUrl = posterResult.SignedUrl;
+        }
+
+        if (isBuyer && transaction != null)
+        {
+            hasReviewedSeller = await reputationRepository.ExistsAsync(transaction.Id, userId);
+
+            var pendingStatus = await disputeRepository.GetDisputeStatusByCodeAsync("PENDING");
+            var inReviewStatus = await disputeRepository.GetDisputeStatusByCodeAsync("IN_REVIEW");
+            var hasOpenDispute = pendingStatus != null
+                                 && inReviewStatus != null
+                                 && await disputeRepository.HasActiveDisputeAsync(transaction.Id, [pendingStatus.Id, inReviewStatus.Id]);
+
+            var within7Days = transaction.ConfirmedAt != null
+                              && (DateTime.UtcNow - transaction.ConfirmedAt.Value).TotalDays <= 7;
+
+            canWriteReview = transaction.CancelledAt == null
+                             && transaction.ConfirmedAt != null
+                             && !hasReviewedSeller
+                             && within7Days
+                             && !hasOpenDispute;
         }
 
         return new ChatRoomDetailRespDto
@@ -1022,6 +1061,8 @@ public class ChatService(
             CanRequestPayment = !isBuyer && room.LockedAt == null && room.ClosedAt == null,
             CanConfirmPurchase = isBuyer && transaction != null && transaction.ConfirmedAt == null,
             CanCancelTransaction = transaction != null && transaction.ConfirmedAt == null && transaction.CancelledAt == null,
+            CanWriteReview = canWriteReview,
+            HasReviewedSeller = hasReviewedSeller,
             Messages = messages
         };
     }

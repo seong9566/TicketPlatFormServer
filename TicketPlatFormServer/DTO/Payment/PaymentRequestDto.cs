@@ -75,4 +75,26 @@ public class PaymentRequestResponseDto
     /// 토스페이먼츠 클라이언트 키 (프론트엔드에서 위젯 초기화에 사용)
     /// </summary>
     public string ClientKey { get; set; } = null!;
+
+    public PaymentTicketInfoDto? TicketInfo { get; set; }
+
+    public PaymentEventInfoDto? EventInfo { get; set; }
+}
+
+public class PaymentTicketInfoDto
+{
+    public int? TicketId { get; set; }
+    public string? SeatInfo { get; set; }
+    public int? Quantity { get; set; }
+    public int? UnitPrice { get; set; }
+    public int? TotalAmount { get; set; }
+    public string? ThumbnailUrl { get; set; }
+}
+
+public class PaymentEventInfoDto
+{
+    public int? EventId { get; set; }
+    public string? Title { get; set; }
+    public DateTime? EventDateTime { get; set; }
+    public string? VenueName { get; set; }
 }

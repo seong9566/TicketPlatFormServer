@@ -18,6 +18,7 @@ using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Repository.Users;
+using TicketPlatFormServer.Repository.Reputation;
 using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Services.BackgroundServices;
 using TicketPlatFormServer.Services.Auth;
@@ -32,6 +33,7 @@ using TicketPlatFormServer.Services.Notification;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
+using TicketPlatFormServer.Services.Reputation;
 using TicketPlatFormServer.Services.Storage;
 using TicketPlatFormServer.Services.Sell;
 using Polly;
@@ -55,7 +57,6 @@ builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Flutter 팀 요구사항: 프로필 이미지 업로드를 위한 Form 크기 제한 (10MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10MB
@@ -298,6 +299,8 @@ builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionItemRepository, TransactionItemRepository>();
 builder.Services.AddScoped<ITransactionHistoryRepository, TransactionHistoryRepository>();
 builder.Services.AddScoped<TicketPlatFormServer.Services.Transaction.ITransactionService, TicketPlatFormServer.Services.Transaction.TransactionService>();
+builder.Services.AddScoped<IReputationRepository, ReputationRepository>();
+builder.Services.AddScoped<IReputationService, ReputationService>();
 
 // Sell 서비스
 builder.Services.AddScoped<ISellRepository, SellRepository>();
@@ -324,6 +327,7 @@ builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionSer
 // Background 서비스
 builder.Services.AddHostedService<ChatCleanupService>();
 builder.Services.AddHostedService<TransactionReservationCleanupService>();
+builder.Services.AddHostedService<TransactionAutoConfirmService>();
 
 var app = builder.Build();
 

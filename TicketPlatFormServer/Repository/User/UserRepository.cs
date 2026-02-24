@@ -142,6 +142,16 @@ public class UserRepository(TicketContext db) : IUserRepository
         return await db.UserProfiles.FirstOrDefaultAsync(up => up.UserId == userId);
     }
 
+    public async Task<int> GetTotalTradeCountAsync(int userId)
+    {
+        return await db.Transactions
+            .Where(t => t.DeletedAt == null
+                        && t.CancelledAt == null
+                        && t.ConfirmedAt != null
+                        && (t.BuyerId == userId || t.SellerId == userId))
+            .CountAsync();
+    }
+
     /// <summary>
     /// 사용자 프로필 업데이트
     /// </summary>

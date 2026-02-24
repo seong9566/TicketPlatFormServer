@@ -67,7 +67,7 @@ public interface IPaymentRepository
     /// <param name="escrowId">에스크로 ID</param>
     /// <param name="statusId">상태 ID (released)</param>
     /// <param name="releasedAt">정산 완료 시각</param>
-    Task ReleaseEscrowAsync(long escrowId, long statusId, DateTime releasedAt);
+    Task<int> ReleaseEscrowAsync(long escrowId, long statusId, long holdingStatusId, DateTime releasedAt);
 
     /// <summary>
     /// 에스크로 환불

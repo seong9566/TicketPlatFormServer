@@ -1,4 +1,5 @@
 using TicketPlatFormServer.DBModel;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Transactions;
 
@@ -51,6 +52,8 @@ public interface ITransactionRepository
     /// <returns>만료된 거래 목록</returns>
     Task<List<DBModel.Transaction>> GetExpiredPendingTransactionsAsync(DateTime utcNow);
 
+    Task<List<DBModel.Transaction>> GetAutoConfirmDueTransactionsAsync(DateTime utcNow);
+
     /// <summary>
     /// 거래 생성
     /// </summary>
@@ -64,4 +67,6 @@ public interface ITransactionRepository
     /// <param name="code">상태 코드 (예: "pending", "paid", "confirmed")</param>
     /// <returns>TransactionStatus (없으면 null)</returns>
     Task<DBModel.TransactionStatus?> GetTransactionStatusByCodeAsync(string code);
+
+    Task<PaymentPreviewReadModel?> GetPaymentPreviewAsync(long transactionId, int buyerId);
 }

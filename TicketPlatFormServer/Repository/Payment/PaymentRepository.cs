@@ -119,7 +119,7 @@ public class PaymentRepository(
     /// <summary>
     /// 에스크로 해제 (정산)
     /// </summary>
-    public async Task ReleaseEscrowAsync(long escrowId, long statusId, DateTime releasedAt)
+    public async Task<int> ReleaseEscrowAsync(long escrowId, long statusId, long holdingStatusId, DateTime releasedAt)
     {
         const string query = @"
             UPDATE escrow
@@ -127,12 +127,16 @@ public class PaymentRepository(
                 released_at = @ReleasedAt,
                 updated_at = @UpdatedAt
             WHERE id = @EscrowId
+              AND released_at IS NULL
+              AND refunded_at IS NULL
+              AND status_id = @HoldingStatusId
         ";
 
-        await dapper.ExecuteAsync(query, new
+        return await dapper.ExecuteAsync(query, new
         {
             EscrowId = escrowId,
             StatusId = statusId,
+            HoldingStatusId = holdingStatusId,
             ReleasedAt = releasedAt,
             UpdatedAt = DateTime.UtcNow
         });

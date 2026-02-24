@@ -72,7 +72,17 @@ internal static class FavoriteQueries
             up.nickname AS Nickname,
             up.profile_image_url AS ProfileImageUrl,
             up.manner_temperature AS MannerTemperature,
-            up.total_trade_count AS TotalTradeCount,
+            COALESCE(
+                (
+                    SELECT COUNT(1)
+                    FROM transactions tr
+                    WHERE tr.deleted_at IS NULL
+                      AND tr.cancelled_at IS NULL
+                      AND tr.confirmed_at IS NOT NULL
+                      AND tr.seller_id = t.seller_id
+                ),
+                0
+            ) AS TotalTradeCount,
             COALESCE(
                 (SELECT
                     CASE

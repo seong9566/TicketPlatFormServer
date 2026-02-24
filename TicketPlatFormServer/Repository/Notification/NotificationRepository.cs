@@ -8,10 +8,11 @@ public class NotificationRepository(TicketContext db) : INotificationRepository
     [
         (1, "CHAT_MESSAGE", "채팅 메시지", 1),
         (2, "PAYMENT_REQUEST", "결제 요청", 2),
-        (3, "PAYMENT_SUCCESS", "결제 완료", 3),
+        (3, "PAYMENT_SUCCESS", "", 3),
         (4, "PURCHASE_CONFIRMED", "구매 확정", 4),
         (5, "DISPUTE_OPENED", "신고 접수", 5),
-        (6, "DISPUTE_RESOLVED", "신고 해결", 6)
+        (6, "DISPUTE_RESOLVED", "신고 해결", 6),
+        (7, "REVIEW_REQUEST", "리뷰 요청", 7)
     ];
 
     public async Task<DBModel.NotificationType?> GetTypeByCodeAsync(string typeCode)

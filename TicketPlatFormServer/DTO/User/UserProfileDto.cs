@@ -39,4 +39,8 @@ public class UserProfileDto
     /// 총 거래 횟수
     /// </summary>
     public int? TotalTradeCount { get; set; }
+
+    public float? AverageRating { get; set; }
+
+    public int ReviewCount { get; set; }
 }

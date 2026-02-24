@@ -297,6 +297,8 @@ public class UserService : IUserService
             throw new AppException(message: "프로필을 찾을 수 없습니다.", statusCode: HttpStatusCode.NotFound);
         }
 
+        var totalTradeCount = await _repo.GetTotalTradeCountAsync(userId);
+
         // 3. ProfileImageUrl 처리
         string? profileImageUrl = profile.ProfileImageUrl;
 
@@ -329,7 +331,9 @@ public class UserService : IUserService
             ProfileImageUrl = profileImageUrl,
             Bio = profile.Bio,
             MannerTemperature = profile.MannerTemperature,
-            TotalTradeCount = profile.TotalTradeCount
+            TotalTradeCount = totalTradeCount,
+            AverageRating = profile.AverageRating.HasValue ? (float)profile.AverageRating.Value : null,
+            ReviewCount = profile.ReviewCount
         };
     }
 

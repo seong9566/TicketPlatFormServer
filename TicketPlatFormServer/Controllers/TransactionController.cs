@@ -41,32 +41,4 @@ public class TransactionController(ITransactionService transactionService) : Con
         ));
     }
 
-    [HttpGet("sales")]
-    [ProducesResponseType(typeof(ApiResponse<TransactionHistoryRespDto>), 200)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 400)]
-    [ProducesResponseType(typeof(ApiResponse<object>), 401)]
-    public async Task<IActionResult> GetSalesHistory(
-        [FromQuery] string? status = null,
-        [FromQuery] string? period = "all",
-        [FromQuery] string? sortBy = "latest",
-        [FromQuery] string? cursor = null,
-        [FromQuery] int? limit = 20)
-    {
-        var userId = User.GetUserId()
-            ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
-
-        var result = await transactionService.GetSalesHistoryAsync(
-            userId,
-            status,
-            period,
-            sortBy,
-            cursor,
-            limit);
-
-        return Ok(new ApiResponse<TransactionHistoryRespDto>(
-            message: "판매 내역 조회 성공",
-            data: result,
-            statusCode: 200
-        ));
-    }
 }

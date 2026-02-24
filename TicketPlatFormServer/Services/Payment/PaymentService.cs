@@ -58,6 +58,11 @@ public class PaymentService(
             throw new AppException("결제 요청이 만료되었습니다.", HttpStatusCode.BadRequest);
         }
 
+        if (transaction.BuyerId != userId)
+        {
+            throw new AppException("해당 거래의 구매자만 결제를 요청할 수 있습니다.", HttpStatusCode.Forbidden);
+        }
+
         // 2. 거래 금액 검증 (TransactionItems 합계)
         var totalAmount = await context.TransactionItems
             .Where(ti => ti.TransactionId == request.TransactionId)
@@ -67,6 +72,8 @@ public class PaymentService(
         {
             throw new AppException("결제 금액이 거래 금액과 일치하지 않습니다.", HttpStatusCode.BadRequest);
         }
+
+        var paymentPreview = await transactionRepository.GetPaymentPreviewAsync(request.TransactionId, userId);
 
         // 3. OrderId 생성: TXN_{TransactionId}_{Guid}
         var orderId = $"TXN_{request.TransactionId}_{Guid.NewGuid():N}";
@@ -82,7 +89,27 @@ public class PaymentService(
             CustomerEmail = request.CustomerEmail,
             SuccessUrl = settings.SuccessUrl,
             FailUrl = settings.FailUrl,
-            ClientKey = settings.ClientKey
+            ClientKey = settings.ClientKey,
+            TicketInfo = paymentPreview == null
+                ? null
+                : new PaymentTicketInfoDto
+                {
+                    TicketId = paymentPreview.TicketId,
+                    SeatInfo = paymentPreview.SeatInfo,
+                    Quantity = paymentPreview.Quantity,
+                    UnitPrice = paymentPreview.UnitPrice,
+                    TotalAmount = paymentPreview.TotalAmount,
+                    ThumbnailUrl = paymentPreview.ThumbnailUrl
+                },
+            EventInfo = paymentPreview == null
+                ? null
+                : new PaymentEventInfoDto
+                {
+                    EventId = paymentPreview.EventId,
+                    Title = paymentPreview.EventTitle,
+                    EventDateTime = paymentPreview.EventDateTime,
+                    VenueName = paymentPreview.VenueName
+                }
         };
     }
 
@@ -394,6 +421,28 @@ public class PaymentService(
             return;
         }
 
+        var holdingEscrowStatus = await paymentRepository.GetEscrowStatusByCodeAsync("holding");
+        if (holdingEscrowStatus == null)
+        {
+            throw new AppException("에스크로 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+        }
+
+        if (escrow.StatusId != holdingEscrowStatus.Id)
+        {
+            throw new AppException("에스크로가 해제 가능한 상태가 아닙니다.", HttpStatusCode.Conflict);
+        }
+
+        var transactionSnapshot = await transactionRepository.GetTransactionById(transactionId);
+        if (transactionSnapshot == null)
+        {
+            throw new AppException("거래를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        if (transactionSnapshot.CancelledAt != null || !string.Equals(transactionSnapshot.Status.Code, "paid", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new AppException("해당 거래는 구매확정 처리할 수 없는 상태입니다.", HttpStatusCode.Conflict);
+        }
+
         // 3. DB 트랜잭션 시작
         await using var dbTransaction = await context.Database.BeginTransactionAsync();
         try
@@ -406,7 +455,11 @@ public class PaymentService(
             }
 
             // 3-2. Escrow.StatusId = released, ReleasedAt = Now
-            await paymentRepository.ReleaseEscrowAsync(escrow.Id, escrowStatus.Id, DateTime.UtcNow);
+            var affectedRows = await paymentRepository.ReleaseEscrowAsync(escrow.Id, escrowStatus.Id, holdingEscrowStatus.Id, DateTime.UtcNow);
+            if (affectedRows == 0)
+            {
+                throw new AppException("에스크로 상태가 변경되어 구매확정을 진행할 수 없습니다.", HttpStatusCode.Conflict);
+            }
 
             // 3-3. Transaction.StatusId = confirmed, ConfirmedAt = Now
             var transactionStatus = await paymentRepository.GetTransactionStatusByCodeAsync("confirmed");
@@ -428,6 +481,22 @@ public class PaymentService(
             }
             
             transaction.ConfirmedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            var sellerProfile = await context.UserProfiles
+                .FirstOrDefaultAsync(up => up.UserId == (int)transaction.SellerId);
+            if (sellerProfile != null)
+            {
+                sellerProfile.TotalTradeCount = (sellerProfile.TotalTradeCount ?? 0) + 1;
+            }
+
+            var buyerProfile = await context.UserProfiles
+                .FirstOrDefaultAsync(up => up.UserId == (int)transaction.BuyerId);
+            if (buyerProfile != null)
+            {
+                buyerProfile.TotalTradeCount = (buyerProfile.TotalTradeCount ?? 0) + 1;
+            }
+
             await context.SaveChangesAsync();
 
             // 3-4-1. 티켓 소유권 이전 (RemainingQuantity 감소)
@@ -479,7 +548,7 @@ public class PaymentService(
                 Amount = escrow.Amount,
                 Fee = escrow.FeeAmount,
                 NetAmount = escrow.SellerAmount,
-                BankAccountId = defaultBankAccount?.Id ?? 0,
+                BankAccountId = defaultBankAccount?.Id,
                 StatusId = settlementStatusPending.Id,
                 ScheduledAt = DateTime.UtcNow.AddDays(1),
                 CreatedAt = DateTime.UtcNow
