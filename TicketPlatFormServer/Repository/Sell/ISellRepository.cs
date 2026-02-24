@@ -1,6 +1,7 @@
 using TicketPlatFormServer.DBModel;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Sell;
 
@@ -124,8 +125,25 @@ public interface ISellRepository
     Task<EventSeatGrade?> GetSeatPriceAsync(int eventId, int seatGradeId);
 
     /// <summary>
+    /// 판매 대시보드 조회 (공연별 그룹화)
+    /// </summary>
+    Task<(List<SalesDashboardReadModel> Items, int TotalCount)> GetSalesDashboardAsync(
+        int sellerId,
+        string? statusFilter,
+        int page,
+        int size);
+
+    /// <summary>
+    /// 공연별 티켓 목록 조회
+    /// </summary>
+    Task<(List<EventTicketReadModel> Items, int TotalCount)> GetEventTicketsAsync(
+        int sellerId,
+        int eventId,
+        int page,
+        int size);
+
+    /// <summary>
     /// 활성화된 거래 방식 목록 조회
     /// </summary>
     Task<List<TradeMethod>> GetActiveTradeMethodsAsync();
 }
-

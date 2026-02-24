@@ -61,5 +61,15 @@ public interface ISellService
     /// 활성화된 거래 방식 목록 조회
     /// </summary>
     Task<List<TradeMethodRespDto>> GetTradeMethodsAsync();
+
+    /// <summary>
+    /// 판매 대시보드 조회 (공연별 그룹화, 페이징)
+    /// </summary>
+    Task<SalesDashboardRespDto> GetSalesDashboardAsync(int sellerId, SalesDashboardReqDto request);
+
+    /// <summary>
+    /// 공연별 티켓 목록 조회 (페이징)
+    /// </summary>
+    Task<EventTicketListRespDto> GetEventTicketsAsync(int sellerId, int eventId, int page, int size);
 }
 

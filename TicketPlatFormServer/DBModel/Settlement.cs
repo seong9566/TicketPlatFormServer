@@ -35,7 +35,7 @@ public partial class Settlement
     /// <summary>
     /// 정산 계좌 FK
     /// </summary>
-    public long BankAccountId { get; set; }
+    public long? BankAccountId { get; set; }
 
     /// <summary>
     /// 상태 FK
@@ -66,7 +66,7 @@ public partial class Settlement
 
     public DateTime? UpdatedAt { get; set; }
 
-    public virtual BankAccount BankAccount { get; set; } = null!;
+    public virtual BankAccount? BankAccount { get; set; }
 
     public virtual SettlementStatus Status { get; set; } = null!;
 

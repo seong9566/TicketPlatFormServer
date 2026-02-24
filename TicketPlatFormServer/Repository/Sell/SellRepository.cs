@@ -144,8 +144,6 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
             .OrderBy(sa => sa.SortOrder)
             .ToListAsync();
     }
-
-
     /// <summary>
     /// 공연 조회
     /// </summary>
@@ -343,4 +341,72 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
             .OrderBy(tm => tm.SortOrder)
             .ToListAsync();
     }
+
+    /// <summary>
+    /// 판매 대시보드 조회 (공연별 그룹화)
+    /// </summary>
+    public async Task<(List<SalesDashboardReadModel> Items, int TotalCount)> GetSalesDashboardAsync(
+        int sellerId,
+        string? statusFilter,
+        int page,
+        int size)
+    {
+        var offset = (page - 1) * size;
+        var parameters = new DynamicParameters();
+        parameters.Add("@SellerId", sellerId);
+        parameters.Add("@Size", size);
+        parameters.Add("@Offset", offset);
+        var havingClause = (!string.IsNullOrEmpty(statusFilter) && statusFilter != "all")
+            ? statusFilter switch
+            {
+                "on_sale" => "\n        HAVING OnSaleCount > 0",
+                "completed" => "\n        HAVING CompletedCount > 0",
+                "settling" => "\n        HAVING SettlingCount > 0",
+                _ => string.Empty
+            }
+            : string.Empty;
+
+        var sql = SellQueries.GetSalesDashboardBase
+            + havingClause
+            + "\n        ORDER BY MIN(t.created_at) DESC"
+            + "\n        LIMIT @Size OFFSET @Offset";
+
+        var items = await _dapper.QueryAsync<SalesDashboardReadModel>(sql, parameters);
+
+        var countSql = SellQueries.GetSalesDashboardCountBase
+            + havingClause
+            + "\n        ) AS sub";
+        var countResult = await _dapper.QuerySingleAsync<int>(
+            countSql,
+            new { SellerId = sellerId });
+        return (items.ToList(), countResult);
+    }
+
+    /// <summary>
+    /// 공연별 티켓 목록 조회
+    /// </summary>
+    public async Task<(List<EventTicketReadModel> Items, int TotalCount)> GetEventTicketsAsync(
+        int sellerId,
+        int eventId,
+        int page,
+        int size)
+    {
+        var offset = (page - 1) * size;
+        var parameters = new DynamicParameters();
+        parameters.Add("@SellerId", sellerId);
+        parameters.Add("@EventId", eventId);
+        parameters.Add("@Size", size);
+        parameters.Add("@Offset", offset);
+
+        var items = await _dapper.QueryAsync<EventTicketReadModel>(
+            SellQueries.GetEventTickets,
+            parameters);
+
+        var countResult = await _dapper.QuerySingleAsync<int>(
+            SellQueries.GetEventTicketsCount,
+            new { SellerId = sellerId, EventId = eventId });
+
+        return (items.ToList(), countResult);
+    }
+
 }

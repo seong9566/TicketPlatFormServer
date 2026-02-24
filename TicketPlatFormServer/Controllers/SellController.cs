@@ -226,5 +226,45 @@ public class SellController(ISellService sellService) : ControllerBase
         );
         return Ok(resp);
     }
-}
 
+    /// <summary>
+    /// 판매 대시보드 조회 (공연별 그룹핑)
+    /// </summary>
+    /// <param name="request">조회 조건</param>
+    /// <returns>판매 대시보드 데이터</returns>
+    [HttpGet("sales-dashboard")]
+    [ProducesResponseType(typeof(ApiResponse<SalesDashboardRespDto>), 200)]
+    public async Task<IActionResult> GetSalesDashboard([FromQuery] SalesDashboardReqDto request)
+    {
+        var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
+        var result = await _sellService.GetSalesDashboardAsync(userId, request);
+        var resp = new ApiResponse<SalesDashboardRespDto>(
+            message: "판매 대시보드 조회 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
+
+    /// <summary>
+    /// 특정 공연의 판매 티켓 상세 목록
+    /// </summary>
+    /// <param name="eventId">공연 ID</param>
+    /// <param name="page">페이지 번호</param>
+    /// <param name="size">페이지 크기</param>
+    /// <returns>공연별 판매 티켓 목록</returns>
+    [HttpGet("sales-dashboard/{eventId}")]
+    [ProducesResponseType(typeof(ApiResponse<EventTicketListRespDto>), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetEventTickets(int eventId, [FromQuery] int page = 1, [FromQuery] int size = 20)
+    {
+        var userId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
+        var result = await _sellService.GetEventTicketsAsync(userId, eventId, page, size);
+        var resp = new ApiResponse<EventTicketListRespDto>(
+            message: "공연별 판매 티켓 목록 조회 성공",
+            data: result,
+            statusCode: 200
+        );
+        return Ok(resp);
+    }
+}

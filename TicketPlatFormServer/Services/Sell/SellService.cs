@@ -3,6 +3,7 @@ using System.Net;
 using TicketPlatFormServer.DTO.Sell;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Repository;
+using TicketPlatFormServer.Repository.ReadModels;
 using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Services.Storage;
 using TicketPlatFormServer.Services.FileUpload;
@@ -226,13 +227,6 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
 
                 ticketId = await _sellRepository.CreateTicketAsync(ticket);
 
-                // 6.2 특이사항 저장 (기존 매핑 테이블 방식 제거, 위에서 가로채서 처리됨)
-                // if (request.FeatureIds != null && request.FeatureIds.Any())
-                // {
-                //     await _sellRepository.CreateTicketFeaturesAsync(ticketId, request.FeatureIds);
-                // }
-
-                // 6.3 이미지 업로드 및 DB 저장
                 if (request.Images != null && request.Images.Any())
                 {
                     try
@@ -413,6 +407,177 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         }
 
         return result;
+    }
+
+/// <summary>
+    /// 판매 대시보드 조회 (공연별 그룹화)
+    /// </summary>
+    public async Task<SalesDashboardRespDto> GetSalesDashboardAsync(int sellerId, SalesDashboardReqDto request)
+    {
+        var (items, totalCount) = await _sellRepository.GetSalesDashboardAsync(
+            sellerId,
+            request.Status,
+            request.Page,
+            request.Size);
+
+        // 포스터 이미지 Signed URL 배치 생성
+        var posterKeys = items
+            .Where(item => !string.IsNullOrEmpty(item.PosterImageUrl))
+            .Select(item => item.PosterImageUrl!)
+            .Where(url => !url.StartsWith("http://") && !url.StartsWith("https://"))
+            .Distinct()
+            .ToList();
+
+        Dictionary<string, SignedUrlResult> posterSignedUrls = new();
+        if (posterKeys.Any())
+        {
+            posterSignedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(posterKeys);
+        }
+
+        var eventGroups = items.Select(item =>
+        {
+            string? signedPosterUrl = null;
+            if (!string.IsNullOrEmpty(item.PosterImageUrl))
+            {
+                if (item.PosterImageUrl.StartsWith("http://") || item.PosterImageUrl.StartsWith("https://"))
+                {
+                    signedPosterUrl = item.PosterImageUrl;
+                }
+                else if (posterSignedUrls.TryGetValue(item.PosterImageUrl, out var urlResult))
+                {
+                    signedPosterUrl = urlResult.SignedUrl;
+                }
+            }
+
+            return new EventGroupItemDto
+            {
+                EventId = item.EventId,
+                EventTitle = item.EventTitle,
+                PosterImageUrl = signedPosterUrl,
+                VenueName = item.VenueName,
+                EarliestEventDatetime = item.EarliestEventDatetime,
+                TotalCount = item.TotalCount,
+                OnSaleCount = item.OnSaleCount,
+                CompletedCount = item.CompletedCount,
+                SettlingCount = item.SettlingCount,
+                RepresentativeSeatInfo = item.RepresentativeSeatInfo
+            };
+        }).ToList();
+
+        return new SalesDashboardRespDto
+        {
+            EventGroups = eventGroups,
+            Page = request.Page,
+            Size = request.Size,
+            TotalCount = totalCount,
+            HasMore = (request.Page * request.Size) < totalCount
+        };
+    }
+
+    /// <summary>
+    /// 공연별 티켓 목록 조회
+    /// </summary>
+    public async Task<EventTicketListRespDto> GetEventTicketsAsync(int sellerId, int eventId, int page, int size)
+    {
+        var (items, totalCount) = await _sellRepository.GetEventTicketsAsync(sellerId, eventId, page, size);
+
+        var thumbnailKeys = items
+            .Where(item => !string.IsNullOrEmpty(item.ThumbnailPath))
+            .Select(item => item.ThumbnailPath!)
+            .Distinct()
+            .ToList();
+
+        Dictionary<string, SignedUrlResult> thumbnailSignedUrls = new();
+        if (thumbnailKeys.Any())
+        {
+            thumbnailSignedUrls = await _fileUploadService.RefreshSignedUrlsBatchAsync(thumbnailKeys);
+        }
+
+        var firstItem = items.FirstOrDefault();
+        var responseEventId = firstItem?.EventId ?? eventId;
+        var responseEventTitle = firstItem?.EventTitle;
+        if (string.IsNullOrWhiteSpace(responseEventTitle))
+        {
+            var eventInfo = await _sellRepository.GetEventByIdAsync(eventId);
+            responseEventTitle = eventInfo?.Title ?? "공연 정보 없음";
+        }
+
+        var tickets = items.Select(item =>
+        {
+            var resolvedStatus = ResolveEventTicketDetailStatus(item);
+            if (resolvedStatus is null)
+            {
+                return null;
+            }
+
+            string? thumbnailUrl = null;
+            if (!string.IsNullOrEmpty(item.ThumbnailPath) &&
+                thumbnailSignedUrls.TryGetValue(item.ThumbnailPath, out var thumbResult))
+            {
+                thumbnailUrl = thumbResult.SignedUrl;
+            }
+
+            var seatInfo = item.SeatInfo;
+            if (string.IsNullOrWhiteSpace(seatInfo))
+            {
+                seatInfo = string.Join(" ", new[] { item.SeatGradeName, item.AreaName, item.Row }
+                    .Where(s => !string.IsNullOrEmpty(s)));
+            }
+
+            if (string.IsNullOrWhiteSpace(seatInfo))
+            {
+                seatInfo = null;
+            }
+
+            return new EventTicketItemDto
+            {
+                TicketId = item.TicketId,
+                SeatInfo = seatInfo,
+                Quantity = item.Quantity,
+                RemainingQuantity = item.RemainingQuantity,
+                Price = item.Price,
+                OriginalPrice = item.OriginalPrice,
+                StatusCode = resolvedStatus.Value.StatusCode,
+                StatusName = resolvedStatus.Value.StatusName,
+                TransactionId = item.TransactionId,
+                ThumbnailUrl = thumbnailUrl,
+                CreatedAt = item.CreatedAt
+            };
+        })
+        .Where(ticket => ticket is not null)
+        .Select(ticket => ticket!)
+        .ToList();
+
+        return new EventTicketListRespDto
+        {
+            EventId = responseEventId,
+            EventTitle = responseEventTitle,
+            Tickets = tickets,
+            Page = page,
+            Size = size,
+            TotalCount = totalCount,
+            HasMore = (page * size) < totalCount
+        };
+    }
+
+    private static (string StatusCode, string StatusName)? ResolveEventTicketDetailStatus(EventTicketReadModel item)
+    {
+        if (item.SettlementStatusCode == "completed")
+        {
+            return ("settlement_completed", "정산 완료");
+        }
+
+        if (item.TransactionStatusCode is "cancelled" or "refunded")
+        {
+            return ("payment_cancelled", "결제 취소");
+        }
+
+        if (item.TransactionStatusCode is "confirmed" or "paid" or "completed")
+        {
+            return ("payment_completed", "결제 완료");
+        }
+
+        return null;
     }
 
     /// <summary>
