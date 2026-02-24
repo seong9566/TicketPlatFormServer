@@ -35,11 +35,6 @@ public partial class UserReputation
     /// </summary>
     public int Score { get; set; }
 
-    /// <summary>
-    /// 리뷰 내용
-    /// </summary>
-    public string? Comment { get; set; }
-
     public DateTime? CreatedAt { get; set; }
 
     public virtual ReputationRatingType RatingType { get; set; } = null!;

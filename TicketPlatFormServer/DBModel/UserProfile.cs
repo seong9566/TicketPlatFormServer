@@ -31,4 +31,8 @@ public partial class UserProfile
     /// 총 거래 횟수
     /// </summary>
     public int? TotalTradeCount { get; set; }
+
+    public decimal? AverageRating { get; set; }
+
+    public int ReviewCount { get; set; }
 }
