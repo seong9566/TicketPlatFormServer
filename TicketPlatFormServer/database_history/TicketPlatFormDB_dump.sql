@@ -2007,7 +2007,6 @@ CREATE TABLE `user_reputation` (
   `transaction_id` bigint NOT NULL COMMENT '거래 FK',
   `rating_type_id` bigint NOT NULL COMMENT '평가 유형 FK',
   `score` int NOT NULL COMMENT '점수 (1-5)',
-  `comment` text COMMENT '리뷰 내용',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_reputation_user` (`user_id`,`created_at`),
