@@ -13,7 +13,9 @@ using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
 using TicketPlatFormServer.Repository.Disputes;
 using TicketPlatFormServer.Repository.Payment;
+using TicketPlatFormServer.Repository.BankAccounts;
 using TicketPlatFormServer.Repository.Notifications;
+using TicketPlatFormServer.Repository.Settlements;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Transactions;
@@ -29,7 +31,9 @@ using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Dispute;
 using TicketPlatFormServer.Services.Home;
 using TicketPlatFormServer.Services.Payment;
+using TicketPlatFormServer.Services.BankAccount;
 using TicketPlatFormServer.Services.Notification;
+using TicketPlatFormServer.Services.Settlements;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
@@ -213,8 +217,13 @@ builder.Services.AddHttpClient("TossPayments")
 
 static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(ResilienceSettings settings)
 {
-    return HttpPolicyExtensions
-        .HandleTransientHttpError()
+    // 영구 오류(연결 불가/취소)는 재시도해도 무의미 — 제외 대상:
+    // 1) SocketException(DNS 해석 실패, 연결 거절 등)
+    // 2) TaskCanceledException(클라이언트 요청 취소 / 자체 타임아웃) — 재시도 시 504만 늘어남
+    return Policy<HttpResponseMessage>
+        .Handle<HttpRequestException>(ex =>
+            ex.InnerException is not System.Net.Sockets.SocketException)
+        .OrResult(r => (int)r.StatusCode == 408 || (int)r.StatusCode >= 500)
         .WaitAndRetryAsync(
             settings.MaxRetryAttempts,
             retryAttempt => TimeSpan.FromMilliseconds(
@@ -313,8 +322,16 @@ builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 
 // Payment 서비스
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
+builder.Services.AddScoped<ISettlementRepository, SettlementRepository>();
 builder.Services.AddScoped<ITossPaymentsService, TossPaymentsService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IBankAccountService, BankAccountService>();
+builder.Services.AddScoped<CustomBankVerificationProvider>();
+builder.Services.AddScoped<TossBankVerificationProvider>();
+builder.Services.AddScoped<HybridBankVerificationProvider>();
+builder.Services.AddScoped<IBankAccountVerificationProviderFactory, BankAccountVerificationProviderFactory>();
+builder.Services.AddScoped<ISettlementService, SettlementService>();
 
 // Encryption 서비스
 builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionService>(sp =>
@@ -328,6 +345,7 @@ builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionSer
 builder.Services.AddHostedService<ChatCleanupService>();
 builder.Services.AddHostedService<TransactionReservationCleanupService>();
 builder.Services.AddHostedService<TransactionAutoConfirmService>();
+builder.Services.AddHostedService<SettlementProcessingService>();
 
 var app = builder.Build();
 
