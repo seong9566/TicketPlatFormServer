@@ -9,11 +9,13 @@ Composition root, controllers, services, repositories, DB models, and realtime h
 TicketPlatFormServer/TicketPlatFormServer/
 ├── Program.cs
 ├── Controllers/
+│   └── AGENTS.md
 ├── Services/
 │   └── AGENTS.md
 ├── Repository/
 │   └── AGENTS.md
 ├── DBModel/
+│   └── AGENTS.md
 ├── DTO/
 ├── Hubs/
 ├── Common/
@@ -25,6 +27,11 @@ TicketPlatFormServer/TicketPlatFormServer/
 | Task | Location | Notes |
 |------|----------|-------|
 | Startup/DI/middleware | `Program.cs` | Auth, SignalR, DI, hosted services |
+| HTTP routes | `Controllers/` | Thin endpoint layer — see `Controllers/AGENTS.md` |
+| Business flow | `Services/` | AppException and orchestration |
+| Data access details | `Repository/` | EF Core + Dapper policy |
+| DB entities | `DBModel/` | EF-scaffolded POCOs — see `DBModel/AGENTS.md` |
+| Realtime messaging | `Hubs/ChatHub.cs` | SignalR endpoint `/hubs/chat` |
 | HTTP routes | `Controllers/` | Thin endpoint layer |
 | Business flow | `Services/` | AppException and orchestration |
 | Data access details | `Repository/` | EF Core + Dapper policy |
@@ -49,5 +56,6 @@ dotnet run --project TicketPlatFormServer/TicketPlatFormServer.csproj
 ```
 
 ## NOTES
-- Child AGENTS in `Repository/` and `Services/` override this file for layer-specific rules.
+- Child AGENTS in `Repository/`, `Services/`, `Controllers/`, and `DBModel/` override this file for layer-specific rules.
+- API specs are markdown files in `api_spec/`.
 - API specs are markdown files in `api_spec/`.
