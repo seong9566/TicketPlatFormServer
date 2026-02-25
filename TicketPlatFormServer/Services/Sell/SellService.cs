@@ -562,6 +562,11 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
 
     private static (string StatusCode, string StatusName)? ResolveEventTicketDetailStatus(EventTicketReadModel item)
     {
+        if (item.SettlementStatusCode == "on_hold")
+        {
+            return ("settlement_on_hold", "정산 보류");
+        }
+
         if (item.SettlementStatusCode == "completed")
         {
             return ("settlement_completed", "정산 완료");

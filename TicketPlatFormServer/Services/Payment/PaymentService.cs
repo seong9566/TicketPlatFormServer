@@ -524,9 +524,9 @@ public class PaymentService(
                 await context.SaveChangesAsync();
             }
 
-            // 3-5. Settlement 레코드 생성
             var settlementStatusPending = await paymentRepository.GetSettlementStatusByCodeAsync("pending");
-            if (settlementStatusPending == null)
+            var settlementStatusOnHold = await paymentRepository.GetSettlementStatusByCodeAsync("on_hold");
+            if (settlementStatusPending == null || settlementStatusOnHold == null)
             {
                 throw new AppException("정산 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
             }
@@ -549,7 +549,7 @@ public class PaymentService(
                 Fee = escrow.FeeAmount,
                 NetAmount = escrow.SellerAmount,
                 BankAccountId = defaultBankAccount?.Id,
-                StatusId = settlementStatusPending.Id,
+                StatusId = defaultBankAccount == null ? settlementStatusOnHold.Id : settlementStatusPending.Id,
                 ScheduledAt = DateTime.UtcNow.AddDays(1),
                 CreatedAt = DateTime.UtcNow
             };
@@ -572,6 +572,37 @@ public class PaymentService(
             logger.LogError(ex, "[PaymentService.ReleaseEscrowAsync] DB 트랜잭션 실패");
             throw new AppException("에스크로 해제 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError, ex);
         }
+    }
+
+    public async Task ResumeHeldSettlementsAsync(long sellerId, long bankAccountId)
+    {
+        var settlementStatusPending = await paymentRepository.GetSettlementStatusByCodeAsync("pending");
+        var settlementStatusOnHold = await paymentRepository.GetSettlementStatusByCodeAsync("on_hold");
+        if (settlementStatusPending == null || settlementStatusOnHold == null)
+        {
+            throw new AppException("정산 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+        }
+
+        var heldSettlements = await context.Settlements
+            .Where(x => x.SellerId == sellerId && x.StatusId == settlementStatusOnHold.Id)
+            .ToListAsync();
+
+        if (heldSettlements.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        foreach (var settlement in heldSettlements)
+        {
+            settlement.StatusId = settlementStatusPending.Id;
+            settlement.BankAccountId = bankAccountId;
+            settlement.ScheduledAt = now.AddDays(1);
+            settlement.UpdatedAt = now;
+            settlement.FailureReason = null;
+        }
+
+        await context.SaveChangesAsync();
     }
 
     private async Task TryCreatePaymentSuccessMessageAsync(long transactionId)

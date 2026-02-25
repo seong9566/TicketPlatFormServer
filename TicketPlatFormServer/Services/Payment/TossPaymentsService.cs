@@ -227,4 +227,175 @@ public class TossPaymentsService : ITossPaymentsService
             throw new AppException("결제 취소 요청 중 오류가 발생했습니다.", HttpStatusCode.InternalServerError);
         }
     }
+
+    public async Task<TransferResponseDto> RequestTransferAsync(TransferRequestDto request)
+    {
+        var endpoint = $"{_settings.SettlementApiBaseUrl.TrimEnd('/')}/v2/payouts";
+        var payload = new
+        {
+            refPayoutId = request.RefPayoutId,
+            destination = request.Destination,
+            scheduleType = request.ScheduleType,
+            payoutDate = request.PayoutDate,
+            amount = new
+            {
+                currency = request.Currency,
+                value = request.Amount
+            },
+            transactionDescription = request.TransactionDescription,
+            metadata = request.Metadata
+        };
+
+        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync(endpoint, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new AppException($"정산 이체 요청에 실패했습니다. {response.StatusCode}", HttpStatusCode.BadGateway);
+        }
+
+        string? payoutId = null;
+        string? status = null;
+        string? refPayoutId = request.RefPayoutId;
+
+        using (var document = JsonDocument.Parse(responseContent))
+        {
+            if (document.RootElement.TryGetProperty("payouts", out var payouts) && payouts.ValueKind == JsonValueKind.Array && payouts.GetArrayLength() > 0)
+            {
+                var first = payouts[0];
+                payoutId = first.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                status = first.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+                refPayoutId = first.TryGetProperty("refPayoutId", out var refProp) ? refProp.GetString() : refPayoutId;
+            }
+            else
+            {
+                payoutId = document.RootElement.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                status = document.RootElement.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+                refPayoutId = document.RootElement.TryGetProperty("refPayoutId", out var refProp) ? refProp.GetString() : refPayoutId;
+            }
+        }
+
+        return new TransferResponseDto
+        {
+            PayoutId = payoutId,
+            RefPayoutId = refPayoutId,
+            Status = status,
+            RawResponse = responseContent
+        };
+    }
+
+    public async Task<TransferStatusDto> GetTransferStatusAsync(string transferId)
+    {
+        var endpoint = $"{_settings.SettlementApiBaseUrl.TrimEnd('/')}/v2/payouts/{transferId}";
+        var response = await _httpClient.GetAsync(endpoint);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new AppException($"정산 이체 상태 조회에 실패했습니다. {response.StatusCode}", HttpStatusCode.BadGateway);
+        }
+
+        string? payoutId;
+        string? status;
+        string? failureReason;
+
+        using (var document = JsonDocument.Parse(responseContent))
+        {
+            payoutId = document.RootElement.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+            status = document.RootElement.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+            failureReason = document.RootElement.TryGetProperty("failureReason", out var reasonProp) ? reasonProp.GetString() : null;
+        }
+
+        return new TransferStatusDto
+        {
+            PayoutId = payoutId,
+            Status = status,
+            FailureReason = failureReason,
+            RawResponse = responseContent
+        };
+    }
+
+    public async Task<bool> ValidateBankAccountAsync(string bankCode, string accountNumber)
+    {
+        var endpoint = "/v2/bank-accounts/validate";
+        var payload = new
+        {
+            bankCode,
+            accountNumber
+        };
+
+        var requestJson = JsonSerializer.Serialize(payload);
+        _logger.LogInformation(
+            "[TossPaymentsService.ValidateBankAccountAsync] Request: BankCode={BankCode}, Endpoint={Endpoint}",
+            bankCode, endpoint);
+
+        var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync(endpoint, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        _logger.LogInformation(
+            "[TossPaymentsService.ValidateBankAccountAsync] Response: StatusCode={StatusCode}, Body={Body}",
+            (int)response.StatusCode, responseContent);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "[TossPaymentsService.ValidateBankAccountAsync] Failed: StatusCode={StatusCode}, BankCode={BankCode}, Body={Body}",
+                (int)response.StatusCode, bankCode, responseContent);
+            throw new AppException($"계좌 유효성 확인에 실패했습니다. {response.StatusCode}", HttpStatusCode.BadGateway);
+        }
+
+        using var document = JsonDocument.Parse(responseContent);
+        var root = document.RootElement;
+        // Toss v2: isValid is nested inside entityBody
+        if (root.TryGetProperty("entityBody", out var entityBody))
+        {
+            return entityBody.TryGetProperty("isValid", out var isValidNested) && isValidNested.GetBoolean();
+        }
+        // fallback: v1 flat response shape
+        return root.TryGetProperty("isValid", out var isValidFlat) && isValidFlat.GetBoolean();
+    }
+
+    public async Task<bool> VerifyBankAccountHolderNameAsync(string bankCode, string accountNumber, string holderName)
+    {
+        var endpoint = "/v2/bank-accounts/verify-holder-name";
+        var payload = new
+        {
+            bankCode,
+            accountNumber,
+            holderName
+        };
+
+        var requestJson = JsonSerializer.Serialize(payload);
+        _logger.LogInformation(
+            "[TossPaymentsService.VerifyBankAccountHolderNameAsync] Request: BankCode={BankCode}, Endpoint={Endpoint}",
+            bankCode, endpoint);
+
+        var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+        var response = await _httpClient.PostAsync(endpoint, content);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        _logger.LogInformation(
+            "[TossPaymentsService.VerifyBankAccountHolderNameAsync] Response: StatusCode={StatusCode}, Body={Body}",
+            (int)response.StatusCode, responseContent);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning(
+                "[TossPaymentsService.VerifyBankAccountHolderNameAsync] Failed: StatusCode={StatusCode}, BankCode={BankCode}, Body={Body}",
+                (int)response.StatusCode, bankCode, responseContent);
+            throw new AppException($"예금주명 검증에 실패했습니다. {response.StatusCode}", HttpStatusCode.BadGateway);
+        }
+
+        using var document = JsonDocument.Parse(responseContent);
+        var root = document.RootElement;
+        // Toss v2: isValid is nested inside entityBody
+        if (root.TryGetProperty("entityBody", out var entityBody))
+        {
+            return entityBody.TryGetProperty("isValid", out var isValidNested) && isValidNested.GetBoolean();
+        }
+        // fallback: v1 flat response shape
+        return root.TryGetProperty("isValid", out var isValidFlat) && isValidFlat.GetBoolean();
+    }
 }

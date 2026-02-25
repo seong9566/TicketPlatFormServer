@@ -44,4 +44,22 @@ public class TossPaymentsSettings
     /// 에스크로 수수료율 (%)
     /// </summary>
     public decimal EscrowFeePercentage { get; set; } = 3.5m;
+
+    public string SettlementApiBaseUrl { get; set; } = "https://api.tosspayments.com";
+
+    public string SettlementCallbackUrl { get; set; } = string.Empty;
+
+    public int MaxSettlementRetryCount { get; set; } = 3;
+
+    public int SettlementProcessingIntervalMinutes { get; set; } = 5;
+
+    public int VerificationCodeExpiryMinutes { get; set; } = 5;
+
+    public int MaxVerificationAttempts { get; set; } = 3;
+
+    public string BankVerificationProvider { get; set; } = "Custom";
+
+    public bool BankVerificationFallbackEnabled { get; set; } = true;
+
+    public int BankVerificationTimeoutSeconds { get; set; } = 10;
 }

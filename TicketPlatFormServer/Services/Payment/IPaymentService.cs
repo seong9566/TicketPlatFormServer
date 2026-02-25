@@ -28,6 +28,8 @@ public interface IPaymentService
     /// <param name="transactionId">거래 ID</param>
     Task ReleaseEscrowAsync(long transactionId);
 
+    Task ResumeHeldSettlementsAsync(long sellerId, long bankAccountId);
+
     /// <summary>
     /// 결제 취소 (환불)
     /// </summary>

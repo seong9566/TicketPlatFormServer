@@ -386,6 +386,10 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(50)
                 .HasComment("계좌번호")
                 .HasColumnName("account_number");
+            entity.Property(e => e.BankCode)
+                .HasMaxLength(10)
+                .HasComment("은행 코드(토스 지급대행용)")
+                .HasColumnName("bank_code");
             entity.Property(e => e.BankName)
                 .HasMaxLength(100)
                 .HasComment("은행명")
@@ -399,6 +403,38 @@ public partial class TicketContext : DbContext
                 .HasDefaultValueSql("'0'")
                 .HasComment("계좌 인증 여부")
                 .HasColumnName("verified");
+            entity.Property(e => e.VerificationCode)
+                .HasMaxLength(10)
+                .HasComment("1원 인증 코드")
+                .HasColumnName("verification_code");
+            entity.Property(e => e.VerificationExpiresAt)
+                .HasColumnType("datetime")
+                .HasComment("인증 코드 만료 시각")
+                .HasColumnName("verification_expires_at");
+            entity.Property(e => e.VerifiedAt)
+                .HasColumnType("datetime")
+                .HasComment("인증 완료 시각")
+                .HasColumnName("verified_at");
+            entity.Property(e => e.VerificationProvider)
+                .HasMaxLength(20)
+                .HasComment("계좌 인증 Provider (CUSTOM|TOSS|HYBRID)")
+                .HasColumnName("verification_provider");
+            entity.Property(e => e.VerificationTier)
+                .HasMaxLength(20)
+                .HasComment("계좌 인증 Tier (TIER_0..3)")
+                .HasColumnName("verification_tier");
+            entity.Property(e => e.VerificationStatus)
+                .HasMaxLength(20)
+                .HasComment("계좌 인증 상태 (UNVERIFIED|PENDING|VERIFIED|FAILED|EXPIRED)")
+                .HasColumnName("verification_status");
+            entity.Property(e => e.LastVerificationFailureCode)
+                .HasMaxLength(100)
+                .HasComment("최근 검증 실패 코드")
+                .HasColumnName("last_verification_failure_code");
+            entity.Property(e => e.LastVerificationAt)
+                .HasColumnType("datetime")
+                .HasComment("최근 검증 시각")
+                .HasColumnName("last_verification_at");
         });
 
         modelBuilder.Entity<ChatMessage>(entity =>

@@ -26,4 +26,12 @@ public interface ITossPaymentsService
     /// 결제 취소 (환불)
     /// </summary>
     Task<TossPaymentResponseDto> CancelPaymentAsync(string paymentKey, string cancelReason, int? cancelAmount = null);
+
+    Task<TransferResponseDto> RequestTransferAsync(TransferRequestDto request);
+
+    Task<TransferStatusDto> GetTransferStatusAsync(string transferId);
+
+    Task<bool> ValidateBankAccountAsync(string bankCode, string accountNumber);
+
+    Task<bool> VerifyBankAccountHolderNameAsync(string bankCode, string accountNumber, string holderName);
 }
