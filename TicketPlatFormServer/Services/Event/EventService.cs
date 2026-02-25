@@ -19,17 +19,20 @@ public class EventService : IEventService
     private readonly ITicketRepository _ticketRepo;
     private readonly IFavoriteRepository _favoriteRepo;
     private readonly IFileUploadService _fileUploadService;
+    private readonly ILogger<EventService> _logger;
 
     public EventService(
-        IEventRepository eventRepo, 
-        ITicketRepository ticketRepo, 
+        IEventRepository eventRepo,
+        ITicketRepository ticketRepo,
         IFavoriteRepository favoriteRepo,
-        IFileUploadService fileUploadService)
+        IFileUploadService fileUploadService,
+        ILogger<EventService> logger)
     {
         _eventRepo = eventRepo;
         _ticketRepo = ticketRepo;
         _favoriteRepo = favoriteRepo;
         _fileUploadService = fileUploadService;
+        _logger = logger;
     }
 
     public async Task<List<EventListRespDto>> GetEventsByCategoryId(int categoryId)
@@ -176,10 +179,23 @@ public class EventService : IEventService
         var signedUrlMap = new Dictionary<string, string>();
         if (imageKeysToSign.Count > 0)
         {
-            var signedResults = await _fileUploadService.RefreshSignedUrlsBatchAsync(imageKeysToSign);
-            foreach (var (key, result) in signedResults)
+            try
             {
-                signedUrlMap[key] = result.SignedUrl;
+                var signedResults = await _fileUploadService.RefreshSignedUrlsBatchAsync(imageKeysToSign);
+                foreach (var (key, result) in signedResults)
+                {
+                    signedUrlMap[key] = result.SignedUrl;
+                }
+            }
+            catch (TaskCanceledException ex)
+            {
+                // Supabase signed URL 요청 타임아웃 — 이미지 없이 진행 (기능에 필수 아닔)
+                _logger.LogWarning(ex, "[EventService.GetEventDetailWithTickets] Signed URL 요청 타임아웃 — 이미지 없이 반환. EventId={EventId}", eventId);
+            }
+            catch (Exception ex)
+            {
+                // Supabase 연결 오류 — 이미지 없이 진행 (이미지가 없는 데이터는 정상 제공)
+                _logger.LogWarning(ex, "[EventService.GetEventDetailWithTickets] Signed URL 요청 실패 — 이미지 없이 반환. EventId={EventId}", eventId);
             }
         }
 
