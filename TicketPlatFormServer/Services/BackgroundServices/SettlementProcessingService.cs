@@ -1,10 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using TicketPlatFormServer.Config;
-using TicketPlatFormServer.DTO.Payment;
 using TicketPlatFormServer.Repository.Payment;
 using TicketPlatFormServer.Repository.Settlements;
-using TicketPlatFormServer.Services.Payment;
+using TicketPlatFormServer.Services.Balance;
 
 namespace TicketPlatFormServer.Services.BackgroundServices;
 
@@ -39,7 +38,7 @@ public class SettlementProcessingService(
         using var scope = serviceProvider.CreateScope();
         var settlementRepository = scope.ServiceProvider.GetRequiredService<ISettlementRepository>();
         var paymentRepository = scope.ServiceProvider.GetRequiredService<IPaymentRepository>();
-        var tossPaymentsService = scope.ServiceProvider.GetRequiredService<ITossPaymentsService>();
+        var balanceService = scope.ServiceProvider.GetRequiredService<IBalanceService>();
 
         var pendingStatus = await paymentRepository.GetSettlementStatusByCodeAsync("pending");
         var processingStatus = await paymentRepository.GetSettlementStatusByCodeAsync("processing");
@@ -80,34 +79,18 @@ public class SettlementProcessingService(
                 settlement.UpdatedAt = DateTime.UtcNow;
                 await settlementRepository.UpdateSettlementAsync(settlement);
 
-                var transfer = await tossPaymentsService.RequestTransferAsync(new TransferRequestDto
-                {
-                    RefPayoutId = $"SETTLEMENT_{settlement.Id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
-                    Destination = settlement.SellerId.ToString(),
-                    ScheduleType = "EXPRESS",
-                    Amount = settlement.NetAmount,
-                    TransactionDescription = "정산",
-                    Metadata = new Dictionary<string, string>
-                    {
-                        ["settlementId"] = settlement.Id.ToString(),
-                        ["transactionId"] = settlement.TransactionId.ToString()
-                    }
-                });
+                await balanceService.CreditAsync(
+                    userId: settlement.SellerId,
+                    amount: settlement.NetAmount,
+                    referenceType: "SETTLEMENT",
+                    referenceId: settlement.Id,
+                    description: $"티켓 판매 정산 (거래 #{settlement.TransactionId})");
 
-                if (string.Equals(transfer.Status, "DONE", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(transfer.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase) ||
-                    string.IsNullOrWhiteSpace(transfer.Status))
-                {
-                    settlement.StatusId = completedStatus.Id;
-                    settlement.ProcessedAt = DateTime.UtcNow;
-                    settlement.FailureReason = null;
-                    settlement.UpdatedAt = DateTime.UtcNow;
-                    await settlementRepository.UpdateSettlementAsync(settlement);
-                }
-                else
-                {
-                    await HandleRetryOrFailureAsync(settlementRepository, settlement, pendingStatus.Id, failedStatus.Id, $"정산 상태: {transfer.Status}");
-                }
+                settlement.StatusId = completedStatus.Id;
+                settlement.ProcessedAt = DateTime.UtcNow;
+                settlement.FailureReason = null;
+                settlement.UpdatedAt = DateTime.UtcNow;
+                await settlementRepository.UpdateSettlementAsync(settlement);
             }
             catch (Exception ex)
             {
