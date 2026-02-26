@@ -13,7 +13,7 @@ public partial class UserReputation
     /// <summary>
     /// 평가 대상 FK
     /// </summary>
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     /// <summary>
     /// 평가자 FK

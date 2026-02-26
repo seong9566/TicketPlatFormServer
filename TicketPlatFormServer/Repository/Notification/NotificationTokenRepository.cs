@@ -47,7 +47,7 @@ public class NotificationTokenRepository(TicketContext db) : INotificationTokenR
         {
             var entity = new NotificationToken
             {
-                UserId = userId,
+                UserId = (int)userId,
                 DeviceToken = deviceToken,
                 PlatformId = platformId,
                 CreatedAt = DateTime.UtcNow
@@ -58,7 +58,7 @@ public class NotificationTokenRepository(TicketContext db) : INotificationTokenR
             return entity;
         }
 
-        existing.UserId = userId;
+        existing.UserId = (int)userId;
         existing.PlatformId = platformId;
         await db.SaveChangesAsync();
         await db.Entry(existing).Reference(x => x.Platform).LoadAsync();

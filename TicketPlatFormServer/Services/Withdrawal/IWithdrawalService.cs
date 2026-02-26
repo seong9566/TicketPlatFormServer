@@ -5,13 +5,13 @@ namespace TicketPlatFormServer.Services.Withdrawal;
 
 public interface IWithdrawalService
 {
-    Task<WithdrawalResponseDto> RequestWithdrawalAsync(long userId, WithdrawalRequestDto request, string idempotencyKey);
+    Task<WithdrawalResponseDto> RequestWithdrawalAsync(int userId, WithdrawalRequestDto request, string idempotencyKey);
 
-    Task<WithdrawalResponseDto> CancelWithdrawalAsync(long userId, long withdrawalId);
+    Task<WithdrawalResponseDto> CancelWithdrawalAsync(int userId, long withdrawalId);
 
-    Task<WithdrawalListResponseDto> GetWithdrawalHistoryAsync(long userId, int page, int pageSize);
+    Task<WithdrawalListResponseDto> GetWithdrawalHistoryAsync(int userId, int page, int pageSize);
 
-    Task<BalanceResponseDto> GetBalanceAsync(long userId);
+    Task<BalanceResponseDto> GetBalanceAsync(int userId);
 
-    Task<BalanceHistoryResponseDto> GetBalanceHistoryAsync(long userId, int page, int pageSize);
+    Task<BalanceHistoryResponseDto> GetBalanceHistoryAsync(int userId, int page, int pageSize);
 }

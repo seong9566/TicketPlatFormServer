@@ -135,7 +135,7 @@ public class NotificationService(
         var payload = data == null ? null : JsonSerializer.Serialize(data);
         await notificationRepository.CreateAsync(new DBModel.Notification
         {
-            UserId = userId,
+            UserId = (int)userId,
             TypeId = type.Id,
             Title = title,
             Body = body,

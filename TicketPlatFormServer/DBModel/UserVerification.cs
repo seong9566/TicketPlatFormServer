@@ -8,7 +8,7 @@ namespace TicketPlatFormServer.DBModel;
 /// </summary>
 public partial class UserVerification
 {
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     /// <summary>
     /// 실명

@@ -8,6 +8,8 @@ public interface IBankAccountService
 
     Task<BankAccountResponseDto?> GetMyBankAccountAsync(long userId);
 
+    Task<UnmaskedAccountResponseDto> GetUnmaskedAccountNumberAsync(long userId);
+
     Task DeleteBankAccountAsync(long userId);
 
     Task<RequestVerificationResponseDto> RequestVerificationAsync(long userId);

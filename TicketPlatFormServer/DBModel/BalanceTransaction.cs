@@ -10,7 +10,7 @@ public partial class BalanceTransaction
 {
     public long Id { get; set; }
 
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     public string Type { get; set; } = null!;
 

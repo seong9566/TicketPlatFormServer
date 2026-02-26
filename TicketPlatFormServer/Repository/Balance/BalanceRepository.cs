@@ -5,12 +5,12 @@ namespace TicketPlatFormServer.Repository.Balance;
 
 public class BalanceRepository(TicketContext context) : IBalanceRepository
 {
-    public async Task<DBModel.UserBalance?> GetByUserIdAsync(long userId)
+    public async Task<DBModel.UserBalance?> GetByUserIdAsync(int userId)
     {
         return await context.UserBalances.FirstOrDefaultAsync(x => x.UserId == userId);
     }
 
-    public async Task<DBModel.UserBalance> GetOrCreateByUserIdAsync(long userId)
+    public async Task<DBModel.UserBalance> GetOrCreateByUserIdAsync(int userId)
     {
         var balance = await GetByUserIdAsync(userId);
         if (balance != null)
@@ -33,7 +33,7 @@ public class BalanceRepository(TicketContext context) : IBalanceRepository
         return balance;
     }
 
-    public async Task<int> AtomicDebitAsync(long userId, long amount)
+    public async Task<int> AtomicDebitAsync(int userId, long amount)
     {
         const string sql = @"
 UPDATE user_balance
@@ -46,7 +46,7 @@ WHERE user_id = @userId
             new MySqlParameter("@userId", userId));
     }
 
-    public async Task<int> AtomicCreditAsync(long userId, long amount)
+    public async Task<int> AtomicCreditAsync(int userId, long amount)
     {
         const string sql = @"
 UPDATE user_balance
@@ -58,7 +58,7 @@ WHERE user_id = @userId";
             new MySqlParameter("@userId", userId));
     }
 
-    public async Task<int> AtomicPendingCreditAsync(long userId, long amount)
+    public async Task<int> AtomicPendingCreditAsync(int userId, long amount)
     {
         const string sql = @"
 UPDATE user_balance
@@ -70,7 +70,7 @@ WHERE user_id = @userId";
             new MySqlParameter("@userId", userId));
     }
 
-    public async Task<int> AtomicPendingDebitAsync(long userId, long amount)
+    public async Task<int> AtomicPendingDebitAsync(int userId, long amount)
     {
         const string sql = @"
 UPDATE user_balance
@@ -83,7 +83,7 @@ WHERE user_id = @userId
             new MySqlParameter("@userId", userId));
     }
 
-    public async Task<List<DBModel.BalanceTransaction>> GetByUserIdAsync(long userId, int page, int pageSize)
+    public async Task<List<DBModel.BalanceTransaction>> GetByUserIdAsync(int userId, int page, int pageSize)
     {
         var skip = (page - 1) * pageSize;
 
@@ -95,7 +95,7 @@ WHERE user_id = @userId
             .ToListAsync();
     }
 
-    public async Task<int> GetTransactionCountByUserIdAsync(long userId)
+    public async Task<int> GetTransactionCountByUserIdAsync(int userId)
     {
         return await context.BalanceTransactions.CountAsync(x => x.UserId == userId);
     }

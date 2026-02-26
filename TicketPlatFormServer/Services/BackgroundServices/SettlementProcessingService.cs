@@ -80,7 +80,7 @@ public class SettlementProcessingService(
                 await settlementRepository.UpdateSettlementAsync(settlement);
 
                 await balanceService.CreditAsync(
-                    userId: settlement.SellerId,
+                    userId: (int)settlement.SellerId,
                     amount: settlement.NetAmount,
                     referenceType: "SETTLEMENT",
                     referenceId: settlement.Id,

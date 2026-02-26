@@ -10,7 +10,7 @@ public partial class BankAccount
 {
     public long Id { get; set; }
 
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     /// <summary>
     /// 은행명

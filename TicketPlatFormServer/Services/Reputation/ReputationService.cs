@@ -64,7 +64,7 @@ public class ReputationService(
         {
             var reputationId = await reputationRepository.InsertAsync(new UserReputation
             {
-                UserId = transaction.SellerId,
+                UserId = (int)transaction.SellerId,
                 ReviewerId = requestUserId,
                 TransactionId = dto.TransactionId,
                 RatingTypeId = 1,

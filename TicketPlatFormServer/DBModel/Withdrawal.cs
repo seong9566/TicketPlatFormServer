@@ -10,7 +10,7 @@ public partial class Withdrawal
 {
     public long Id { get; set; }
 
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     public long BankAccountId { get; set; }
 

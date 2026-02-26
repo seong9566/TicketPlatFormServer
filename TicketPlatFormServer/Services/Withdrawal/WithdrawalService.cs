@@ -1,5 +1,6 @@
 using System.Net;
 using TicketPlatFormServer.Common;
+using TicketPlatFormServer.Config;
 using TicketPlatFormServer.DTO.Balance;
 using TicketPlatFormServer.DTO.Withdrawal;
 using TicketPlatFormServer.Repository.Balance;
@@ -14,13 +15,15 @@ public class WithdrawalService(
     IBalanceService balanceService,
     IBalanceRepository balanceRepository,
     IBankAccountRepository bankAccountRepository,
+    TossPaymentsSettings settings,
     ILogger<WithdrawalService> logger) : IWithdrawalService
 {
-    private const long MinWithdrawalAmount = 1_000;
-    private const int MaxDailyWithdrawals = 3;
-    private const long MaxDailyWithdrawalAmount = 5_000_000;
+    private readonly TossPaymentsSettings _settings = settings;
+    private readonly long _minWithdrawalAmount = settings.MinWithdrawalAmount > 0 ? settings.MinWithdrawalAmount : 1_000;
+    private readonly int _maxDailyWithdrawals = settings.MaxDailyWithdrawals > 0 ? settings.MaxDailyWithdrawals : 3;
+    private readonly long _maxDailyWithdrawalAmount = settings.MaxDailyWithdrawalAmount > 0 ? settings.MaxDailyWithdrawalAmount : 5_000_000;
 
-    public async Task<WithdrawalResponseDto> RequestWithdrawalAsync(long userId, WithdrawalRequestDto request, string idempotencyKey)
+    public async Task<WithdrawalResponseDto> RequestWithdrawalAsync(int userId, WithdrawalRequestDto request, string idempotencyKey)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
         {
@@ -56,19 +59,19 @@ public class WithdrawalService(
             throw new AppException("인증된 계좌만 출금할 수 있습니다.", HttpStatusCode.BadRequest);
         }
 
-        if (request.Amount < MinWithdrawalAmount)
+        if (request.Amount < _minWithdrawalAmount)
         {
-            throw new AppException($"최소 출금 금액은 {MinWithdrawalAmount:N0}원입니다.", HttpStatusCode.BadRequest);
+            throw new AppException($"최소 출금 금액은 {_minWithdrawalAmount:N0}원입니다.", HttpStatusCode.BadRequest);
         }
 
         var todayCount = await withdrawalRepository.GetTodayCountByUserIdAsync(userId);
-        if (todayCount >= MaxDailyWithdrawals)
+        if (todayCount >= _maxDailyWithdrawals)
         {
             throw new AppException("일일 출금 횟수를 초과했습니다.", HttpStatusCode.BadRequest);
         }
 
         var todaySum = await withdrawalRepository.GetTodaySumByUserIdAsync(userId);
-        if (todaySum + request.Amount > MaxDailyWithdrawalAmount)
+        if (todaySum + request.Amount > _maxDailyWithdrawalAmount)
         {
             throw new AppException("일일 출금 한도를 초과했습니다.", HttpStatusCode.BadRequest);
         }
@@ -79,7 +82,7 @@ public class WithdrawalService(
             throw new AppException("출금 상태 코드가 올바르지 않습니다.", HttpStatusCode.InternalServerError);
         }
 
-        var fee = 0L;
+        var fee = (long)_settings.WithdrawalFee;
         var netAmount = request.Amount - fee;
 
         await balanceService.DebitAsync(userId, request.Amount, "WITHDRAWAL", 0, "출금 요청");
@@ -118,7 +121,7 @@ public class WithdrawalService(
         return ToResponse(withdrawal);
     }
 
-    public async Task<WithdrawalResponseDto> CancelWithdrawalAsync(long userId, long withdrawalId)
+    public async Task<WithdrawalResponseDto> CancelWithdrawalAsync(int userId, long withdrawalId)
     {
         var withdrawal = await withdrawalRepository.GetByIdAndUserIdAsync(withdrawalId, userId);
         if (withdrawal == null)
@@ -180,7 +183,7 @@ public class WithdrawalService(
         return ToResponse(withdrawal);
     }
 
-    public async Task<WithdrawalListResponseDto> GetWithdrawalHistoryAsync(long userId, int page, int pageSize)
+    public async Task<WithdrawalListResponseDto> GetWithdrawalHistoryAsync(int userId, int page, int pageSize)
     {
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 20 : pageSize;
@@ -197,7 +200,7 @@ public class WithdrawalService(
         };
     }
 
-    public async Task<BalanceResponseDto> GetBalanceAsync(long userId)
+    public async Task<BalanceResponseDto> GetBalanceAsync(int userId)
     {
         var balance = await balanceService.GetBalanceAsync(userId);
         return new BalanceResponseDto
@@ -209,7 +212,7 @@ public class WithdrawalService(
         };
     }
 
-    public async Task<BalanceHistoryResponseDto> GetBalanceHistoryAsync(long userId, int page, int pageSize)
+    public async Task<BalanceHistoryResponseDto> GetBalanceHistoryAsync(int userId, int page, int pageSize)
     {
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 20 : pageSize;

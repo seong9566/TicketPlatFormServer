@@ -2,9 +2,11 @@ namespace TicketPlatFormServer.Services.Balance;
 
 public interface IBalanceService
 {
-    Task<DBModel.UserBalance> GetBalanceAsync(long userId);
+    Task<DBModel.UserBalance> GetBalanceAsync(int userId);
 
-    Task CreditAsync(long userId, long amount, string referenceType, long referenceId, string description);
+    Task<DTO.Balance.BalanceResponseDto> AdminAdjustBalanceAsync(int userId, long amount, string reason);
 
-    Task DebitAsync(long userId, long amount, string referenceType, long referenceId, string description);
+    Task CreditAsync(int userId, long amount, string referenceType, long referenceId, string description);
+
+    Task DebitAsync(int userId, long amount, string referenceType, long referenceId, string description);
 }

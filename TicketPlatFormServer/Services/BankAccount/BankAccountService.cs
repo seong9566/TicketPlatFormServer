@@ -32,7 +32,7 @@ public class BankAccountService(
 
         var created = await bankAccountRepository.CreateBankAccountAsync(new DBModel.BankAccount
         {
-            UserId = userId,
+            UserId = (int)userId,
             BankName = request.BankName.Trim(),
             BankCode = request.BankCode.Trim(),
             AccountNumber = request.AccountNumber.Trim(),
@@ -54,6 +54,28 @@ public class BankAccountService(
     {
         var bankAccount = await bankAccountRepository.GetBankAccountByUserIdAsync(userId);
         return bankAccount == null ? null : ToResponse(bankAccount);
+    }
+
+    public async Task<UnmaskedAccountResponseDto> GetUnmaskedAccountNumberAsync(long userId)
+    {
+        var bankAccount = await bankAccountRepository.GetBankAccountByUserIdAsync(userId);
+        if (bankAccount == null)
+        {
+            throw new AppException("등록된 계좌가 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        if (bankAccount.Verified != true)
+        {
+            throw new AppException("인증된 계좌만 조회 가능", HttpStatusCode.BadRequest);
+        }
+
+        return new UnmaskedAccountResponseDto
+        {
+            AccountNumber = bankAccount.AccountNumber ?? string.Empty,
+            BankName = bankAccount.BankName ?? string.Empty,
+            BankCode = bankAccount.BankCode ?? string.Empty,
+            AccountHolder = bankAccount.AccountHolder ?? string.Empty,
+        };
     }
 
     public async Task DeleteBankAccountAsync(long userId)

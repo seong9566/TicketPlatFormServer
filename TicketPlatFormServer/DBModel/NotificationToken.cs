@@ -13,7 +13,7 @@ public partial class NotificationToken
     /// <summary>
     /// 사용자 FK
     /// </summary>
-    public long UserId { get; set; }
+    public int UserId { get; set; }
 
     /// <summary>
     /// FCM/APNs 토큰
