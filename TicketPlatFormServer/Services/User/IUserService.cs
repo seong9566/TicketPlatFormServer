@@ -66,4 +66,10 @@ public interface IUserService
     /// <returns>마스킹된 이메일</returns>
     Task<FindIdResDto> FindIdByPhoneAsync(string phoneNumber);
 
+    /// <summary>
+    /// 이메일로 임시 비밀번호 발급
+    /// </summary>
+    /// <param name="email">계정 이메일</param>
+    Task ForgotPasswordAsync(string email);
+
 }

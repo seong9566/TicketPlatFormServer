@@ -9,6 +9,7 @@ using TicketPlatFormServer.DTO.User;
 using TicketPlatFormServer.Enum;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Users;
+using TicketPlatFormServer.Services.Email;
 using TicketPlatFormServer.Services.FileUpload;
 using TicketPlatFormServer.Services.Token;
 
@@ -20,6 +21,7 @@ public class UserService : IUserService
     private readonly ITokenService _tokenService;
     private readonly IRefreshTokenRepository _refreshTokenRepo;
     private readonly IFileUploadService _fileUploadService;
+    private readonly IEmailService _emailService;
     private readonly ILogger<UserService> _logger;
 
     // Flutter 팀 요구사항: 프로필 이미지 형식 및 크기 제한
@@ -37,12 +39,14 @@ public class UserService : IUserService
         ITokenService tokenService,
         IRefreshTokenRepository refreshTokenRepo,
         IFileUploadService fileUploadService,
+        IEmailService emailService,
         ILogger<UserService> logger)
     {
         _repo = repo;
         _tokenService = tokenService;
         _refreshTokenRepo = refreshTokenRepo;
         _fileUploadService = fileUploadService;
+        _emailService = emailService;
         _logger = logger;
     }
     public async Task<RegisterUserRespDto> RegisterUser(RegisterUserReqDto dto)
@@ -624,6 +628,33 @@ public class UserService : IUserService
 
         var maskedEmail = MaskEmail(user.Email);
         return new FindIdResDto { MaskedEmail = maskedEmail };
+    }
+
+    public async Task ForgotPasswordAsync(string email)
+    {
+        var normalizedEmail = email.Trim();
+        var user = await _repo.GetByEmail(normalizedEmail);
+        if (user == null)
+        {
+            throw new AppException("일치하는 계정을 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        if (string.IsNullOrEmpty(user.PasswordHash))
+        {
+            throw new AppException("소셜 로그인 계정은 비밀번호 재설정이 불가능합니다. 해당 소셜 서비스를 이용해주세요.", HttpStatusCode.BadRequest);
+        }
+
+        var tempPassword = Guid.NewGuid().ToString("N")[..10];
+        var tempPasswordHash = BCrypt.Net.BCrypt.HashPassword(tempPassword);
+
+        var affectedRows = await _repo.UpdatePasswordHashAsync(user.Id, tempPasswordHash);
+        if (affectedRows != 1)
+        {
+            throw new AppException("비밀번호 업데이트에 실패했습니다.", HttpStatusCode.InternalServerError);
+        }
+
+        await _emailService.SendTemporaryPasswordEmailAsync(normalizedEmail, tempPassword);
+        _logger.LogInformation("임시 비밀번호 발급 완료: {Email}", normalizedEmail);
     }
 
     /// <summary>

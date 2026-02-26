@@ -168,7 +168,20 @@ namespace TicketPlatFormServer.Controllers
             return Ok(resp);
         }
 
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordReqDto dto)
+        {
+            await _userService.ForgotPasswordAsync(dto.Email);
+
+            ApiResponse<string> resp = new ApiResponse<string>(
+                message: "임시 비밀번호가 이메일로 발송되었습니다.",
+                data: null,
+                statusCode: 200
+            );
+
+            return Ok(resp);
+        }
+
 
     }
 }
-
