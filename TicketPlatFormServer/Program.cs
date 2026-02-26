@@ -24,6 +24,7 @@ using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Repository.Users;
 using TicketPlatFormServer.Repository.Reputation;
 using TicketPlatFormServer.Repository.Sell;
+using TicketPlatFormServer.Repository.Search;
 using TicketPlatFormServer.Services.BackgroundServices;
 using TicketPlatFormServer.Services.Auth;
 using TicketPlatFormServer.Services.Chat;
@@ -45,6 +46,7 @@ using TicketPlatFormServer.Services.Reputation;
 using TicketPlatFormServer.Services.Storage;
 using TicketPlatFormServer.Services.Sell;
 using TicketPlatFormServer.Services.Email;
+using TicketPlatFormServer.Services.Search;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -319,6 +321,8 @@ builder.Services.AddScoped<IReputationService, ReputationService>();
 // Sell 서비스
 builder.Services.AddScoped<ISellRepository, SellRepository>();
 builder.Services.AddScoped<ISellService, SellService>();
+builder.Services.AddScoped<ISearchRepository, SearchRepository>();
+builder.Services.AddScoped<ISearchService, SearchService>();
 
 // Chat 서비스
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
