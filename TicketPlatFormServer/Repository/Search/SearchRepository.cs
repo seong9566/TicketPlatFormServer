@@ -38,10 +38,9 @@ public class SearchRepository(IDbConnection dapper) : ISearchRepository
             e.title AS EventTitle,
             t.price AS Price,
             TRIM(CONCAT_WS(' ', esg.name_ko, esa.area_name, t.`row`)) AS SeatInfo,
-            ts.name_ko AS Status
+            CAST(t.status_id AS CHAR) AS Status
         FROM tickets t
         INNER JOIN events e ON t.event_id = e.id
-        LEFT JOIN ticket_status ts ON t.status_id = ts.id
         LEFT JOIN event_seat_grades esg ON t.seat_grade_id = esg.id
         LEFT JOIN event_seat_areas esa ON t.area_id = esa.id
         WHERE t.deleted_at IS NULL

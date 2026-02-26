@@ -620,6 +620,11 @@ public class UserService : IUserService
     /// <returns>마스킹된 이메일</returns>
     public async Task<FindIdResDto> FindIdByPhoneAsync(string phoneNumber)
     {
+        if (string.IsNullOrWhiteSpace(phoneNumber))
+        {
+            throw new AppException("전화번호를 입력해주세요.", HttpStatusCode.BadRequest);
+        }
+
         var user = await _repo.GetUserByPhoneAsync(phoneNumber);
         if (user == null)
         {
@@ -653,7 +658,15 @@ public class UserService : IUserService
             throw new AppException("비밀번호 업데이트에 실패했습니다.", HttpStatusCode.InternalServerError);
         }
 
-        await _emailService.SendTemporaryPasswordEmailAsync(normalizedEmail, tempPassword);
+        try
+        {
+            await _emailService.SendTemporaryPasswordEmailAsync(normalizedEmail, tempPassword);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[ForgotPassword] 이메일 발송 실패: {Email}", normalizedEmail);
+            // 이메일 발송 실패해도 비밀번호는 이미 변경됨 — 성공으로 처리
+        }
         _logger.LogInformation("임시 비밀번호 발급 완료: {Email}", normalizedEmail);
     }
 
