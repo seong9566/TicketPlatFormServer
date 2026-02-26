@@ -44,6 +44,7 @@ using TicketPlatFormServer.Services.User;
 using TicketPlatFormServer.Services.Reputation;
 using TicketPlatFormServer.Services.Storage;
 using TicketPlatFormServer.Services.Sell;
+using TicketPlatFormServer.Services.Email;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -344,6 +345,10 @@ builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionSer
         ?? throw new InvalidOperationException("Encryption:MasterKey is not configured");
     return new TicketPlatFormServer.Services.Common.EncryptionService(encryptionKey);
 });
+
+// Email 서비스
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 // Background 서비스
 builder.Services.AddHostedService<ChatCleanupService>();
