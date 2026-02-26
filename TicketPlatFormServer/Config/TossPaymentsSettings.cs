@@ -53,6 +53,18 @@ public class TossPaymentsSettings
 
     public int SettlementProcessingIntervalMinutes { get; set; } = 5;
 
+    public int WithdrawalFee { get; set; } = 0;
+
+    public int MaxDailyWithdrawals { get; set; } = 3;
+
+    public long MaxDailyWithdrawalAmount { get; set; } = 5_000_000;
+
+    public long MinWithdrawalAmount { get; set; } = 1_000;
+
+    public int WithdrawalProcessingIntervalMinutes { get; set; } = 5;
+
+    public int MaxWithdrawalRetryCount { get; set; } = 3;
+
     public int VerificationCodeExpiryMinutes { get; set; } = 5;
 
     public int MaxVerificationAttempts { get; set; } = 3;
