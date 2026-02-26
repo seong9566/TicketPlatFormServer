@@ -64,14 +64,4 @@ public class TossPaymentsSettings
     public int WithdrawalProcessingIntervalMinutes { get; set; } = 5;
 
     public int MaxWithdrawalRetryCount { get; set; } = 3;
-
-    public int VerificationCodeExpiryMinutes { get; set; } = 5;
-
-    public int MaxVerificationAttempts { get; set; } = 3;
-
-    public string BankVerificationProvider { get; set; } = "Custom";
-
-    public bool BankVerificationFallbackEnabled { get; set; } = true;
-
-    public int BankVerificationTimeoutSeconds { get; set; } = 10;
 }

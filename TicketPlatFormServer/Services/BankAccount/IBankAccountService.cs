@@ -9,8 +9,4 @@ public interface IBankAccountService
     Task<BankAccountResponseDto?> GetMyBankAccountAsync(long userId);
 
     Task DeleteBankAccountAsync(long userId);
-
-    Task<RequestVerificationResponseDto> RequestVerificationAsync(long userId);
-
-    Task<VerifyAccountResponseDto> ConfirmVerificationAsync(VerifyAccountRequestDto request, long userId);
 }

@@ -335,10 +335,6 @@ builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IBalanceService, BalanceService>();
 builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
 builder.Services.AddScoped<IWithdrawalService, WithdrawalService>();
-builder.Services.AddScoped<CustomBankVerificationProvider>();
-builder.Services.AddScoped<TossBankVerificationProvider>();
-builder.Services.AddScoped<HybridBankVerificationProvider>();
-builder.Services.AddScoped<IBankAccountVerificationProviderFactory, BankAccountVerificationProviderFactory>();
 builder.Services.AddScoped<ISettlementService, SettlementService>();
 
 // Encryption 서비스

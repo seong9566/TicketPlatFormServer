@@ -51,30 +51,4 @@ public class BankAccountController(IBankAccountService bankAccountService) : Con
         await bankAccountService.DeleteBankAccountAsync(userId.Value);
         return Ok(new ApiResponse<object?>("계좌 삭제가 완료되었습니다.", null, 200));
     }
-
-    [HttpPost("verify/request")]
-    public async Task<IActionResult> RequestVerification()
-    {
-        var userId = User.GetUserId();
-        if (userId == null)
-        {
-            throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
-        }
-
-        var data = await bankAccountService.RequestVerificationAsync(userId.Value);
-        return Ok(new ApiResponse<RequestVerificationResponseDto>("계좌 인증 요청이 완료되었습니다.", data, 200));
-    }
-
-    [HttpPost("verify/confirm")]
-    public async Task<IActionResult> ConfirmVerification([FromBody] VerifyAccountRequestDto request)
-    {
-        var userId = User.GetUserId();
-        if (userId == null)
-        {
-            throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
-        }
-
-        var data = await bankAccountService.ConfirmVerificationAsync(request, userId.Value);
-        return Ok(new ApiResponse<VerifyAccountResponseDto>("계좌 인증이 완료되었습니다.", data, 200));
-    }
 }
