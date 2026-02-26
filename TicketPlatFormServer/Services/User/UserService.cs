@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DTO;
 using TicketPlatFormServer.DTO.User;
@@ -19,6 +20,7 @@ public class UserService : IUserService
     private readonly ITokenService _tokenService;
     private readonly IRefreshTokenRepository _refreshTokenRepo;
     private readonly IFileUploadService _fileUploadService;
+    private readonly ILogger<UserService> _logger;
 
     // Flutter 팀 요구사항: 프로필 이미지 형식 및 크기 제한
     private static readonly HashSet<string> AllowedProfileExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -34,12 +36,14 @@ public class UserService : IUserService
         IUserRepository repo,
         ITokenService tokenService,
         IRefreshTokenRepository refreshTokenRepo,
-        IFileUploadService fileUploadService)
+        IFileUploadService fileUploadService,
+        ILogger<UserService> logger)
     {
         _repo = repo;
         _tokenService = tokenService;
         _refreshTokenRepo = refreshTokenRepo;
         _fileUploadService = fileUploadService;
+        _logger = logger;
     }
     public async Task<RegisterUserRespDto> RegisterUser(RegisterUserReqDto dto)
     {
@@ -317,7 +321,7 @@ public class UserService : IUserService
             {
                 // Signed URL 생성 실패 시 로그만 남기고 null 반환 (프로필 조회 자체는 성공)
                 // 파일이 Supabase에 없거나 버킷 설정이 잘못된 경우 발생 가능
-                Console.WriteLine($"[Warning] Failed to generate signed URL for profile image: {profile.ProfileImageUrl}, Error: {ex.Message}");
+                _logger.LogWarning("프로필 이미지 서명 URL 생성 실패: {ImageUrl}, 오류: {Error}", profile.ProfileImageUrl, ex.Message);
                 profileImageUrl = null;
             }
         }
@@ -471,23 +475,24 @@ public class UserService : IUserService
                 {
                     // 이미지 삭제 실패는 로그만 남기고 계속 진행 (DB는 이미 업데이트됨)
                     // TODO: 주기적 정리 작업으로 고아 파일 제거 필요
-                    Console.WriteLine($"[Warning] Failed to delete old profile image: {oldImageKey}, Error: {ex.Message}");
+                    _logger.LogWarning("이전 프로필 이미지 삭제 실패: {ImageKey}, 오류: {Error}", oldImageKey, ex.Message);
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
             // 7. DB 저장 실패 시 보상 처리: 새로 업로드한 이미지 삭제
+            _logger.LogError(ex, "프로필 업데이트 중 오류 발생");
             if (newImageKey != null)
             {
                 try
                 {
                     await _fileUploadService.DeleteFileAsync(newImageKey);
                 }
-                catch (Exception ex)
+                catch (Exception deleteEx)
                 {
                     // 보상 처리 실패도 로그만 남김
-                    Console.WriteLine($"[Warning] Failed to rollback uploaded image: {newImageKey}, Error: {ex.Message}");
+                    _logger.LogError(deleteEx, "보상 처리 중 이미지 삭제 실패");
                 }
             }
             throw;
