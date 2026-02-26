@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using MySqlConnector;
 
 namespace TicketPlatFormServer.Repository.Withdrawal;
 
-public class WithdrawalRepository(TicketContext context) : IWithdrawalRepository
+public class WithdrawalRepository(TicketContext context, ILogger<WithdrawalRepository> logger) : IWithdrawalRepository
 {
     public async Task<DBModel.Withdrawal?> GetByIdAsync(long id)
     {
@@ -74,18 +75,46 @@ public class WithdrawalRepository(TicketContext context) : IWithdrawalRepository
 
     public async Task<List<DBModel.Withdrawal>> GetPendingWithdrawalsAsync()
     {
-        return await context.Withdrawals
-            .Where(x => x.Status.Code == "requested")
-            .Include(x => x.Status)
-            .Include(x => x.BankAccount)
-            .Include(x => x.User)
-            .OrderBy(x => x.RequestedAt)
-            .ToListAsync();
+        try
+        {
+            return await context.Withdrawals
+                .Where(x => x.Status.Code == "requested")
+                .Include(x => x.Status)
+                .Include(x => x.BankAccount)
+                .Include(x => x.User)
+                .OrderBy(x => x.RequestedAt)
+                .ToListAsync();
+        }
+        catch (MySqlException ex) when (ex.Number == 1146
+            && ex.Message.Contains("withdrawal", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(ex, "[WithdrawalRepository.GetPendingWithdrawalsAsync] withdrawal 관련 테이블이 없어 빈 목록 반환");
+            return new List<DBModel.Withdrawal>();
+        }
     }
 
     public async Task<DBModel.WithdrawalStatus?> GetStatusByCodeAsync(string code)
     {
-        return await context.WithdrawalStatuses.FirstOrDefaultAsync(x => x.Code == code);
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return null;
+        }
+
+        var trimmedCode = code.Trim();
+        var normalizedCode = trimmedCode.ToUpperInvariant();
+
+        try
+        {
+            return await context.WithdrawalStatuses
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Code == normalizedCode || x.Code == trimmedCode);
+        }
+        catch (MySqlException ex) when (ex.Number == 1146
+            && ex.Message.Contains("withdrawal_status", StringComparison.OrdinalIgnoreCase))
+        {
+            logger.LogWarning(ex, "[WithdrawalRepository.GetStatusByCodeAsync] withdrawal_status 테이블이 없어 null 반환");
+            return null;
+        }
     }
 
     public async Task AddAsync(DBModel.Withdrawal withdrawal)

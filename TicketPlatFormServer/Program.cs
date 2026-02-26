@@ -363,6 +363,8 @@ builder.Services.AddHostedService<WithdrawalProcessingService>();
 
 var app = builder.Build();
 
+await EnsureWithdrawalSchemaAsync(app.Services);
+
 // Exception 미들 웨어 추가 
 // 자동으로 클라이언트의 요청에 대한 로직이 처리 미들웨어를 거치도록 됌.
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -405,3 +407,102 @@ app.MapControllerRoute(
 app.MapHub<ChatHub>("/hubs/chat");
 
 app.Run();
+
+static async Task EnsureWithdrawalSchemaAsync(IServiceProvider services)
+{
+    using var scope = services.CreateScope();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var context = scope.ServiceProvider.GetRequiredService<TicketContext>();
+
+    try
+    {
+        const string createUserBalanceSql = @"
+CREATE TABLE IF NOT EXISTS user_balance (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    available BIGINT NOT NULL DEFAULT 0,
+    pending BIGINT NOT NULL DEFAULT 0,
+    total_earned BIGINT NOT NULL DEFAULT 0,
+    total_withdrawn BIGINT NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_user_balance_user_id (user_id),
+    KEY idx_user_balance_user_id (user_id)
+);";
+
+        const string createBalanceTransactionsSql = @"
+CREATE TABLE IF NOT EXISTS balance_transactions (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    type VARCHAR(32) NOT NULL,
+    amount BIGINT NOT NULL,
+    balance_after BIGINT NOT NULL,
+    reference_type VARCHAR(50) NULL,
+    reference_id BIGINT NULL,
+    description TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_balance_transactions_user_id (user_id),
+    KEY idx_balance_transactions_reference (reference_type, reference_id)
+);";
+
+        const string createTableSql = @"
+CREATE TABLE IF NOT EXISTS withdrawal_status (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    code VARCHAR(32) NOT NULL,
+    name_ko VARCHAR(64) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_withdrawal_status_code (code)
+);";
+
+        const string createWithdrawalSql = @"
+CREATE TABLE IF NOT EXISTS withdrawal (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    bank_account_id BIGINT NOT NULL,
+    amount BIGINT NOT NULL,
+    fee BIGINT NOT NULL DEFAULT 0,
+    net_amount BIGINT NOT NULL,
+    status_id BIGINT NOT NULL,
+    idempotency_key VARCHAR(100) NULL,
+    payout_id VARCHAR(100) NULL,
+    failure_reason TEXT NULL,
+    retry_count INT NULL DEFAULT 0,
+    requested_at DATETIME NOT NULL,
+    processed_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_withdrawal_idempotency_key (idempotency_key),
+    KEY idx_withdrawal_user_id (user_id),
+    KEY idx_withdrawal_bank_account_id (bank_account_id),
+    KEY idx_withdrawal_status_id (status_id),
+    CONSTRAINT fk_withdrawal_status FOREIGN KEY (status_id) REFERENCES withdrawal_status (id),
+    CONSTRAINT fk_withdrawal_bank_account FOREIGN KEY (bank_account_id) REFERENCES bank_account (id)
+);";
+
+        const string seedSql = @"
+INSERT INTO withdrawal_status (id, code, name_ko)
+VALUES
+    (1, 'REQUESTED', '요청됨'),
+    (2, 'PROCESSING', '처리중'),
+    (3, 'COMPLETED', '완료됨'),
+    (4, 'FAILED', '실패'),
+    (5, 'CANCELLED', '취소됨')
+ON DUPLICATE KEY UPDATE
+    name_ko = VALUES(name_ko);";
+
+        await context.Database.ExecuteSqlRawAsync(createUserBalanceSql);
+        await context.Database.ExecuteSqlRawAsync(createBalanceTransactionsSql);
+        await context.Database.ExecuteSqlRawAsync(createTableSql);
+        await context.Database.ExecuteSqlRawAsync(createWithdrawalSql);
+        await context.Database.ExecuteSqlRawAsync(seedSql);
+
+        logger.LogInformation("[Startup] balance/withdrawal 테이블 및 withdrawal_status 시드 확인 완료");
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "[Startup] withdrawal_status 테이블 초기화 실패");
+    }
+}
