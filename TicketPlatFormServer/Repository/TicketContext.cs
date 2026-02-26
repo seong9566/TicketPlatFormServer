@@ -35,6 +35,8 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<BankAccount> BankAccounts { get; set; }
 
+    public virtual DbSet<BalanceTransaction> BalanceTransactions { get; set; }
+
     public virtual DbSet<ChatMessage> ChatMessages { get; set; }
 
     public virtual DbSet<ChatMessageImage> ChatMessageImages { get; set; }
@@ -137,6 +139,8 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<User> Users { get; set; }
 
+    public virtual DbSet<UserBalance> UserBalances { get; set; }
+
     public virtual DbSet<UserFavorite> UserFavorites { get; set; }
 
     public virtual DbSet<UserProfile> UserProfiles { get; set; }
@@ -144,6 +148,10 @@ public partial class TicketContext : DbContext
     public virtual DbSet<UserReputation> UserReputations { get; set; }
 
     public virtual DbSet<UserVerification> UserVerifications { get; set; }
+
+    public virtual DbSet<Withdrawal> Withdrawals { get; set; }
+
+    public virtual DbSet<WithdrawalStatus> WithdrawalStatuses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -2018,6 +2026,155 @@ public partial class TicketContext : DbContext
                 .HasMaxLength(64)
                 .HasColumnName("name_ko");
             entity.Property(e => e.SortOrder).HasColumnName("sort_order");
+        });
+
+        modelBuilder.Entity<UserBalance>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("user_balance", tb => tb.HasComment("사용자 잔고 정보 테이블"));
+
+            entity.HasIndex(e => e.UserId, "idx_user_balance_user_id");
+
+            entity.HasIndex(e => e.UserId, "uq_user_balance_user_id").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Available).HasColumnName("available");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.Pending).HasColumnName("pending");
+            entity.Property(e => e.TotalEarned).HasColumnName("total_earned");
+            entity.Property(e => e.TotalWithdrawn).HasColumnName("total_withdrawn");
+            entity.Property(e => e.UpdatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("updated_at");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_user_balance_user");
+        });
+
+        modelBuilder.Entity<BalanceTransaction>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("balance_transactions", tb => tb.HasComment("잔고 거래 내역 테이블"));
+
+            entity.HasIndex(e => new { e.ReferenceType, e.ReferenceId }, "idx_balance_transactions_reference");
+
+            entity.HasIndex(e => e.UserId, "idx_balance_transactions_user_id");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Amount).HasColumnName("amount");
+            entity.Property(e => e.BalanceAfter).HasColumnName("balance_after");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.Description)
+                .HasColumnType("text")
+                .HasColumnName("description");
+            entity.Property(e => e.ReferenceId).HasColumnName("reference_id");
+            entity.Property(e => e.ReferenceType)
+                .HasMaxLength(50)
+                .HasColumnName("reference_type");
+            entity.Property(e => e.Type)
+                .HasMaxLength(32)
+                .HasColumnName("type");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_balance_transactions_user");
+        });
+
+        modelBuilder.Entity<WithdrawalStatus>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("withdrawal_status", tb => tb.HasComment("출금 상태 코드 테이블"));
+
+            entity.HasIndex(e => e.Code, "uq_withdrawal_status_code").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Code)
+                .HasMaxLength(32)
+                .HasColumnName("code");
+            entity.Property(e => e.NameKo)
+                .HasMaxLength(64)
+                .HasColumnName("name_ko");
+        });
+
+        modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("PRIMARY");
+
+            entity.ToTable("withdrawal", tb => tb.HasComment("출금 요청 정보 테이블"));
+
+            entity.HasIndex(e => e.BankAccountId, "idx_withdrawal_bank_account_id");
+
+            entity.HasIndex(e => e.StatusId, "idx_withdrawal_status_id");
+
+            entity.HasIndex(e => e.UserId, "idx_withdrawal_user_id");
+
+            entity.HasIndex(e => e.IdempotencyKey, "uq_withdrawal_idempotency_key").IsUnique();
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Amount).HasColumnName("amount");
+            entity.Property(e => e.BankAccountId).HasColumnName("bank_account_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("created_at");
+            entity.Property(e => e.FailureReason)
+                .HasColumnType("text")
+                .HasColumnName("failure_reason");
+            entity.Property(e => e.Fee).HasColumnName("fee");
+            entity.Property(e => e.IdempotencyKey)
+                .HasMaxLength(100)
+                .HasColumnName("idempotency_key");
+            entity.Property(e => e.NetAmount).HasColumnName("net_amount");
+            entity.Property(e => e.PayoutId)
+                .HasMaxLength(100)
+                .HasColumnName("payout_id");
+            entity.Property(e => e.ProcessedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("processed_at");
+            entity.Property(e => e.RequestedAt)
+                .HasColumnType("datetime")
+                .HasColumnName("requested_at");
+            entity.Property(e => e.RetryCount)
+                .HasDefaultValueSql("'0'")
+                .HasColumnName("retry_count");
+            entity.Property(e => e.StatusId).HasColumnName("status_id");
+            entity.Property(e => e.UpdatedAt)
+                .ValueGeneratedOnAddOrUpdate()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp")
+                .HasColumnName("updated_at");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+
+            entity.HasOne(d => d.BankAccount).WithMany()
+                .HasForeignKey(d => d.BankAccountId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_withdrawal_bank_account");
+
+            entity.HasOne(d => d.Status).WithMany(p => p.Withdrawals)
+                .HasForeignKey(d => d.StatusId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_withdrawal_status");
+
+            entity.HasOne(d => d.User).WithMany()
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_withdrawal_user");
         });
 
         modelBuilder.Entity<TicketEntity>(entity =>
