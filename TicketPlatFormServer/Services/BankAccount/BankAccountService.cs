@@ -56,27 +56,6 @@ public class BankAccountService(
         return bankAccount == null ? null : ToResponse(bankAccount);
     }
 
-    public async Task<UnmaskedAccountResponseDto> GetUnmaskedAccountNumberAsync(long userId)
-    {
-        var bankAccount = await bankAccountRepository.GetBankAccountByUserIdAsync(userId);
-        if (bankAccount == null)
-        {
-            throw new AppException("등록된 계좌가 없습니다.", HttpStatusCode.NotFound);
-        }
-
-        if (bankAccount.Verified != true)
-        {
-            throw new AppException("인증된 계좌만 조회 가능", HttpStatusCode.BadRequest);
-        }
-
-        return new UnmaskedAccountResponseDto
-        {
-            AccountNumber = bankAccount.AccountNumber ?? string.Empty,
-            BankName = bankAccount.BankName ?? string.Empty,
-            BankCode = bankAccount.BankCode ?? string.Empty,
-            AccountHolder = bankAccount.AccountHolder ?? string.Empty,
-        };
-    }
 
     public async Task DeleteBankAccountAsync(long userId)
     {
@@ -214,21 +193,11 @@ public class BankAccountService(
             Id = bankAccount.Id,
             BankName = bankAccount.BankName ?? string.Empty,
             BankCode = bankAccount.BankCode ?? string.Empty,
-            AccountNumber = MaskAccountNumber(bankAccount.AccountNumber ?? string.Empty),
+            AccountNumber = bankAccount.AccountNumber ?? string.Empty,
             AccountHolder = bankAccount.AccountHolder ?? string.Empty,
             Verified = bankAccount.Verified == true,
             VerifiedAt = bankAccount.VerifiedAt
         };
     }
 
-    private static string MaskAccountNumber(string accountNumber)
-    {
-        if (string.IsNullOrWhiteSpace(accountNumber) || accountNumber.Length <= 4)
-        {
-            return "****";
-        }
-
-        var visible = accountNumber[^4..];
-        return new string('*', Math.Max(0, accountNumber.Length - 4)) + visible;
-    }
 }

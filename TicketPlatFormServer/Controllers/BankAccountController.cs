@@ -39,19 +39,6 @@ public class BankAccountController(IBankAccountService bankAccountService) : Con
         return Ok(new ApiResponse<BankAccountResponseDto?>("계좌 조회가 완료되었습니다.", data, 200));
     }
 
-    [HttpGet("unmasked")]
-    public async Task<IActionResult> GetUnmaskedAccountNumber()
-    {
-        var userId = User.GetUserId();
-        if (userId == null)
-        {
-            throw new AppException("인증 정보가 없습니다.", HttpStatusCode.Unauthorized);
-        }
-
-        var data = await bankAccountService.GetUnmaskedAccountNumberAsync(userId.Value);
-        return Ok(new ApiResponse<UnmaskedAccountResponseDto>("계좌번호 조회가 완료되었습니다.", data, 200));
-    }
-
     [HttpDelete]
     public async Task<IActionResult> DeleteBankAccount()
     {
