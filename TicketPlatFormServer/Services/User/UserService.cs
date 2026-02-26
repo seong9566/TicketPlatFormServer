@@ -608,6 +608,46 @@ public class UserService : IUserService
         }
     }
 
+
+    /// <summary>
+    /// 전화번호로 아이디(이메일) 찾기
+    /// </summary>
+    /// <param name="phoneNumber">전화번호</param>
+    /// <returns>마스킹된 이메일</returns>
+    public async Task<FindIdResDto> FindIdByPhoneAsync(string phoneNumber)
+    {
+        var user = await _repo.GetUserByPhoneAsync(phoneNumber);
+        if (user == null)
+        {
+            throw new AppException("일치하는 계정을 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        var maskedEmail = MaskEmail(user.Email);
+        return new FindIdResDto { MaskedEmail = maskedEmail };
+    }
+
+    /// <summary>
+    /// 이메일 앞 2글자 보존 + *** + @도메인 형태로 마스킹
+    /// </summary>
+    private static string MaskEmail(string email)
+    {
+        var atIndex = email.IndexOf('@');
+        if (atIndex < 0)
+        {
+            return "***";
+        }
+
+        var localPart = email[..atIndex];
+        var domainPart = email[atIndex..]; // @ 포함
+
+        if (localPart.Length <= 2)
+        {
+            return new string('*', localPart.Length) + domainPart;
+        }
+
+        return localPart[..2] + "***" + domainPart;
+    }
+
     private static string ResolveSocialEmail(string providerCode, SocialUserInfoDto socialUserInfo)
     {
         var candidate = socialUserInfo.Email?.Trim();

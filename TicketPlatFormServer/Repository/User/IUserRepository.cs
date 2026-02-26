@@ -89,4 +89,12 @@ public interface IUserRepository
     /// <param name="ct">취소 토큰</param>
     /// <returns>영향받은 행 수 (0 또는 1)</returns>
     Task<int> UpdatePasswordHashAsync(int userId, string passwordHash, CancellationToken ct = default);
+
+    /// <summary>
+    /// 전화번호로 사용자 조회
+    /// </summary>
+    /// <param name="phone">전화번호</param>
+    /// <returns>User 엔티티 (없으면 null)</returns>
+    Task<User?> GetUserByPhoneAsync(string phone);
+
 }

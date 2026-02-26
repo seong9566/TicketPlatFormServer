@@ -58,4 +58,12 @@ public interface IUserService
     Task ChangePasswordAsync(int userId, string currentPassword, string newPassword, string? tokenEmail);
 
     Task<SocialLoginRespDto> SocialLoginAsync(string providerCode, SocialUserInfoDto socialUserInfo);
+
+    /// <summary>
+    /// 전화번호로 아이디(이메일) 찾기
+    /// </summary>
+    /// <param name="phoneNumber">전화번호</param>
+    /// <returns>마스킹된 이메일</returns>
+    Task<FindIdResDto> FindIdByPhoneAsync(string phoneNumber);
+
 }

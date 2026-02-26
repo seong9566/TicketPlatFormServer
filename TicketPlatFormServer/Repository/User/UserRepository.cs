@@ -169,4 +169,16 @@ public class UserRepository(TicketContext db) : IUserRepository
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(u => u.PasswordHash, passwordHash), ct);
     }
+
+    /// <summary>
+    /// 전화번호로 사용자 조회
+    /// </summary>
+    /// <param name="phone">전화번호</param>
+    /// <returns>User 엔티티 (없으면 null)</returns>
+    public async Task<User?> GetUserByPhoneAsync(string phone)
+    {
+        return await db.Users
+            .FirstOrDefaultAsync(x => x.Phone == phone && x.IsDeleted == false);
+    }
+
 } 

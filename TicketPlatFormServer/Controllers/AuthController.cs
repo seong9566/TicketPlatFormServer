@@ -150,6 +150,25 @@ namespace TicketPlatFormServer.Controllers
             return Ok(resp);
         }
 
+        /// <summary>
+        /// 전화번호로 아이디(이메일) 찾기
+        /// </summary>
+        /// <param name="dto">전화번호</param>
+        /// <returns>마스킹된 이메일</returns>
+        [HttpPost("find-id")]
+        public async Task<IActionResult> FindId([FromBody] FindIdReqDto dto)
+        {
+            var result = await _userService.FindIdByPhoneAsync(dto.PhoneNumber);
+            ApiResponse<FindIdResDto> resp = new ApiResponse<FindIdResDto>(
+                message: "아이디 찾기 성공",
+                data: result,
+                statusCode: 200
+            );
+
+            return Ok(resp);
+        }
+
+
     }
 }
 
