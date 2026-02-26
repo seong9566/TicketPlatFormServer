@@ -5,6 +5,8 @@ namespace TicketPlatFormServer.Repository.BankAccounts;
 
 public interface IBankAccountRepository
 {
+    Task<BankAccount?> GetByIdAndUserIdAsync(long id, long userId);
+
     Task<BankAccount?> GetBankAccountByUserIdAsync(long userId);
 
     Task<BankAccount?> GetVerifiedBankAccountByUserIdAsync(long userId);

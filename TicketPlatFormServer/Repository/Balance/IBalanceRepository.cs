@@ -10,6 +10,14 @@ public interface IBalanceRepository
 
     Task<int> AtomicCreditAsync(long userId, long amount);
 
+    Task<int> AtomicPendingCreditAsync(long userId, long amount);
+
+    Task<int> AtomicPendingDebitAsync(long userId, long amount);
+
+    Task<List<DBModel.BalanceTransaction>> GetByUserIdAsync(long userId, int page, int pageSize);
+
+    Task<int> GetTransactionCountByUserIdAsync(long userId);
+
     Task AddTransactionAsync(DBModel.BalanceTransaction transaction);
 
     Task SaveChangesAsync();

@@ -5,6 +5,13 @@ namespace TicketPlatFormServer.Repository.BankAccounts;
 
 public class BankAccountRepository(TicketContext context) : IBankAccountRepository
 {
+    public async Task<BankAccount?> GetByIdAndUserIdAsync(long id, long userId)
+    {
+        return await context.BankAccounts
+            .Where(x => x.Id == id && x.UserId == userId)
+            .FirstOrDefaultAsync();
+    }
+
     public async Task<BankAccount?> GetBankAccountByUserIdAsync(long userId)
     {
         return await context.BankAccounts

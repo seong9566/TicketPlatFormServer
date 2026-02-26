@@ -149,7 +149,7 @@ public partial class TicketContext : DbContext
 
     public virtual DbSet<UserVerification> UserVerifications { get; set; }
 
-    public virtual DbSet<Withdrawal> Withdrawals { get; set; }
+    public virtual DbSet<DBModel.Withdrawal> Withdrawals { get; set; }
 
     public virtual DbSet<WithdrawalStatus> WithdrawalStatuses { get; set; }
 
@@ -2112,7 +2112,7 @@ public partial class TicketContext : DbContext
                 .HasColumnName("name_ko");
         });
 
-        modelBuilder.Entity<Withdrawal>(entity =>
+        modelBuilder.Entity<DBModel.Withdrawal>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("PRIMARY");
 

@@ -58,6 +58,48 @@ WHERE user_id = @userId";
             new MySqlParameter("@userId", userId));
     }
 
+    public async Task<int> AtomicPendingCreditAsync(long userId, long amount)
+    {
+        const string sql = @"
+UPDATE user_balance
+SET pending = pending + @amount
+WHERE user_id = @userId";
+
+        return await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@amount", amount),
+            new MySqlParameter("@userId", userId));
+    }
+
+    public async Task<int> AtomicPendingDebitAsync(long userId, long amount)
+    {
+        const string sql = @"
+UPDATE user_balance
+SET pending = pending - @amount
+WHERE user_id = @userId
+  AND pending >= @amount";
+
+        return await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@amount", amount),
+            new MySqlParameter("@userId", userId));
+    }
+
+    public async Task<List<DBModel.BalanceTransaction>> GetByUserIdAsync(long userId, int page, int pageSize)
+    {
+        var skip = (page - 1) * pageSize;
+
+        return await context.BalanceTransactions
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
+            .ToListAsync();
+    }
+
+    public async Task<int> GetTransactionCountByUserIdAsync(long userId)
+    {
+        return await context.BalanceTransactions.CountAsync(x => x.UserId == userId);
+    }
+
     public async Task AddTransactionAsync(DBModel.BalanceTransaction transaction)
     {
         await context.BalanceTransactions.AddAsync(transaction);
