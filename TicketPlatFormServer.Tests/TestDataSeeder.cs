@@ -27,11 +27,10 @@ public class TestDataSeeder
         var phone = $"010{new Random().Next(10000000, 99999999)}";
 
         await using var cmd = new MySqlCommand(@"
-            INSERT INTO users (email, password_hash, role, phone, created_at, updated_at)
-            VALUES (@email, @hash, @role, @phone, NOW(), NOW())", _conn);
+            INSERT INTO users (email, password_hash, phone, created_at)
+            VALUES (@email, @hash, @phone, NOW())", _conn);
         cmd.Parameters.AddWithValue("@email", email);
         cmd.Parameters.AddWithValue("@hash", hashedPassword);
-        cmd.Parameters.AddWithValue("@role", role);
         cmd.Parameters.AddWithValue("@phone", phone);
         await cmd.ExecuteNonQueryAsync();
 
@@ -39,8 +38,8 @@ public class TestDataSeeder
 
         // Create user_profile
         await using var profileCmd = new MySqlCommand(@"
-            INSERT INTO user_profile (user_id, nickname, created_at, updated_at)
-            VALUES (@userId, @nickname, NOW(), NOW())", _conn);
+            INSERT INTO user_profile (user_id, nickname)
+            VALUES (@userId, @nickname)", _conn);
         profileCmd.Parameters.AddWithValue("@userId", userId);
         profileCmd.Parameters.AddWithValue("@nickname", $"TestUser{userId}");
         await profileCmd.ExecuteNonQueryAsync();
