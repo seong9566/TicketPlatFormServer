@@ -56,7 +56,7 @@ public class PaymentFlowTests : IClassFixture<TestWebApplicationFactory>
     {
         var orderId = $"NONEXISTENT_{Guid.NewGuid():N}";
 
-        TestAuthHelper.AddAuthHeader(_client, userId: 1, email: "buyer@test.com");
+        // No auth needed for this test — clear any existing auth header
         _client.DefaultRequestHeaders.Authorization = null;
         var response = await _client.GetAsync($"/api/payment/order/{orderId}");
 
@@ -75,7 +75,7 @@ public class PaymentFlowTests : IClassFixture<TestWebApplicationFactory>
             CustomerEmail = "buyer@test.com"
         };
 
-        TestAuthHelper.AddAuthHeader(_client, userId: 1, email: "buyer@test.com");
+        // Auth required for payment request
         var response = await _client.PostAsJsonAsync("/api/payment/request", request);
 
         ((int)response.StatusCode).Should().BeInRange(400, 499);

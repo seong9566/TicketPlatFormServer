@@ -38,7 +38,20 @@ public class DisputeFlowTests : IClassFixture<TestWebApplicationFactory>, IAsync
         TestAuthHelper.AddAuthHeader(_client, _userId, _userEmail);
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync()
+    {
+        if (_userId > 0)
+        {
+            await using var conn = new MySqlConnection(TestWebApplicationFactory.TestConnectionString);
+            await conn.OpenAsync();
+            await using var cmd = new MySqlCommand(
+                "DELETE FROM user_profile WHERE user_id = @id; " +
+                "DELETE FROM refresh_tokens WHERE user_id = @id; " +
+                "DELETE FROM users WHERE id = @id;", conn);
+            cmd.Parameters.AddWithValue("@id", _userId);
+            await cmd.ExecuteNonQueryAsync();
+        }
+    }
 
     [Fact]
     public async Task DisputeFlow_GetMyDisputes_Returns200()

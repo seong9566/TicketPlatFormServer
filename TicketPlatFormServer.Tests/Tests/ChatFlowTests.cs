@@ -49,7 +49,24 @@ public class ChatFlowTests : IClassFixture<TestWebApplicationFactory>, IAsyncLif
         SetAuthHeader(_sellerClient, _sellerId, _sellerEmail);
     }
 
-    public Task DisposeAsync() => Task.CompletedTask;
+    public async Task DisposeAsync()
+    {
+        if (_buyerId > 0 || _sellerId > 0)
+        {
+            await using var conn = new MySqlConnection(TestWebApplicationFactory.TestConnectionString);
+            await conn.OpenAsync();
+            var ids = new[] { _buyerId, _sellerId }.Where(id => id > 0).ToArray();
+            if (ids.Length > 0)
+            {
+                var inClause = string.Join(",", ids);
+                await using var cmd = new MySqlCommand(
+                    $"DELETE FROM user_profile WHERE user_id IN ({inClause}); " +
+                    $"DELETE FROM refresh_tokens WHERE user_id IN ({inClause}); " +
+                    $"DELETE FROM users WHERE id IN ({inClause});", conn);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+    }
 
     [Fact]
     public async Task ChatFlow_GetChatRooms_Returns200()
