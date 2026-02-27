@@ -90,17 +90,14 @@ public static class TestDbManager
             throw new InvalidOperationException($"MySQL error applying {Path.GetFileName(filePath)}: {stderr}");
     }
 
-    public static async Task CleanupAsync(MySqlConnection conn)
+    public static async Task CleanupAsync()
     {
-        // Delete test data in FK-safe order
-        // Test users have email like 'test_{guid}@test.com'
-        await using var cmd = conn;
-        if (conn.State != System.Data.ConnectionState.Open)
-            await conn.OpenAsync();
+        await using var conn = new MySqlConnection(
+            $"Server={Host};Port={Port};Database={TestDbName};User={User};Password={Password};SslMode=None;AllowPublicKeyRetrieval=True;");
+        await conn.OpenAsync();
 
         var commands = new[]
         {
-            // Delete dependent records first
             "DELETE pi FROM profile_image pi INNER JOIN users u ON pi.user_id = u.id WHERE u.email LIKE 'test_%@test.com'",
             "DELETE up FROM user_profile up INNER JOIN users u ON up.user_id = u.id WHERE u.email LIKE 'test_%@test.com'",
             "DELETE rt FROM refresh_token rt INNER JOIN users u ON rt.user_id = u.id WHERE u.email LIKE 'test_%@test.com'",
