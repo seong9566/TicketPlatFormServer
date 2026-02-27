@@ -506,3 +506,5 @@ ON DUPLICATE KEY UPDATE
         logger.LogWarning(ex, "[Startup] withdrawal_status 테이블 초기화 실패");
     }
 }
+
+public partial class Program { }
