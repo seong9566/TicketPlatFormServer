@@ -9,6 +9,8 @@ using Microsoft.Extensions.Hosting;
 using MySqlConnector;
 using TicketPlatFormServer;
 using TicketPlatFormServer.Repository;
+using TicketPlatFormServer.Services.Email;
+using TicketPlatFormServer.Tests.Mocks;
 
 namespace TicketPlatFormServer.Tests;
 
@@ -16,6 +18,8 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
 {
     public const string TestConnectionString =
         "Server=127.0.0.1;Port=3306;Database=TicketPlatFormDB_Test;User=root;Password=stecdev1234!;SslMode=None;AllowPublicKeyRetrieval=True;";
+
+    public WireMockSetup WireMock { get; } = new WireMockSetup();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -33,6 +37,10 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IHostedService>();
+
+            // Override IEmailService with no-op (no real SMTP)
+            services.RemoveAll<IEmailService>();
+            services.AddScoped<IEmailService, NoOpEmailService>();
 
             var dbContextDescriptor = services.FirstOrDefault(
                 d => d.ServiceType == typeof(DbContextOptions<TicketContext>));
@@ -76,5 +84,5 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>, IAsyncL
 
     public Task InitializeAsync() => Task.CompletedTask;
 
-    public new Task DisposeAsync() => base.DisposeAsync().AsTask();
+    public new Task DisposeAsync() { WireMock.Dispose(); return base.DisposeAsync().AsTask(); }
 }
