@@ -26,5 +26,4 @@ public partial class UserBalance
 
     public virtual User User { get; set; } = null!;
 
-    public virtual ICollection<BalanceTransaction> BalanceTransactions { get; set; } = new List<BalanceTransaction>();
 }
