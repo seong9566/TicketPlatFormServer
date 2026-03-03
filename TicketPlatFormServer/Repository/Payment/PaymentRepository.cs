@@ -1,7 +1,6 @@
-using System.Data;
-using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using MySqlConnector;
 using TicketPlatFormServer.DBModel;
 
 namespace TicketPlatFormServer.Repository.Payment;
@@ -12,7 +11,6 @@ namespace TicketPlatFormServer.Repository.Payment;
 /// </summary>
 public class PaymentRepository(
     TicketContext context,
-    IDbConnection dapper,
     IMemoryCache cache) : IPaymentRepository
 {
     private const string CacheKeyPrefix = "PaymentRepo_";
@@ -74,19 +72,17 @@ public class PaymentRepository(
     /// </summary>
     public async Task UpdatePaymentStatusAsync(long paymentId, long statusId, DateTime? paidAt = null)
     {
-        const string query = @"
+        const string sql = @"
             UPDATE payments
             SET status_id = @StatusId,
                 paid_at = COALESCE(@PaidAt, paid_at)
             WHERE id = @PaymentId
         ";
 
-        await dapper.ExecuteAsync(query, new
-        {
-            PaymentId = paymentId,
-            StatusId = statusId,
-            PaidAt = paidAt
-        });
+        await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@PaymentId", paymentId),
+            new MySqlParameter("@StatusId", statusId),
+            new MySqlParameter("@PaidAt", paidAt));
     }
 
     // ==================== Escrow 관리 ====================
@@ -121,7 +117,7 @@ public class PaymentRepository(
     /// </summary>
     public async Task<int> ReleaseEscrowAsync(long escrowId, long statusId, long holdingStatusId, DateTime releasedAt)
     {
-        const string query = @"
+        const string sql = @"
             UPDATE escrow
             SET status_id = @StatusId,
                 released_at = @ReleasedAt,
@@ -132,22 +128,20 @@ public class PaymentRepository(
               AND status_id = @HoldingStatusId
         ";
 
-        return await dapper.ExecuteAsync(query, new
-        {
-            EscrowId = escrowId,
-            StatusId = statusId,
-            HoldingStatusId = holdingStatusId,
-            ReleasedAt = releasedAt,
-            UpdatedAt = DateTime.UtcNow
-        });
+        return await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@EscrowId", escrowId),
+            new MySqlParameter("@StatusId", statusId),
+            new MySqlParameter("@HoldingStatusId", holdingStatusId),
+            new MySqlParameter("@ReleasedAt", releasedAt),
+            new MySqlParameter("@UpdatedAt", DateTime.UtcNow));
     }
 
     /// <summary>
     /// 에스크로 환불
     /// </summary>
-    public async Task RefundEscrowAsync(long escrowId, long statusId, DateTime refundedAt)
+    public async Task<int> RefundEscrowAsync(long escrowId, long statusId, DateTime refundedAt)
     {
-        const string query = @"
+        const string sql = @"
             UPDATE escrow
             SET status_id = @StatusId,
                 refunded_at = @RefundedAt,
@@ -155,13 +149,11 @@ public class PaymentRepository(
             WHERE id = @EscrowId
         ";
 
-        await dapper.ExecuteAsync(query, new
-        {
-            EscrowId = escrowId,
-            StatusId = statusId,
-            RefundedAt = refundedAt,
-            UpdatedAt = DateTime.UtcNow
-        });
+        return await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@EscrowId", escrowId),
+            new MySqlParameter("@StatusId", statusId),
+            new MySqlParameter("@RefundedAt", refundedAt),
+            new MySqlParameter("@UpdatedAt", DateTime.UtcNow));
     }
 
     // ==================== 상태 코드 매핑 (캐싱) ====================

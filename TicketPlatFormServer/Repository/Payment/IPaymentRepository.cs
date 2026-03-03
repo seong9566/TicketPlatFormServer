@@ -75,7 +75,7 @@ public interface IPaymentRepository
     /// <param name="escrowId">에스크로 ID</param>
     /// <param name="statusId">상태 ID (refunded)</param>
     /// <param name="refundedAt">환불 완료 시각</param>
-    Task RefundEscrowAsync(long escrowId, long statusId, DateTime refundedAt);
+    Task<int> RefundEscrowAsync(long escrowId, long statusId, DateTime refundedAt);
 
     // ==================== 상태 코드 매핑 (캐싱 권장) ====================
 
