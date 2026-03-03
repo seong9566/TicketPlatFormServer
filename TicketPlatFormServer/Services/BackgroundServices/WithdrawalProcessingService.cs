@@ -60,6 +60,21 @@ public class WithdrawalProcessingService(
             return;
         }
 
+        // 지급대행 잔고 확인
+        long availablePayoutBalance = 0;
+        try
+        {
+            var balance = await tossPaymentsService.GetPayoutBalanceAsync();
+            availablePayoutBalance = balance.AvailableAmount?.Value ?? 0;
+            logger.LogInformation("[WithdrawalProcessingService] 지급대행 잔액: Available={Available}, Pending={Pending}",
+                balance.AvailableAmount?.Value ?? 0, balance.PendingAmount?.Value ?? 0);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[WithdrawalProcessingService] 지급대행 잔액 조회 실패 - 잔액 검증 없이 진행합니다.");
+            availablePayoutBalance = long.MaxValue; // 조회 실패 시 잔액 검증 스킵
+        }
+
         foreach (var withdrawal in pendingWithdrawals)
         {
             if (stoppingToken.IsCancellationRequested)
@@ -74,6 +89,14 @@ public class WithdrawalProcessingService(
                     || string.IsNullOrWhiteSpace(withdrawal.BankAccount.AccountNumber))
                 {
                     throw new InvalidOperationException("출금 계좌 정보가 유효하지 않습니다.");
+                }
+
+                // 지급대행 잔액 부족 검증
+                if (availablePayoutBalance < withdrawal.NetAmount)
+                {
+                    logger.LogWarning("[WithdrawalProcessingService] 지급대행 잔액 부족 - Available={Available}, Required={Required}, WithdrawalId={WithdrawalId}",
+                        availablePayoutBalance, withdrawal.NetAmount, withdrawal.Id);
+                    throw new InvalidOperationException($"지급대행 잔액이 부족합니다. 필요: {withdrawal.NetAmount}, 가용: {availablePayoutBalance}");
                 }
 
                 withdrawal.StatusId = processingStatus.Id;

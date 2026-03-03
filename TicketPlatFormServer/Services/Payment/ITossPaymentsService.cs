@@ -29,6 +29,11 @@ public interface ITossPaymentsService
 
     Task<TransferResponseDto> RequestTransferAsync(TransferRequestDto request);
 
+    /// <summary>
+    /// 지급대행 잔액 조회 (GET /v2/balances)
+    /// </summary>
+    Task<PayoutBalanceDto> GetPayoutBalanceAsync();
+
     Task<TransferStatusDto> GetTransferStatusAsync(string transferId);
 
     Task<bool> ValidateBankAccountAsync(string bankCode, string accountNumber);

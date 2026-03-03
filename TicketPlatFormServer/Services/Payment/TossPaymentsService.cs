@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Jose;
 using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
 using TicketPlatFormServer.DTO.Payment;
@@ -228,6 +229,54 @@ public class TossPaymentsService : ITossPaymentsService
         }
     }
 
+    /// <summary>
+    /// 지급대행 잔액 조회 (GET /v2/balances)
+    /// ENCRYPTION 보안 불필요 (GET 요청)
+    /// </summary>
+    public async Task<PayoutBalanceDto> GetPayoutBalanceAsync()
+    {
+        var endpoint = $"{_settings.SettlementApiBaseUrl.TrimEnd('/')}/v2/balances";
+        var response = await _httpClient.GetAsync(endpoint);
+        var responseContent = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("[TossPaymentsService.GetPayoutBalanceAsync] Failed: StatusCode={StatusCode}, Response={Response}",
+                (int)response.StatusCode, responseContent);
+            throw new AppException($"지급대행 잔액 조회에 실패했습니다. StatusCode={(int)response.StatusCode}, Response={responseContent}", HttpStatusCode.BadGateway);
+        }
+
+        _logger.LogInformation("[TossPaymentsService.GetPayoutBalanceAsync] Response: {Response}", responseContent);
+
+        using var document = JsonDocument.Parse(responseContent);
+        var root = document.RootElement;
+
+        // v2 응답: entityBody 안에 데이터가 있을 수 있음
+        var dataRoot = root.TryGetProperty("entityBody", out var entityBody) ? entityBody : root;
+
+        var result = new PayoutBalanceDto();
+
+        if (dataRoot.TryGetProperty("availableAmount", out var available))
+        {
+            result.AvailableAmount = new PayoutBalanceAmountDto
+            {
+                Currency = available.TryGetProperty("currency", out var cur) ? cur.GetString() ?? "KRW" : "KRW",
+                Value = available.TryGetProperty("value", out var val) ? val.GetInt64() : 0
+            };
+        }
+
+        if (dataRoot.TryGetProperty("pendingAmount", out var pending))
+        {
+            result.PendingAmount = new PayoutBalanceAmountDto
+            {
+                Currency = pending.TryGetProperty("currency", out var cur) ? cur.GetString() ?? "KRW" : "KRW",
+                Value = pending.TryGetProperty("value", out var val) ? val.GetInt64() : 0
+            };
+        }
+
+        return result;
+    }
+
     public async Task<TransferResponseDto> RequestTransferAsync(TransferRequestDto request)
     {
         var endpoint = $"{_settings.SettlementApiBaseUrl.TrimEnd('/')}/v2/payouts";
@@ -246,22 +295,82 @@ public class TossPaymentsService : ITossPaymentsService
             metadata = request.Metadata
         };
 
-        var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-        var response = await _httpClient.PostAsync(endpoint, content);
+        var jsonPayload = JsonSerializer.Serialize(payload);
+        _logger.LogInformation("[TossPaymentsService.RequestTransferAsync] Payload: {Payload}", jsonPayload);
+
+        // JWE 암호화
+        string requestBody;
+        if (!string.IsNullOrWhiteSpace(_settings.PayoutEncryptionKey))
+        {
+            requestBody = EncryptJwe(jsonPayload);
+            _logger.LogInformation("[TossPaymentsService.RequestTransferAsync] JWE 암호화 적용");
+        }
+        else
+        {
+            _logger.LogWarning("[TossPaymentsService.RequestTransferAsync] PayoutEncryptionKey 미설정 - 암호화 없이 전송");
+            requestBody = jsonPayload;
+        }
+
+        var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+
+        // ENCRYPTION 보안 헤더 추가
+        using var requestMessage = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        requestMessage.Content = content;
+        if (!string.IsNullOrWhiteSpace(_settings.PayoutEncryptionKey))
+        {
+            requestMessage.Headers.Add("TossPayments-api-security-mode", "ENCRYPTION");
+        }
+
+        var response = await _httpClient.SendAsync(requestMessage);
         var responseContent = await response.Content.ReadAsStringAsync();
+
+        // 응답 복호화 (ENCRYPTION 보안이 적용된 경우 응답도 JWE)
+        string decryptedResponse;
+        if (!string.IsNullOrWhiteSpace(_settings.PayoutEncryptionKey) && !responseContent.TrimStart().StartsWith("{"))
+        {
+            try
+            {
+                decryptedResponse = DecryptJwe(responseContent);
+                _logger.LogInformation("[TossPaymentsService.RequestTransferAsync] JWE 응답 복호화 성공");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[TossPaymentsService.RequestTransferAsync] JWE 응답 복호화 실패. RawResponse={Response}", responseContent);
+                decryptedResponse = responseContent;
+            }
+        }
+        else
+        {
+            decryptedResponse = responseContent;
+        }
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new AppException($"정산 이체 요청에 실패했습니다. {response.StatusCode}", HttpStatusCode.BadGateway);
+            _logger.LogError("[TossPaymentsService.RequestTransferAsync] Failed: StatusCode={StatusCode}, Response={Response}",
+                (int)response.StatusCode, decryptedResponse);
+            throw new AppException($"정산 이체 요청에 실패했습니다. StatusCode={(int)response.StatusCode}, Response={decryptedResponse}", HttpStatusCode.BadGateway);
         }
+
+        _logger.LogInformation("[TossPaymentsService.RequestTransferAsync] Success: Response={Response}", decryptedResponse);
 
         string? payoutId = null;
         string? status = null;
         string? refPayoutId = request.RefPayoutId;
 
-        using (var document = JsonDocument.Parse(responseContent))
+        using (var document = JsonDocument.Parse(decryptedResponse))
         {
-            if (document.RootElement.TryGetProperty("payouts", out var payouts) && payouts.ValueKind == JsonValueKind.Array && payouts.GetArrayLength() > 0)
+            // v2 응답: entityBody.items[0] 구조
+            if (document.RootElement.TryGetProperty("entityBody", out var entityBody)
+                && entityBody.TryGetProperty("items", out var items)
+                && items.ValueKind == JsonValueKind.Array && items.GetArrayLength() > 0)
+            {
+                var first = items[0];
+                payoutId = first.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
+                status = first.TryGetProperty("status", out var statusProp) ? statusProp.GetString() : null;
+                refPayoutId = first.TryGetProperty("refPayoutId", out var refProp) ? refProp.GetString() : refPayoutId;
+            }
+            else if (document.RootElement.TryGetProperty("payouts", out var payouts)
+                     && payouts.ValueKind == JsonValueKind.Array && payouts.GetArrayLength() > 0)
             {
                 var first = payouts[0];
                 payoutId = first.TryGetProperty("id", out var idProp) ? idProp.GetString() : null;
@@ -281,7 +390,7 @@ public class TossPaymentsService : ITossPaymentsService
             PayoutId = payoutId,
             RefPayoutId = refPayoutId,
             Status = status,
-            RawResponse = responseContent
+            RawResponse = decryptedResponse
         };
     }
 
@@ -293,7 +402,9 @@ public class TossPaymentsService : ITossPaymentsService
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new AppException($"정산 이체 상태 조회에 실패했습니다. {response.StatusCode}", HttpStatusCode.BadGateway);
+            _logger.LogError("[TossPaymentsService.GetTransferStatusAsync] Failed: StatusCode={StatusCode}, Response={Response}",
+                (int)response.StatusCode, responseContent);
+            throw new AppException($"정산 이체 상태 조회에 실패했습니다. StatusCode={(int)response.StatusCode}, Response={responseContent}", HttpStatusCode.BadGateway);
         }
 
         string? payoutId;
@@ -397,5 +508,52 @@ public class TossPaymentsService : ITossPaymentsService
         }
         // fallback: v1 flat response shape
         return root.TryGetProperty("isValid", out var isValidFlat) && isValidFlat.GetBoolean();
+    }
+
+    // ==================== JWE 암호화 (지급대행 ENCRYPTION 보안) ====================
+
+    /// <summary>
+    /// 보안 키 (64자 Hex) → 32바이트 배열 변환
+    /// </summary>
+    private static byte[] ConvertHexToBytes(string hex)
+    {
+        return Enumerable.Range(0, hex.Length / 2)
+            .Select(i => Convert.ToByte(hex.Substring(i * 2, 2), 16))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// JWE 암호화 (dir + A256GCM)
+    /// TossPayments ENCRYPTION 보안 방식
+    /// </summary>
+    private string EncryptJwe(string jsonPayload)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.PayoutEncryptionKey))
+        {
+            throw new InvalidOperationException("PayoutEncryptionKey(보안 키)가 설정되지 않았습니다.");
+        }
+
+        var keyBytes = ConvertHexToBytes(_settings.PayoutEncryptionKey);
+        var headers = new Dictionary<string, object>
+        {
+            { "iat", DateTimeOffset.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:sszzz") },
+            { "nonce", Guid.NewGuid().ToString() }
+        };
+
+        return JWT.Encode(jsonPayload, keyBytes, JweAlgorithm.DIR, JweEncryption.A256GCM, extraHeaders: headers);
+    }
+
+    /// <summary>
+    /// JWE 복호화 (dir + A256GCM)
+    /// </summary>
+    private string DecryptJwe(string jweToken)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.PayoutEncryptionKey))
+        {
+            throw new InvalidOperationException("PayoutEncryptionKey(보안 키)가 설정되지 않았습니다.");
+        }
+
+        var keyBytes = ConvertHexToBytes(_settings.PayoutEncryptionKey);
+        return JWT.Decode(jweToken, keyBytes, JweAlgorithm.DIR, JweEncryption.A256GCM);
     }
 }

@@ -64,4 +64,9 @@ public class TossPaymentsSettings
     public int WithdrawalProcessingIntervalMinutes { get; set; } = 5;
 
     public int MaxWithdrawalRetryCount { get; set; } = 3;
+
+    /// <summary>
+    /// 지급대행 보안 키 (64자 Hex 문자열, 개발자센터 > API 개별 키 > 보안 키)
+    /// </summary>
+    public string? PayoutEncryptionKey { get; set; }
 }
