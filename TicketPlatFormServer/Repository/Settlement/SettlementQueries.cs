@@ -64,15 +64,15 @@ internal static class SettlementQueries
                 ba.bank_name      AS BankName,
                ba.account_number AS AccountNumber,
                ba.account_holder AS AccountHolder,
-               u.nickname        AS BuyerNickname
+                up.nickname       AS BuyerNickname
         FROM settlements s
         INNER JOIN settlement_statuses ss   ON s.status_id       = ss.id
         INNER JOIN transactions tr          ON s.transaction_id  = tr.id
         INNER JOIN transaction_items t_item ON tr.id             = t_item.transaction_id
         INNER JOIN tickets tk               ON t_item.ticket_id  = tk.id
         INNER JOIN events e                 ON tk.event_id       = e.id
-        LEFT  JOIN bank_accounts ba         ON s.bank_account_id = ba.id
-        LEFT  JOIN users u                  ON tr.buyer_id       = u.id
+        LEFT  JOIN bank_account ba          ON s.bank_account_id = ba.id
+        LEFT  JOIN user_profile up          ON tr.buyer_id       = up.user_id
         WHERE s.id = @SettlementId
           AND s.seller_id = @SellerId";
 
