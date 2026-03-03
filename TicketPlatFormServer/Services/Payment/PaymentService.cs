@@ -417,6 +417,49 @@ public class PaymentService(
                 }
             }
 
+            var settlementExists = await context.Settlements
+                .AnyAsync(s => s.TransactionId == transactionId);
+            if (!settlementExists)
+            {
+                var escrowTransaction = escrow.Transaction
+                    ?? throw new AppException("거래 정보를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+
+                var settlementStatusPending = await paymentRepository.GetSettlementStatusByCodeAsync("pending");
+                var settlementStatusOnHold = await paymentRepository.GetSettlementStatusByCodeAsync("on_hold");
+                if (settlementStatusPending == null || settlementStatusOnHold == null)
+                {
+                    throw new AppException("정산 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+                }
+
+                var defaultBankAccount = await context.BankAccounts
+                    .Where(ba => ba.UserId == escrowTransaction.SellerId && ba.Verified == true)
+                    .FirstOrDefaultAsync();
+
+                if (defaultBankAccount == null)
+                {
+                    logger.LogWarning("[PaymentService.ReleaseEscrowAsync] 판매자 인증된 계좌 없음 - SellerId: {SellerId}",
+                        escrowTransaction.SellerId);
+                }
+
+                var settlement = new Settlement
+                {
+                    TransactionId = transactionId,
+                    SellerId = escrowTransaction.SellerId,
+                    Amount = escrow.Amount,
+                    Fee = escrow.FeeAmount,
+                    NetAmount = escrow.SellerAmount,
+                    BankAccountId = defaultBankAccount?.Id,
+                    StatusId = defaultBankAccount == null ? settlementStatusOnHold.Id : settlementStatusPending.Id,
+                    ScheduledAt = DateTime.UtcNow.AddDays(1),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await context.Settlements.AddAsync(settlement);
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("[PaymentService.ReleaseEscrowAsync] 누락된 Settlement 복구 생성 - TransactionId: {TransactionId}", transactionId);
+            }
+
             logger.LogWarning("[PaymentService.ReleaseEscrowAsync] 이미 해제된 에스크로: {EscrowId}", escrow.Id);
             return;
         }
