@@ -36,7 +36,7 @@ public class PaymentService(
     /// <summary>
     /// 결제 요청 준비 (OrderId 생성)
     /// </summary>
-    public async Task<PaymentRequestResponseDto> InitiatePaymentAsync(PaymentRequestDto request, int userId)
+    public async Task<PaymentRequestResponseDto> InitiatePaymentAsync(PaymentRequestDto request, long userId)
     {
         logger.LogInformation("[PaymentService.InitiatePaymentAsync] TransactionId: {TransactionId}, UserId: {UserId}",
             request.TransactionId, userId);
@@ -548,7 +548,7 @@ public class PaymentService(
                 Amount = escrow.Amount,
                 Fee = escrow.FeeAmount,
                 NetAmount = escrow.SellerAmount,
-                BankAccountId = defaultBankAccount?.Id,
+                BankAccountId = defaultBankAccount?.Id ?? 0,
                 StatusId = defaultBankAccount == null ? settlementStatusOnHold.Id : settlementStatusPending.Id,
                 ScheduledAt = DateTime.UtcNow.AddDays(1),
                 CreatedAt = DateTime.UtcNow

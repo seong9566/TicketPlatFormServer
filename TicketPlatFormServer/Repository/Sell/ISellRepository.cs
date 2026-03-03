@@ -83,7 +83,7 @@ public interface ISellRepository
     /// <summary>
     /// 특정 티켓의 이미지 목록 조회
     /// </summary>
-    Task<List<TicketImage>> GetTicketImagesByTicketIdAsync(int ticketId);
+    Task<List<TicketImage>> GetTicketImagesByTicketIdAsync(long ticketId);
 
     /// <summary>
     /// 사용자의 판매 티켓 목록 조회 (페이징)

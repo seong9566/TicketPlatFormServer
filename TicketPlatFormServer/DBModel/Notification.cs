@@ -13,7 +13,7 @@ public partial class Notification
     /// <summary>
     /// 수신자 FK
     /// </summary>
-    public int UserId { get; set; }
+    public long UserId { get; set; }
 
     /// <summary>
     /// 알림 유형 FK

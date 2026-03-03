@@ -1,11 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
-/// <summary>
-/// 출금 상태 코드 테이블
-/// </summary>
 public partial class WithdrawalStatus
 {
     public long Id { get; set; }

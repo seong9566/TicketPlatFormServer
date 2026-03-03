@@ -13,7 +13,7 @@ public interface IPaymentService
     /// <param name="request">결제 요청 정보</param>
     /// <param name="userId">요청 사용자 ID</param>
     /// <returns>결제 요청 응답 (OrderId, ClientKey 등)</returns>
-    Task<PaymentRequestResponseDto> InitiatePaymentAsync(PaymentRequestDto request, int userId);
+    Task<PaymentRequestResponseDto> InitiatePaymentAsync(PaymentRequestDto request, long userId);
 
     /// <summary>
     /// 결제 승인 처리 (Toss API 호출 + DB 저장)

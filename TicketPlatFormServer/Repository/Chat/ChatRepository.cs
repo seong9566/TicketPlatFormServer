@@ -342,7 +342,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     {
         return await db.ChatMessages
             .Include(cm => cm.Sender).ThenInclude(u => u.UserProfile)
-            .Include(cm => cm.Images.OrderBy(i => i.SortOrder))
+            .Include(cm => cm.ChatMessageImages.OrderBy(i => i.SortOrder))
             .FirstOrDefaultAsync(cm => cm.Id == messageId);
     }
 
@@ -353,7 +353,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     {
         var query = db.ChatMessages
             .Include(cm => cm.Sender).ThenInclude(u => u.UserProfile)
-            .Include(cm => cm.Images.OrderBy(i => i.SortOrder))
+            .Include(cm => cm.ChatMessageImages.OrderBy(i => i.SortOrder))
             .Where(cm => cm.RoomId == roomId);
 
         if (lastMessageId.HasValue)
@@ -474,7 +474,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
     public async Task DeleteMessage(long messageId)
     {
         var message = await db.ChatMessages
-            .Include(cm => cm.Images)
+            .Include(cm => cm.ChatMessageImages)
             .FirstOrDefaultAsync(cm => cm.Id == messageId);
 
         if (message != null)

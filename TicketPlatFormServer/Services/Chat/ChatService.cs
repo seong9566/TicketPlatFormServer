@@ -1127,7 +1127,7 @@ public class ChatService(
         return parts.Count > 0 ? string.Join(" ", parts) : null;
     }
 
-    private async Task<string> GetTicketImageUrlForNotificationAsync(int ticketId)
+    private async Task<string> GetTicketImageUrlForNotificationAsync(long ticketId)
     {
         try
         {

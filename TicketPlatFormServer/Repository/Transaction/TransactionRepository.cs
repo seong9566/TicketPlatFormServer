@@ -175,7 +175,7 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
             .FirstOrDefaultAsync();
     }
 
-    public async Task<PaymentPreviewReadModel?> GetPaymentPreviewAsync(long transactionId, int buyerId)
+    public async Task<PaymentPreviewReadModel?> GetPaymentPreviewAsync(long transactionId, long buyerId)
     {
         const string query = @"
             SELECT

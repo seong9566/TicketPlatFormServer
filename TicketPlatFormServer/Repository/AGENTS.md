@@ -7,7 +7,7 @@ Data-access layer for TicketHub backend. Hybrid EF Core + Dapper. 28 interface/i
 ```text
 Repository/
 ├── TicketContext.cs         # EF Core DbContext; 70+ DbSet properties; lives here (repository concern)
-├── ReadModels/              # 13 Dapper projection classes (result shapes for complex queries)
+├── ReadModels/              # 15 Dapper projection classes (result shapes for complex queries)
 ├── Balance/                 IBalanceRepository, BalanceRepository
 ├── BankAccount/             IBankAccountRepository, BankAccountRepository
 ├── Chat/                    IChatRepository, ChatRepository, ChatQueries.cs

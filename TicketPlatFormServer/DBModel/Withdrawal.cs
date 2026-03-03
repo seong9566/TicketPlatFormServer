@@ -1,16 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace TicketPlatFormServer.DBModel;
 
-/// <summary>
-/// 출금 요청 정보 테이블
-/// </summary>
 public partial class Withdrawal
 {
     public long Id { get; set; }
 
-    public int UserId { get; set; }
+    public long UserId { get; set; }
 
     public long BankAccountId { get; set; }
 
@@ -34,11 +31,9 @@ public partial class Withdrawal
 
     public DateTime? ProcessedAt { get; set; }
 
-    public DateTime? CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
 
-    public DateTime? UpdatedAt { get; set; }
-
-    public virtual User User { get; set; } = null!;
+    public DateTime UpdatedAt { get; set; }
 
     public virtual BankAccount BankAccount { get; set; } = null!;
 

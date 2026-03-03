@@ -10,7 +10,7 @@ public partial class BankAccount
 {
     public long Id { get; set; }
 
-    public int UserId { get; set; }
+    public long UserId { get; set; }
 
     /// <summary>
     /// 은행명
@@ -18,7 +18,7 @@ public partial class BankAccount
     public string? BankName { get; set; }
 
     /// <summary>
-    /// 은행 코드
+    /// 은행 코드(토스 지급대행용)
     /// </summary>
     public string? BankCode { get; set; }
 
@@ -38,6 +38,31 @@ public partial class BankAccount
     public bool? Verified { get; set; }
 
     /// <summary>
+    /// CUSTOM|TOSS|HYBRID
+    /// </summary>
+    public string? VerificationProvider { get; set; }
+
+    /// <summary>
+    /// TIER_0..3
+    /// </summary>
+    public string? VerificationTier { get; set; }
+
+    /// <summary>
+    /// UNVERIFIED|PENDING|VERIFIED|FAILED|EXPIRED
+    /// </summary>
+    public string? VerificationStatus { get; set; }
+
+    /// <summary>
+    /// 최근 검증 실패 코드
+    /// </summary>
+    public string? LastVerificationFailureCode { get; set; }
+
+    /// <summary>
+    /// 최근 검증 시각
+    /// </summary>
+    public DateTime? LastVerificationAt { get; set; }
+
+    /// <summary>
     /// 1원 인증 코드
     /// </summary>
     public string? VerificationCode { get; set; }
@@ -54,20 +79,7 @@ public partial class BankAccount
 
     public DateTime? CreatedAt { get; set; }
 
-    /// <summary>계좌 인증 Provider (CUSTOM|TOSS|HYBRID)</summary>
-    public string? VerificationProvider { get; set; }
-
-    /// <summary>계좌 인증 Tier (TIER_0_NONE|TIER_1_CONTROL_PROOF|TIER_2_ACCOUNT_VALID|TIER_3_REAL_NAME_MATCH)</summary>
-    public string? VerificationTier { get; set; }
-
-    /// <summary>계좌 인증 상태 (UNVERIFIED|PENDING|VERIFIED|FAILED|EXPIRED)</summary>
-    public string? VerificationStatus { get; set; }
-
-    /// <summary>최근 검증 실패 코드</summary>
-    public string? LastVerificationFailureCode { get; set; }
-
-    /// <summary>최근 검증 시각</summary>
-    public DateTime? LastVerificationAt { get; set; }
-
     public virtual ICollection<Settlement> Settlements { get; set; } = new List<Settlement>();
+
+    public virtual ICollection<Withdrawal> Withdrawals { get; set; } = new List<Withdrawal>();
 }

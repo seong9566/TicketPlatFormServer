@@ -8,7 +8,8 @@ namespace TicketPlatFormServer.Services.BankAccount;
 
 public class BankAccountService(
     IBankAccountRepository bankAccountRepository,
-    ITossPaymentsService tossPaymentsService) : IBankAccountService
+    ITossPaymentsService tossPaymentsService,
+    IPaymentService paymentService) : IBankAccountService
 {
     public async Task<BankAccountResponseDto> RegisterBankAccountAsync(RegisterBankAccountRequestDto request, long userId)
     {
@@ -79,6 +80,9 @@ public class BankAccountService(
         created.VerificationProvider = "TOSS";
         created.VerificationTier = "TIER_2_ACCOUNT_VALID";
         await bankAccountRepository.UpdateBankAccountAsync(created);
+
+        // 계좌 검증 완료 후 보류 중인 정산 재개
+        await paymentService.ResumeHeldSettlementsAsync(userId, created.Id);
 
         return ToResponse(created);
     }

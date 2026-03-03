@@ -205,7 +205,7 @@ public class SellRepository(TicketContext context, IDbConnection dapper) : ISell
     /// <summary>
     /// 특정 티켓의 이미지 목록 조회
     /// </summary>
-    public async Task<List<TicketImage>> GetTicketImagesByTicketIdAsync(int ticketId)
+    public async Task<List<TicketImage>> GetTicketImagesByTicketIdAsync(long ticketId)
     {
         return await _context.TicketImages
             .Where(ti => ti.TicketId == ticketId)

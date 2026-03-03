@@ -81,7 +81,6 @@ public class WithdrawalRepository(TicketContext context, ILogger<WithdrawalRepos
                 .Where(x => x.Status.Code == "requested")
                 .Include(x => x.Status)
                 .Include(x => x.BankAccount)
-                .Include(x => x.User)
                 .OrderBy(x => x.RequestedAt)
                 .ToListAsync();
         }

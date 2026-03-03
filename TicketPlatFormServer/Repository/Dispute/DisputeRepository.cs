@@ -140,14 +140,22 @@ public class DisputeRepository(TicketContext context) : IDisputeRepository
 
     public async Task<Dispute?> GetDisputeByIdWithDetailsAsync(long disputeId)
     {
-        return await context.Disputes
+        var dispute = await context.Disputes
             .Include(x => x.Type)
             .Include(x => x.Status)
             .Include(x => x.DisputeEvidences)
             .Include(x => x.Transaction)
-                .ThenInclude(t => t.TransactionItems)
             .AsSplitQuery()
             .FirstOrDefaultAsync(x => x.Id == disputeId);
+
+        if (dispute?.Transaction != null)
+        {
+            await context.Entry(dispute.Transaction)
+                .Collection(x => x.TransactionItems)
+                .LoadAsync();
+        }
+
+        return dispute;
     }
 
     public async Task<List<Dispute>> GetDisputesByClaimantCursorAsync(long claimantId, long? cursorId, int limitPlusOne)
@@ -201,11 +209,35 @@ public class DisputeRepository(TicketContext context) : IDisputeRepository
 
     public async Task<List<Dispute>> GetAllDisputesCursorAsync(string? statusCode, long? cursorId, int limitPlusOne)
     {
-        throw new NotImplementedException();
+        var query = context.Disputes
+            .AsNoTracking()
+            .Include(x => x.Status)
+            .Include(x => x.Type)
+            .Include(x => x.Transaction)
+            .AsQueryable();
+
+        if (statusCode != null)
+        {
+            query = query.Where(x => x.Status.Code == statusCode);
+        }
+
+        if (cursorId.HasValue)
+        {
+            query = query.Where(x => x.Id < cursorId.Value);
+        }
+
+        return await query
+            .OrderByDescending(x => x.Id)
+            .Take(limitPlusOne)
+            .ToListAsync();
     }
 
     public async Task<Dispute?> GetDisputeByIdAsync(long disputeId)
     {
-        throw new NotImplementedException();
+        return await context.Disputes
+            .Include(x => x.Type)
+            .Include(x => x.Status)
+            .Include(x => x.Transaction)
+            .FirstOrDefaultAsync(x => x.Id == disputeId);
     }
 }

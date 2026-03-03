@@ -8,16 +8,17 @@ ASP.NET Core 9 API project for TicketHub. Composition root, controllers, service
 TicketPlatFormServer/TicketPlatFormServer/
 ├── Program.cs              # bootstrap: DI, JWT auth, SignalR, hosted services, Polly policies
 ├── Controllers/            # 19 thin HTTP controllers (see Controllers/AGENTS.md)
-├── Services/               # 28 service pairs + background services (see Services/AGENTS.md)
-├── Repository/             # 28 repository pairs + TicketContext + ReadModels (see Repository/AGENTS.md)
+├── Services/               # 25 domain service dirs + BackgroundServices + Common (see Services/AGENTS.md)
+├── Repository/             # 19 repository dirs + TicketContext + ReadModels (see Repository/AGENTS.md)
 ├── DBModel/                # 70 EF-scaffolded entity POCOs (see DBModel/AGENTS.md)
-├── DTO/                    # ~200 request/response DTOs, 21 domain subdirs (see DTO/AGENTS.md)
+├── DTO/                    # ~112 request/response DTOs, 21 domain subdirs (see DTO/AGENTS.md)
 ├── Hubs/ChatHub.cs         # SignalR hub /hubs/chat; groups user_{id}, room_{id}
-├── Common/                 # AppException, GlobalExceptionMiddleware, ClaimsExtensions, EnvFileLoader
-├── Config/                 # Settings classes: JwtSettings, TossPaymentsSettings, FcmSettings, etc.
+├── Common/                 # AppException, GlobalExceptionMiddleware, ClaimsExtensions, EnvFileLoader, NicknameGenerator
+├── Config/                 # 8 settings classes: JwtSettings, TossPaymentsSettings, FcmSettings, ChatSettings, EmailSettings, ResilienceSettings, SupabaseStorageSettings, StorageProviderSettings
 ├── Enum/                   # UserRoleEnum, UserRegisterProviderEnum, MessageType, WithdrawalStatusCode
 ├── api_spec/               # Markdown API specs (reference only, not runtime)
 └── database_history/       # SQL dumps + db_restore.sh
+```
 
 ## WHERE TO LOOK
 | Task | Location | Notes |
@@ -52,11 +53,13 @@ TicketPlatFormServer/TicketPlatFormServer/
 dotnet restore --project TicketPlatFormServer.sln
 dotnet build --project TicketPlatFormServer.sln
 dotnet run --project TicketPlatFormServer/TicketPlatFormServer.csproj
+dotnet test --project TicketPlatFormServer.Tests/TicketPlatFormServer.Tests.csproj
 ```
 
 ## NOTES
-- Child AGENTS in `Repository/`, `Services/`, `Controllers/`, and `DBModel/` have layer-specific rules — prefer them.
+- Child AGENTS in `Repository/`, `Services/`, `Controllers/`, `DBModel/`, `DTO/` have layer-specific rules — prefer them.
+- Sibling `TicketPlatFormServer.Tests/` has E2E test project with own `AGENTS.md`.
 - API specs are markdown files in `api_spec/` (reference only).
 - `Hubs/ChatHub.cs` uses `[Authorize]`; SignalR token passed via query string `?access_token=...`.
-- Background services: `ChatCleanupService`, `SettlementProcessingService` — registered as `IHostedService`.
-- Config settings bound from `appsettings.json`: `JwtSettings`, `TossPayments`, `Fcm`, `SupabaseStorage`, `Resilience`.
+- Background services (5): ChatCleanupService, TransactionReservationCleanupService, TransactionAutoConfirmService, SettlementProcessingService, WithdrawalProcessingService — registered as `IHostedService`.
+- Config settings bound from `appsettings.json`: `JwtSettings`, `TossPaymentsSettings`, `FcmSettings`, `ChatSettings`, `EmailSettings`, `ResilienceSettings`, `SupabaseStorageSettings`, `StorageProviderSettings`.

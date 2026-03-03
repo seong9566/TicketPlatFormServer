@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 Backend workspace root for TicketHub.
-Contains the .NET solution and one API project folder with deeper layer-specific AGENTS files.
+Contains the .NET solution, one API project folder, and one xUnit E2E test project with deeper layer-specific AGENTS files.
 
 ## STRUCTURE
 ```text
@@ -10,19 +10,18 @@ TicketPlatFormServer/
 ├── TicketPlatFormServer.sln
 ├── global.json
 ├── AGENTS.md
-```text
-TicketPlatFormServer/
-├── TicketPlatFormServer.sln
-├── global.json
-├── AGENTS.md
-└── TicketPlatFormServer/
-    ├── Program.cs
-    ├── Controllers/   # AGENTS.md
-    ├── Services/      # AGENTS.md + README.md
-    ├── Repository/    # AGENTS.md + README.md
-    ├── DBModel/       # AGENTS.md
-    ├── DTO/           # AGENTS.md
-    └── database_history/
+├── TicketPlatFormServer/          # API project
+│   ├── Program.cs
+│   ├── Controllers/               # AGENTS.md
+│   ├── Services/                  # AGENTS.md
+│   ├── Repository/                # AGENTS.md
+│   ├── DBModel/                   # AGENTS.md
+│   ├── DTO/                       # AGENTS.md
+│   └── database_history/
+└── TicketPlatFormServer.Tests/    # AGENTS.md — xUnit E2E integration tests
+    ├── Tests/                     # 11 test suites
+    ├── Helpers/                   # TestAuthHelper
+    └── Mocks/                     # WireMock, NoOpEmailService
 ```
 
 ## WHERE TO LOOK
@@ -35,6 +34,7 @@ TicketPlatFormServer/
 | DTO contracts | `TicketPlatFormServer/DTO/AGENTS.md` | Request/response shapes, naming |
 | DB entities | `TicketPlatFormServer/DBModel/AGENTS.md` | EF-scaffolded POCOs, re-scaffold rules |
 | DB restore/dumps | `TicketPlatFormServer/database_history/` | SQL-first migration history |
+| E2E tests | `TicketPlatFormServer.Tests/AGENTS.md` | xUnit, WireMock, TestWebApplicationFactory |
 
 ## CONVENTIONS
 - Solution root is one level above API project (`TicketPlatFormServer/TicketPlatFormServer.sln`).
@@ -53,10 +53,11 @@ TicketPlatFormServer/
 dotnet restore --project TicketPlatFormServer.sln
 dotnet build --project TicketPlatFormServer.sln
 dotnet run --project TicketPlatFormServer/TicketPlatFormServer.csproj
-dotnet test   # currently no backend test project in solution
+dotnet test --project TicketPlatFormServer.Tests/TicketPlatFormServer.Tests.csproj
 ```
 
 ## NOTES
+- 11 xUnit E2E test suites run sequentially against isolated `TicketPlatFormDB_Test` database.
+- Tests use WireMock for external services (Supabase, OAuth, FCM); Toss Payments uses real test API.
 - No CI workflow YAML exists; validation is local/manual.
-- No test project in solution yet; service-layer unit tests are the recommended first target.
-- For deeper rules, always prefer child AGENTS in `Controllers/`, `Services/`, `Repository/`, `DBModel/`, `DTO/`.
+- For deeper rules, always prefer child AGENTS in `Controllers/`, `Services/`, `Repository/`, `DBModel/`, `DTO/`, `Tests/`.
