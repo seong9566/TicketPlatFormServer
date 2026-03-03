@@ -37,6 +37,12 @@ public partial class Dispute
 
     public DateTime? CreatedAt { get; set; }
 
+    public DateTime? ResolvedAt { get; set; }
+
+    public long? ResolvedById { get; set; }
+
+    public string? ResolutionNote { get; set; }
+
     public virtual ICollection<DisputeEvidence> DisputeEvidences { get; set; } = new List<DisputeEvidence>();
 
     public virtual DisputeStatus Status { get; set; } = null!;

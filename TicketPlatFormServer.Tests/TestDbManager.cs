@@ -51,6 +51,7 @@ public static class TestDbManager
             await ApplySqlFileAsync(Path.Combine(dbHistoryPath, "TASK-008-migration.sql"), force: true);
             await ApplySqlFileAsync(Path.Combine(dbHistoryPath, "TASK-012-migration.sql"));
             await ApplySqlFileAsync(Path.Combine(dbHistoryPath, "TASK-013-migration.sql"));
+            await ApplySqlFileAsync(Path.Combine(dbHistoryPath, "TASK-014-migration.sql"));
             await ApplySqlFileAsync(Path.Combine(dbHistoryPath, "BALANCE-001-migration.sql"));
         }
     }

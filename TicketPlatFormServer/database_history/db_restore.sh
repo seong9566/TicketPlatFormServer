@@ -30,10 +30,14 @@ if [ $? -eq 0 ]; then
             echo "TASK-013 마이그레이션 적용 중..."
             mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < TASK-013-migration.sql
             if [ $? -eq 0 ]; then
-                echo "TASK-013 마이그레이션 적용 완료!"
-            echo "결제 상태 코드 시드 적용 중..."
-            mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < seed_payment_statuses.sql
-            if [ $? -eq 0 ]; then
+             echo "TASK-013 마이그레이션 적용 완료!"
+             echo "TASK-014 마이그레이션 적용 중..."
+             mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < TASK-014-migration.sql
+             if [ $? -eq 0 ]; then
+                 echo "TASK-014 마이그레이션 적용 완료!"
+                 echo "결제 상태 코드 시드 적용 중..."
+                 mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < seed_payment_statuses.sql
+                 if [ $? -eq 0 ]; then
                 echo "시드 적용 완료!"
                 echo "결제 수단 코드 시드 적용 중..."
                 mysql -h "$HOST" -P "$PORT" -u "$USER" -p"$PASSWORD" < seed_payment_methods.sql
@@ -79,10 +83,14 @@ if [ $? -eq 0 ]; then
                 echo "시드 적용 실패. 오류를 확인하세요."
                 exit 1
             fi
-            else
-                echo "TASK-013 마이그레이션 적용 실패. 오류를 확인하세요."
-                exit 1
-            fi
+                 else
+                     echo "TASK-014 마이그레이션 적용 실패. 오류를 확인하세요."
+                     exit 1
+                 fi
+             else
+                 echo "TASK-013 마이그레이션 적용 실패. 오류를 확인하세요."
+                 exit 1
+             fi
         else
             echo "TASK-012 마이그레이션 적용 실패. 오류를 확인하세요."
             exit 1
