@@ -15,8 +15,8 @@ internal static class SettlementQueries
                s.failure_reason  AS FailureReason,
                s.retry_count     AS RetryCount,
                s.created_at      AS CreatedAt,
-               e.title           AS EventTitle,
-               t_item.seat_info  AS SeatInfo
+                e.title           AS EventTitle,
+                tk.row            AS SeatInfo
         FROM settlements s
         INNER JOIN settlement_statuses ss   ON s.status_id       = ss.id
         INNER JOIN transactions tr          ON s.transaction_id  = tr.id
@@ -59,9 +59,9 @@ internal static class SettlementQueries
                s.failure_reason  AS FailureReason,
                s.retry_count     AS RetryCount,
                s.created_at      AS CreatedAt,
-               e.title           AS EventTitle,
-               t_item.seat_info  AS SeatInfo,
-               ba.bank_name      AS BankName,
+                e.title           AS EventTitle,
+                tk.row            AS SeatInfo,
+                ba.bank_name      AS BankName,
                ba.account_number AS AccountNumber,
                ba.account_holder AS AccountHolder,
                u.nickname        AS BuyerNickname
