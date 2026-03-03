@@ -393,6 +393,21 @@ public class DisputeService(
         };
     }
 
+    public async Task<AdminResolveDisputeRespDto> ResolveDisputeAsync(long adminUserId, long disputeId, AdminResolveDisputeReqDto req)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<AdminDisputeListRespDto> GetAllDisputesAsync(string? statusFilter, string? cursor, int? limit)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<DisputeDetailRespDto> GetDisputeDetailForAdminAsync(long disputeId)
+    {
+        throw new NotImplementedException();
+    }
+
     private async Task<string?> ResolveEvidenceUrlAsync(string? imageUrl)
     {
         if (string.IsNullOrWhiteSpace(imageUrl))

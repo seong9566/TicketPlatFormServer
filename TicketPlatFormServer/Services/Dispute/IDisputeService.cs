@@ -9,4 +9,7 @@ public interface IDisputeService
     Task<DisputeDetailRespDto> GetDisputeDetailAsync(long userId, long disputeId);
     Task<AddDisputeEvidenceRespDto> AddEvidenceAsync(long userId, long disputeId, AddDisputeEvidenceReqDto req);
     Task<CancelDisputeRespDto> CancelDisputeAsync(long userId, long disputeId);
+    Task<AdminResolveDisputeRespDto> ResolveDisputeAsync(long adminUserId, long disputeId, AdminResolveDisputeReqDto req);
+    Task<AdminDisputeListRespDto> GetAllDisputesAsync(string? statusFilter, string? cursor, int? limit);
+    Task<DisputeDetailRespDto> GetDisputeDetailForAdminAsync(long disputeId);
 }

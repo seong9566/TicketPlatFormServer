@@ -14,4 +14,6 @@ public interface IDisputeRepository
     Task<Dictionary<long, int>> GetEvidenceCountMapAsync(IReadOnlyCollection<long> disputeIds);
     Task<DisputeEvidence> CreateEvidenceAsync(DisputeEvidence evidence);
     Task UpdateDisputeStatusAsync(long disputeId, long statusId);
+    Task<List<Dispute>> GetAllDisputesCursorAsync(string? statusCode, long? cursorId, int limitPlusOne);
+    Task<Dispute?> GetDisputeByIdAsync(long disputeId);
 }

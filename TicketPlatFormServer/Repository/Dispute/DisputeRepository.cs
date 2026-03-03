@@ -198,4 +198,14 @@ public class DisputeRepository(TicketContext context) : IDisputeRepository
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(x => x.StatusId, statusId));
     }
+
+    public async Task<List<Dispute>> GetAllDisputesCursorAsync(string? statusCode, long? cursorId, int limitPlusOne)
+    {
+        throw new NotImplementedException();
+    }
+
+    public async Task<Dispute?> GetDisputeByIdAsync(long disputeId)
+    {
+        throw new NotImplementedException();
+    }
 }
