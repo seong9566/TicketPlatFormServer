@@ -548,7 +548,7 @@ public class PaymentService(
                 Amount = escrow.Amount,
                 Fee = escrow.FeeAmount,
                 NetAmount = escrow.SellerAmount,
-                BankAccountId = defaultBankAccount?.Id ?? 0,
+                BankAccountId = defaultBankAccount?.Id,
                 StatusId = defaultBankAccount == null ? settlementStatusOnHold.Id : settlementStatusPending.Id,
                 ScheduledAt = DateTime.UtcNow.AddDays(1),
                 CreatedAt = DateTime.UtcNow
