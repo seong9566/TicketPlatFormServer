@@ -25,7 +25,7 @@ public class AdminDisputeController(IDisputeService disputeService) : Controller
             throw new AppException("관리자 권한이 필요합니다.", HttpStatusCode.Forbidden);
         }
 
-        var adminUserId = User.GetUserId() ?? throw new UnauthorizedAccessException("사용자 인증 정보가 유효하지 않습니다.");
+        var adminUserId = User.GetUserId() ?? throw new AppException("사용자 인증 정보가 유효하지 않습니다.", HttpStatusCode.Unauthorized);
         var result = await disputeService.ResolveDisputeAsync(adminUserId, id, req);
 
         return Ok(new ApiResponse<AdminResolveDisputeRespDto>(

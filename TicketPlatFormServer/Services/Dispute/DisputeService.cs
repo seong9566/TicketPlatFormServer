@@ -200,72 +200,15 @@ public class DisputeService(
     {
         var dispute = await disputeRepository.GetDisputeByIdWithDetailsAsync(disputeId);
         if (dispute == null)
-        {
             throw new AppException("신고가 존재하지 않습니다.", HttpStatusCode.NotFound);
-        }
 
         var isClaimant = dispute.ClaimantId == userId;
         var isBuyer = dispute.Transaction.BuyerId == userId;
         var isSeller = dispute.Transaction.SellerId == userId;
         if (!isClaimant && !isBuyer && !isSeller)
-        {
             throw new AppException("본인의 신고가 아닙니다.", HttpStatusCode.Forbidden);
-        }
 
-        var userIds = new[] { (int)dispute.Transaction.BuyerId, (int)dispute.Transaction.SellerId };
-        var nicknameMap = await context.UserProfiles
-            .Where(x => userIds.Contains(x.UserId))
-            .ToDictionaryAsync(x => x.UserId, x => x.Nickname);
-
-        var firstTicketId = dispute.Transaction.TransactionItems
-            .Select(x => x.TicketId)
-            .FirstOrDefault();
-        var ticketTitle = "티켓 정보 없음";
-        if (firstTicketId > 0)
-        {
-            ticketTitle = await context.Tickets
-                .Where(x => x.Id == firstTicketId)
-                .Include(x => x.Event)
-                .Select(x => x.Event != null ? x.Event.Title : null)
-                .FirstOrDefaultAsync()
-                ?? "티켓 정보 없음";
-        }
-
-        var amount = dispute.Transaction.Amount
-            ?? dispute.Transaction.TransactionItems.Sum(x => x.TotalPrice);
-
-        var evidenceList = new List<DisputeEvidenceRespDto>();
-        foreach (var evidence in dispute.DisputeEvidences.OrderByDescending(x => x.Id))
-        {
-            evidenceList.Add(new DisputeEvidenceRespDto
-            {
-                Id = evidence.Id,
-                ImageUrl = await ResolveEvidenceUrlAsync(evidence.ImageUrl),
-                Note = evidence.Note,
-                CreatedAt = evidence.CreatedAt ?? DateTime.UtcNow
-            });
-        }
-
-        return new DisputeDetailRespDto
-        {
-            Id = dispute.Id,
-            TransactionId = dispute.TransactionId,
-            TypeCode = dispute.Type.Code,
-            TypeName = dispute.Type.NameKo ?? dispute.Type.Code,
-            StatusCode = dispute.Status.Code,
-            StatusName = dispute.Status.NameKo ?? dispute.Status.Code,
-            Description = dispute.Description ?? string.Empty,
-            Evidences = evidenceList,
-            Transaction = new DisputeTransactionRespDto
-            {
-                TransactionId = dispute.TransactionId,
-                TicketTitle = ticketTitle,
-                Amount = amount,
-                BuyerNickname = nicknameMap.GetValueOrDefault((int)dispute.Transaction.BuyerId) ?? "구매자",
-                SellerNickname = nicknameMap.GetValueOrDefault((int)dispute.Transaction.SellerId) ?? "판매자"
-            },
-            CreatedAt = dispute.CreatedAt ?? DateTime.UtcNow
-        };
+        return await BuildDisputeDetailRespDtoAsync(dispute);
     }
 
     public async Task<AddDisputeEvidenceRespDto> AddEvidenceAsync(long userId, long disputeId, AddDisputeEvidenceReqDto req)
@@ -604,10 +547,13 @@ public class DisputeService(
     {
         var dispute = await disputeRepository.GetDisputeByIdWithDetailsAsync(disputeId);
         if (dispute == null)
-        {
             throw new AppException("신고가 존재하지 않습니다.", HttpStatusCode.NotFound);
-        }
 
+        return await BuildDisputeDetailRespDtoAsync(dispute);
+    }
+
+    private async Task<DisputeDetailRespDto> BuildDisputeDetailRespDtoAsync(DBModel.Dispute dispute)
+    {
         var userIds = new[] { (int)dispute.Transaction.BuyerId, (int)dispute.Transaction.SellerId };
         var nicknameMap = await context.UserProfiles
             .Where(x => userIds.Contains(x.UserId))
