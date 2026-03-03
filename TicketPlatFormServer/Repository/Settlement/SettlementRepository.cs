@@ -1,8 +1,11 @@
+using System.Data;
+using Dapper;
 using Microsoft.EntityFrameworkCore;
+using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Settlements;
 
-public class SettlementRepository(TicketContext context) : ISettlementRepository
+public class SettlementRepository(TicketContext context, IDbConnection dapper) : ISettlementRepository
 {
     public async Task<List<DBModel.Settlement>> GetSettlementsBySellerIdAsync(long sellerId)
     {
@@ -35,5 +38,44 @@ public class SettlementRepository(TicketContext context) : ISettlementRepository
     {
         context.Settlements.Update(settlement);
         await context.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<SettlementListReadModel>> GetBySellerIdAsync(
+        long sellerId, int page, int pageSize, string? statusFilter)
+    {
+        var offset = (page - 1) * pageSize;
+        return await dapper.QueryAsync<SettlementListReadModel>(
+            SettlementQueries.GetBySellerIdList,
+            new { SellerId = sellerId, StatusFilter = statusFilter, PageSize = pageSize, Offset = offset });
+    }
+
+    public async Task<int> CountBySellerIdAsync(long sellerId, string? statusFilter)
+    {
+        return await dapper.ExecuteScalarAsync<int>(
+            SettlementQueries.CountBySellerId,
+            new { SellerId = sellerId, StatusFilter = statusFilter });
+    }
+
+    public async Task<long> GetTotalCompletedNetAmountAsync(long sellerId)
+    {
+        return await dapper.ExecuteScalarAsync<long>(
+            SettlementQueries.GetTotalCompletedNetAmount,
+            new { SellerId = sellerId });
+    }
+
+    public async Task<SettlementDetailReadModel?> GetDetailByIdAndSellerIdAsync(
+        long settlementId, long sellerId)
+    {
+        return await dapper.QueryFirstOrDefaultAsync<SettlementDetailReadModel>(
+            SettlementQueries.GetDetailByIdAndSellerId,
+            new { SettlementId = settlementId, SellerId = sellerId });
+    }
+
+    public async Task<bool> HasBalanceTransactionAsync(long settlementId)
+    {
+        var result = await dapper.ExecuteScalarAsync<int>(
+            SettlementQueries.HasBalanceTransaction,
+            new { SettlementId = settlementId });
+        return result != 0;
     }
 }

@@ -1,6 +1,6 @@
 namespace TicketPlatFormServer.DTO.Settlement;
 
-public class SettlementResponseDto
+public class SettlementDetailRespDto
 {
     public long Id { get; set; }
 
@@ -22,7 +22,17 @@ public class SettlementResponseDto
 
     public string? FailureReason { get; set; }
 
+    public int? RetryCount { get; set; }
+
     public string? EventTitle { get; set; }
 
     public string? SeatInfo { get; set; }
+
+    public string? BuyerNickname { get; set; }
+
+    public string? BankName { get; set; }
+
+    public string? AccountNumber { get; set; }
+
+    public string? AccountHolder { get; set; }
 }

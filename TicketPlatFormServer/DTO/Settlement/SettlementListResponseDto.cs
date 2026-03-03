@@ -6,5 +6,7 @@ public class SettlementListResponseDto
 
     public int TotalCount { get; set; }
 
+    public long TotalNetAmount { get; set; }
+
     public SettlementSummaryDto Summary { get; set; } = new();
 }
