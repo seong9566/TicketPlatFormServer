@@ -35,7 +35,8 @@ Services/
     ├── TransactionReservationCleanupService.cs     # Release expired reservations
     ├── TransactionAutoConfirmService.cs            # Auto-confirm after timeout
     ├── SettlementProcessingService.cs              # D+3 settlement batch
-    └── WithdrawalProcessingService.cs              # Withdrawal batch processing
+    ├── WithdrawalProcessingService.cs              # Withdrawal batch processing
+    └── UserProfileImageCleanupService.cs           # Orphan profile image cleanup
 ```
 
 ## WHERE TO LOOK
@@ -49,7 +50,7 @@ Services/
 | Sell operations | `Sell/SellService.cs` | 691 lines; ticket registration wizard, category queries |
 | Dispute file upload | `Dispute/DisputeService.cs` | Supabase Storage integration |
 | FCM sending | `Notification/FcmService.cs` | HTTP v1 API; JWT token caching; UNREGISTERED cleanup |
-| Notification triggers | `Notification/NotificationService.cs` | 4 triggers: CHAT_MESSAGE, PAYMENT_REQUEST, PAYMENT_SUCCESS, PURCHASE_CONFIRMED |
+| Notification triggers | `Notification/NotificationService.cs` | 9 triggers: CHAT_MESSAGE, PAYMENT_REQUEST, PAYMENT_SUCCESS, PURCHASE_CONFIRMED, DISPUTE_OPENED, DISPUTE_RESOLVED, REVIEW_REQUEST, SETTLEMENT_COMPLETED, SETTLEMENT_FAILED |
 | Settlement processing | `BackgroundServices/SettlementProcessingService.cs` | Hosted service, runs on schedule |
 
 ## CONVENTIONS
@@ -87,7 +88,6 @@ dotnet test --project TicketPlatFormServer.Tests/TicketPlatFormServer.Tests.cspr
 ```
 
 ## NOTES
-- Dispute notification triggers (`DISPUTE_OPENED`, `DISPUTE_RESOLVED`) are pending Dispute service completion.
+- Dispute notification triggers (`DISPUTE_OPENED`, `DISPUTE_RESOLVED`) implemented in DisputeService.
 - File compensation pattern: if DB save fails after file upload, delete uploaded file in catch block (see `UserService.cs`).
-- `SellService.cs` has TODO: icon URL mapping pending (`// TODO: 아이콘 URL 추가 시 매핑`).
-- `UserService.cs` has TODO: orphan file cleanup needed (`// TODO: 주기적 정리 작업으로 고아 파일 제거 필요`).
+- `UserService.cs` orphan file cleanup handled by UserProfileImageCleanupService.
