@@ -19,9 +19,4 @@ public class CategoryRespDto
     /// 카테고리 한글명
     /// </summary>
     public string Name { get; set; } = null!;
-
-    /// <summary>
-    /// 아이콘 URL
-    /// </summary>
-    public string? IconUrl { get; set; }
 }

@@ -34,8 +34,7 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
         {
             CategoryId = c.Id,
             Code = c.Code,
-            Name = c.NameKo,
-            IconUrl = null // TODO: 아이콘 URL 추가 시 매핑
+            Name = c.NameKo
         }).ToList();
     }
 
