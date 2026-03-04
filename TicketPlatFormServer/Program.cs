@@ -360,6 +360,7 @@ builder.Services.AddHostedService<TransactionReservationCleanupService>();
 builder.Services.AddHostedService<TransactionAutoConfirmService>();
 builder.Services.AddHostedService<SettlementProcessingService>();
 builder.Services.AddHostedService<WithdrawalProcessingService>();
+builder.Services.AddHostedService<UserProfileImageCleanupService>();
 
 var app = builder.Build();
 

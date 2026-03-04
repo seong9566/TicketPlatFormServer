@@ -478,7 +478,7 @@ public class UserService : IUserService
                 catch (Exception ex)
                 {
                     // 이미지 삭제 실패는 로그만 남기고 계속 진행 (DB는 이미 업데이트됨)
-                    // TODO: 주기적 정리 작업으로 고아 파일 제거 필요
+                    // 고아 파일은 UserProfileImageCleanupService에서 주기적으로 정리됨
                     _logger.LogWarning("이전 프로필 이미지 삭제 실패: {ImageKey}, 오류: {Error}", oldImageKey, ex.Message);
                 }
             }
