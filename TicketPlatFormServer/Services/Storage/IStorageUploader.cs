@@ -23,7 +23,14 @@ public interface IStorageUploader
     Task<bool> DeleteAsync(string objectKey, string? bucketName = null, CancellationToken ct = default);
 
     /// <summary>
+    /// 버킷 내 파일 목록 조회 (prefix 기반 필터링)
+    /// </summary>
+    Task<List<StorageObject>> ListObjectsAsync(string prefix, string? bucketName = null, int limit = 1000, int offset = 0, CancellationToken ct = default);
+
+    /// <summary>
     /// Provider 이름 (로깅/메트릭용)
     /// </summary>
     string ProviderName { get; }
 }
+
+public record StorageObject(string Name, string Id, DateTime? CreatedAt, long? Size);

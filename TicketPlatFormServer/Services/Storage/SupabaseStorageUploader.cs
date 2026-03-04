@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using TicketPlatFormServer.Config;
 
 namespace TicketPlatFormServer.Services.Storage;
@@ -172,6 +173,60 @@ public class SupabaseStorageUploader : IStorageUploader
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<List<StorageObject>> ListObjectsAsync(string prefix, string? bucketName = null, int limit = 1000, int offset = 0, CancellationToken ct = default)
+    {
+        var effectiveBucket = GetEffectiveBucketName(bucketName);
+        var url = $"/storage/v1/object/list/{effectiveBucket}";
+        var body = new { prefix, limit, offset };
+
+        _logger.LogInformation("[SupabaseStorageUploader.ListObjectsAsync] Listing objects: Bucket={Bucket}, Prefix={Prefix}, Limit={Limit}, Offset={Offset}",
+            effectiveBucket, prefix, limit, offset);
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(_settings.SignUrlTimeoutSec));
+
+            var response = await _httpClient.PostAsJsonAsync(url, body, cts.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogError("[SupabaseStorageUploader.ListObjectsAsync] Failed: StatusCode={StatusCode}, Bucket={Bucket}, Prefix={Prefix}, Error={Error}",
+                    response.StatusCode, effectiveBucket, prefix, errorContent);
+                return new List<StorageObject>();
+            }
+
+            var results = await response.Content.ReadFromJsonAsync<List<ListObjectResponse>>(ct);
+
+            if (results == null)
+            {
+                _logger.LogWarning("[SupabaseStorageUploader.ListObjectsAsync] Null response from Supabase: Bucket={Bucket}, Prefix={Prefix}",
+                    effectiveBucket, prefix);
+                return new List<StorageObject>();
+            }
+
+            var objects = results
+                .Select(r => new StorageObject(
+                    Name: r.Name ?? string.Empty,
+                    Id: r.Id ?? string.Empty,
+                    CreatedAt: r.CreatedAt,
+                    Size: r.Metadata?.Size))
+                .ToList();
+
+            _logger.LogInformation("[SupabaseStorageUploader.ListObjectsAsync] Found {Count} objects: Bucket={Bucket}, Prefix={Prefix}",
+                objects.Count, effectiveBucket, prefix);
+
+            return objects;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[SupabaseStorageUploader.ListObjectsAsync] Exception: Bucket={Bucket}, Prefix={Prefix}",
+                effectiveBucket, prefix);
+            return new List<StorageObject>();
+        }
+    }
+
     /// <summary>
     /// 버킷명이 지정되지 않은 경우 기본 버킷 사용 (하위 호환성)
     /// </summary>
@@ -184,4 +239,10 @@ public class SupabaseStorageUploader : IStorageUploader
 
     private record SignUrlResponse(string? SignedUrl);
     private record BatchSignUrlResponse(string? Path, string? SignedUrl, string? Error);
+    private record ListObjectResponse(
+        [property: JsonPropertyName("name")] string? Name,
+        [property: JsonPropertyName("id")] string? Id,
+        [property: JsonPropertyName("created_at")] DateTime? CreatedAt,
+        [property: JsonPropertyName("metadata")] ListObjectMetadata? Metadata);
+    private record ListObjectMetadata([property: JsonPropertyName("size")] long? Size);
 }
