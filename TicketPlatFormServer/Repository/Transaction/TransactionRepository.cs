@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using MySqlConnector;
 using TicketPlatFormServer.Repository;
 using TicketPlatFormServer.Repository.ReadModels;
 
@@ -53,30 +54,16 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
     /// </summary>
     public async Task UpdateTransactionStatusAsync(long transactionId, long statusId)
     {
-        const string query = @"
+        const string sql = @"
             UPDATE transactions
             SET status_id = @StatusId
             WHERE id = @TransactionId
               AND deleted_at IS NULL
         ";
 
-        var currentTransaction = context.Database.CurrentTransaction;
-        if (currentTransaction != null)
-        {
-            var connection = context.Database.GetDbConnection();
-            await connection.ExecuteAsync(query, new
-            {
-                TransactionId = transactionId,
-                StatusId = statusId
-            }, transaction: currentTransaction.GetDbTransaction());
-            return;
-        }
-
-        await dapper.ExecuteAsync(query, new
-        {
-            TransactionId = transactionId,
-            StatusId = statusId
-        });
+        await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@TransactionId", transactionId),
+            new MySqlParameter("@StatusId", statusId));
     }
 
     /// <summary>
@@ -84,30 +71,16 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
     /// </summary>
     public async Task UpdateTransactionCancelledAtAsync(long transactionId, DateTime cancelledAt)
     {
-        const string query = @"
+        const string sql = @"
             UPDATE transactions
             SET cancelled_at = @CancelledAt
             WHERE id = @TransactionId
               AND deleted_at IS NULL
         ";
 
-        var currentTransaction = context.Database.CurrentTransaction;
-        if (currentTransaction != null)
-        {
-            var connection = context.Database.GetDbConnection();
-            await connection.ExecuteAsync(query, new
-            {
-                TransactionId = transactionId,
-                CancelledAt = cancelledAt
-            }, transaction: currentTransaction.GetDbTransaction());
-            return;
-        }
-
-        await dapper.ExecuteAsync(query, new
-        {
-            TransactionId = transactionId,
-            CancelledAt = cancelledAt
-        });
+        await context.Database.ExecuteSqlRawAsync(sql,
+            new MySqlParameter("@TransactionId", transactionId),
+            new MySqlParameter("@CancelledAt", cancelledAt));
     }
 
     /// <summary>
