@@ -1,6 +1,8 @@
 using System.Data;
 using Dapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MySqlConnector;
 using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Favorite;
@@ -9,6 +11,7 @@ namespace TicketPlatFormServer.Repository.Favorite;
 /// 찜 관련 Repository 구현체 (Primary Constructor 패턴)
 /// </summary>
 public class FavoriteRepository(
+    TicketContext context,
     IDbConnection dapper,
     ILogger<FavoriteRepository> logger) : IFavoriteRepository
 {
@@ -26,9 +29,11 @@ public class FavoriteRepository(
         if (existingFavorite.HasValue)
         {
             // 이미 찜한 경우 → 삭제
-            await dapper.ExecuteAsync(
+            await context.Database.ExecuteSqlRawAsync(
                 FavoriteQueries.DeleteFavorite,
-                new { UserId = userId, FavoriteTypeId = favoriteTypeId, TargetId = targetId }
+                new MySqlParameter("@UserId", userId),
+                new MySqlParameter("@FavoriteTypeId", favoriteTypeId),
+                new MySqlParameter("@TargetId", targetId)
             );
 
             logger.LogInformation(
@@ -41,9 +46,11 @@ public class FavoriteRepository(
         else
         {
             // 찜하지 않은 경우 → 추가
-            await dapper.ExecuteAsync(
+            await context.Database.ExecuteSqlRawAsync(
                 FavoriteQueries.InsertFavorite,
-                new { UserId = userId, FavoriteTypeId = favoriteTypeId, TargetId = targetId }
+                new MySqlParameter("@UserId", userId),
+                new MySqlParameter("@FavoriteTypeId", favoriteTypeId),
+                new MySqlParameter("@TargetId", targetId)
             );
 
             logger.LogInformation(
