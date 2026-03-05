@@ -1,5 +1,7 @@
 using System.Data;
 using Dapper;
+using Microsoft.EntityFrameworkCore;
+using MySqlConnector;
 using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Ticket;
@@ -8,6 +10,7 @@ namespace TicketPlatFormServer.Repository.Ticket;
 /// 티켓 관련 Repository 구현체
 /// </summary>
 public class TicketRepository(
+    TicketContext context,
     IDbConnection dapper) : ITicketRepository
 {
     public async Task<List<TicketListReadModel>> GetTicketsByEventId(int eventId)
@@ -273,9 +276,10 @@ public class TicketRepository(
 
     public async Task<bool> TryReserveTicketQuantityAsync(int ticketId, int quantity)
     {
-        var affected = await dapper.ExecuteAsync(
+        var affected = await context.Database.ExecuteSqlRawAsync(
             TicketQueries.ReserveTicketQuantity,
-            new { TicketId = ticketId, Quantity = quantity }
+            new MySqlParameter("@TicketId", ticketId),
+            new MySqlParameter("@Quantity", quantity)
         );
 
         return affected > 0;
@@ -283,9 +287,10 @@ public class TicketRepository(
 
     public async Task ReleaseTicketQuantityAsync(int ticketId, int quantity)
     {
-        await dapper.ExecuteAsync(
+        await context.Database.ExecuteSqlRawAsync(
             TicketQueries.ReleaseTicketQuantity,
-            new { TicketId = ticketId, Quantity = quantity }
+            new MySqlParameter("@TicketId", ticketId),
+            new MySqlParameter("@Quantity", quantity)
         );
     }
     
