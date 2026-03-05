@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using MySqlConnector;
 using TicketPlatFormServer.DBModel;
 
 namespace TicketPlatFormServer.Repository.Reputation;
@@ -95,12 +96,10 @@ public class ReputationRepository(TicketContext context, IDbConnection dapper) :
             WHERE user_id = @UserId
         ";
 
-        return await ExecuteWithCurrentTransactionAsync(query, new
-        {
-            UserId = userId,
-            Delta = delta,
-            Score = score
-        });
+        return await ExecuteWithCurrentTransactionAsync(query,
+            new MySqlParameter("@UserId", userId),
+            new MySqlParameter("@Delta", delta),
+            new MySqlParameter("@Score", score));
     }
 
     public async Task<IReadOnlyDictionary<long, (string Nickname, string? ProfileImageUrl)>> GetReviewerProfilesAsync(IReadOnlyCollection<long> reviewerIds)
@@ -163,16 +162,9 @@ public class ReputationRepository(TicketContext context, IDbConnection dapper) :
         return await dapper.QuerySingleOrDefaultAsync<T>(sql, param);
     }
 
-    private async Task<int> ExecuteWithCurrentTransactionAsync(string sql, object? param = null)
+    private async Task<int> ExecuteWithCurrentTransactionAsync(string sql, params MySqlParameter[] parameters)
     {
-        var currentTransaction = context.Database.CurrentTransaction;
-        if (currentTransaction != null)
-        {
-            var connection = context.Database.GetDbConnection();
-            return await connection.ExecuteAsync(sql, param, transaction: currentTransaction.GetDbTransaction());
-        }
-
-        return await dapper.ExecuteAsync(sql, param);
+        return await context.Database.ExecuteSqlRawAsync(sql, parameters);
     }
 
     private sealed class UserProfileStatRow
