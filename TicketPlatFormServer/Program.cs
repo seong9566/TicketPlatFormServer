@@ -11,13 +11,7 @@ using TicketPlatFormServer.Repository.Chat;
 using TicketPlatFormServer.Repository.Events;
 using TicketPlatFormServer.Repository.Favorite;
 using TicketPlatFormServer.Repository.Home;
-using TicketPlatFormServer.Repository.Disputes;
-using TicketPlatFormServer.Repository.Payment;
-using TicketPlatFormServer.Repository.BankAccounts;
-using TicketPlatFormServer.Repository.Balance;
-using TicketPlatFormServer.Repository.Withdrawal;
 using TicketPlatFormServer.Repository.Notifications;
-using TicketPlatFormServer.Repository.Settlements;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Token;
 using TicketPlatFormServer.Repository.Transactions;
@@ -31,14 +25,8 @@ using TicketPlatFormServer.Services.Chat;
 using TicketPlatFormServer.Services.Event;
 using TicketPlatFormServer.Services.Favorite;
 using TicketPlatFormServer.Services.FileUpload;
-using TicketPlatFormServer.Services.Dispute;
 using TicketPlatFormServer.Services.Home;
-using TicketPlatFormServer.Services.Payment;
-using TicketPlatFormServer.Services.BankAccount;
-using TicketPlatFormServer.Services.Balance;
-using TicketPlatFormServer.Services.Withdrawal;
 using TicketPlatFormServer.Services.Notification;
-using TicketPlatFormServer.Services.Settlements;
 using TicketPlatFormServer.Services.Ticket;
 using TicketPlatFormServer.Services.Token;
 using TicketPlatFormServer.Services.User;
@@ -177,18 +165,9 @@ builder.Configuration.GetSection("ChatSettings").Bind(chatSettings);
 builder.Services.AddSingleton(chatSettings);
 #endregion
 
-#region Toss Payments 설정
-var tossPaymentsSettings = new TossPaymentsSettings();
-builder.Configuration.GetSection("TossPayments").Bind(tossPaymentsSettings);
-builder.Services.AddSingleton(tossPaymentsSettings);
-
 var fcmSettings = new FcmSettings();
 builder.Configuration.GetSection("FCM").Bind(fcmSettings);
 builder.Services.AddSingleton(fcmSettings);
-
-// Resilience settings for HttpClient (loaded in Supabase Storage section below)
-// HttpClient for TossPaymentsService - will use resilienceSettings after it's loaded
-#endregion
 
 #region Supabase Storage 설정
 var supabaseSettings = new SupabaseStorageSettings();
@@ -216,11 +195,6 @@ builder.Services.AddHttpClient<SupabaseStorageUploader>()
 
 // IStorageUploader - Supabase로 설정
 builder.Services.AddScoped<IStorageUploader>(sp => sp.GetRequiredService<SupabaseStorageUploader>());
-
-// HttpClient for TossPaymentsService
-builder.Services.AddHttpClient("TossPayments")
-    .AddPolicyHandler(GetRetryPolicy(resilienceSettings))
-    .AddPolicyHandler(GetCircuitBreakerPolicy(resilienceSettings));
 
 static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(ResilienceSettings settings)
 {
@@ -309,8 +283,6 @@ builder.Services.AddScoped<INotificationTokenRepository, NotificationTokenReposi
 builder.Services.AddScoped<IFcmService, FcmService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHttpClient("FCM", client => { client.Timeout = TimeSpan.FromSeconds(10); });
-builder.Services.AddScoped<IDisputeRepository, DisputeRepository>();
-builder.Services.AddScoped<IDisputeService, DisputeService>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITransactionItemRepository, TransactionItemRepository>();
 builder.Services.AddScoped<ITransactionHistoryRepository, TransactionHistoryRepository>();
@@ -329,19 +301,6 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IFileUploadService, FileUploadService>();
 
-// Payment 서비스
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
-builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
-builder.Services.AddScoped<IBalanceRepository, BalanceRepository>();
-builder.Services.AddScoped<ISettlementRepository, SettlementRepository>();
-builder.Services.AddScoped<ITossPaymentsService, TossPaymentsService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<IBankAccountService, BankAccountService>();
-builder.Services.AddScoped<IBalanceService, BalanceService>();
-builder.Services.AddScoped<IWithdrawalRepository, WithdrawalRepository>();
-builder.Services.AddScoped<IWithdrawalService, WithdrawalService>();
-builder.Services.AddScoped<ISettlementService, SettlementService>();
-
 // Encryption 서비스
 builder.Services.AddSingleton<TicketPlatFormServer.Services.Common.EncryptionService>(sp =>
 {
@@ -358,8 +317,6 @@ builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddHostedService<ChatCleanupService>();
 builder.Services.AddHostedService<TransactionReservationCleanupService>();
 builder.Services.AddHostedService<TransactionAutoConfirmService>();
-builder.Services.AddHostedService<SettlementProcessingService>();
-builder.Services.AddHostedService<WithdrawalProcessingService>();
 builder.Services.AddHostedService<UserProfileImageCleanupService>();
 
 var app = builder.Build();
