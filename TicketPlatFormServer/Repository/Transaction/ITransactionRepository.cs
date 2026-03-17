@@ -1,5 +1,4 @@
 using TicketPlatFormServer.DBModel;
-using TicketPlatFormServer.Repository.ReadModels;
 
 namespace TicketPlatFormServer.Repository.Transactions;
 
@@ -68,5 +67,4 @@ public interface ITransactionRepository
     /// <returns>TransactionStatus (없으면 null)</returns>
     Task<DBModel.TransactionStatus?> GetTransactionStatusByCodeAsync(string code);
 
-    Task<PaymentPreviewReadModel?> GetPaymentPreviewAsync(long transactionId, long buyerId);
 }

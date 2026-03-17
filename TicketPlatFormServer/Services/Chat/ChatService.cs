@@ -7,7 +7,6 @@ using TicketPlatFormServer.DTO.Chat;
 using TicketPlatFormServer.Enum;
 using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository.Chat;
-using TicketPlatFormServer.Repository.Disputes;
 using TicketPlatFormServer.Repository.Reputation;
 using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Repository.Ticket;
@@ -23,7 +22,6 @@ public class ChatService(
     ITicketRepository ticketRepo,
     ITransactionRepository transactionRepo,
     IReputationRepository reputationRepository,
-    IDisputeRepository disputeRepository,
     ITransactionItemRepository transactionItemRepo,
     IFileUploadService fileUploadService,
     INotificationService notificationService,
@@ -521,7 +519,7 @@ public class ChatService(
 
             // 4. 시스템 메시지 전송
             var paymentMessage = $"거래가 요청되었습니다. 판매자에게 직접 송금해주세요. (수량: {quantity}장, 총 금액: {totalAmount:N0}원)";
-            var systemMessage = await chatRepo.CreateMessage(roomId, userId, paymentMessage, null, Enum.MessageType.PAYMENT_REQUEST);
+            var systemMessage = await chatRepo.CreateMessage(roomId, userId, paymentMessage, null, Enum.MessageType.TRANSACTION_REQUEST);
 
             // LastMessageAt 업데이트
             await chatRepo.UpdateLastMessageAt(roomId, systemMessage.CreatedAt ?? DateTime.UtcNow);
@@ -974,20 +972,13 @@ public class ChatService(
         {
             hasReviewedSeller = await reputationRepository.ExistsAsync(transaction.Id, userId);
 
-            var pendingStatus = await disputeRepository.GetDisputeStatusByCodeAsync("PENDING");
-            var inReviewStatus = await disputeRepository.GetDisputeStatusByCodeAsync("IN_REVIEW");
-            var hasOpenDispute = pendingStatus != null
-                                 && inReviewStatus != null
-                                 && await disputeRepository.HasActiveDisputeAsync(transaction.Id, [pendingStatus.Id, inReviewStatus.Id]);
-
             var within7Days = transaction.ConfirmedAt != null
                               && (DateTime.UtcNow - transaction.ConfirmedAt.Value).TotalDays <= 7;
 
             canWriteReview = transaction.CancelledAt == null
                              && transaction.ConfirmedAt != null
                              && !hasReviewedSeller
-                             && within7Days
-                             && !hasOpenDispute;
+                             && within7Days;
         }
 
         return new ChatRoomDetailRespDto

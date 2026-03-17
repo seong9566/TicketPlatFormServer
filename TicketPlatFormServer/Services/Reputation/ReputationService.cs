@@ -3,7 +3,6 @@ using TicketPlatFormServer.Common;
 using TicketPlatFormServer.DBModel;
 using TicketPlatFormServer.DTO.Reputation;
 using TicketPlatFormServer.Repository;
-using TicketPlatFormServer.Repository.Disputes;
 using TicketPlatFormServer.Repository.Reputation;
 using TicketPlatFormServer.Repository.Transactions;
 
@@ -12,7 +11,6 @@ namespace TicketPlatFormServer.Services.Reputation;
 public class ReputationService(
     IReputationRepository reputationRepository,
     ITransactionRepository transactionRepository,
-    IDisputeRepository disputeRepository,
     TicketContext context) : IReputationService
 {
     public async Task<long> CreateAsync(long requestUserId, CreateReputationReqDto dto)
@@ -155,16 +153,8 @@ public class ReputationService(
         };
     }
 
-    private async Task<bool> HasOpenDisputeAsync(long transactionId)
+    private static Task<bool> HasOpenDisputeAsync(long transactionId)
     {
-        var pendingStatus = await disputeRepository.GetDisputeStatusByCodeAsync("PENDING");
-        var inReviewStatus = await disputeRepository.GetDisputeStatusByCodeAsync("IN_REVIEW");
-
-        if (pendingStatus == null || inReviewStatus == null)
-        {
-            throw new AppException("분쟁 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
-        }
-
-        return await disputeRepository.HasActiveDisputeAsync(transactionId, [pendingStatus.Id, inReviewStatus.Id]);
+        return Task.FromResult(false);
     }
 }

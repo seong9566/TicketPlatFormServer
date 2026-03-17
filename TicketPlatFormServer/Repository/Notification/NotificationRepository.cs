@@ -21,26 +21,14 @@ public class NotificationRepository(TicketContext db) : INotificationRepository
 
     public async Task SeedTypesIfMissingAsync()
     {
-        var existingCodes = await db.NotificationTypes.Select(x => x.Code).ToListAsync();
-        var toInsert = RequiredTypes
-            .Where(x => !existingCodes.Contains(x.Code))
-            .Select(x => new DBModel.NotificationType
-            {
-                Id = x.Id,
-                Code = x.Code,
-                NameKo = x.NameKo,
-                IsActive = true,
-                SortOrder = x.SortOrder
-            })
-            .ToList();
-
-        if (toInsert.Count == 0)
+        foreach (var (id, code, nameKo, sortOrder) in RequiredTypes)
         {
-            return;
+            await db.Database.ExecuteSqlRawAsync(
+                @"INSERT INTO notification_types (id, code, name_ko, is_active, sort_order)
+                  VALUES ({0}, {1}, {2}, 1, {3})
+                  ON DUPLICATE KEY UPDATE code = VALUES(code), name_ko = VALUES(name_ko), sort_order = VALUES(sort_order)",
+                id, code, nameKo, sortOrder);
         }
-
-        await db.NotificationTypes.AddRangeAsync(toInsert);
-        await db.SaveChangesAsync();
     }
 
     public async Task<DBModel.Notification> CreateAsync(DBModel.Notification notification)
