@@ -531,12 +531,12 @@ public class ChatService(
             var receiverId = isSenderBuyer ? room.SellerId : room.BuyerId;
             await notificationService.CreateAndSendAsync(
                 receiverId,
-                "PAYMENT_REQUEST",
-                "결제 요청이 도착했습니다",
-                "판매자가 결제를 요청했습니다.",
+                "TRANSACTION_REQUEST",
+                "거래 요청이 도착했습니다",
+                "판매자가 거래를 요청했습니다.",
                 new Dictionary<string, string>
                 {
-                    ["type"] = "PAYMENT_REQUEST",
+                    ["type"] = "TRANSACTION_REQUEST",
                     ["transactionId"] = createdTransaction.Id.ToString(),
                     ["roomId"] = roomId.ToString()
                 });
