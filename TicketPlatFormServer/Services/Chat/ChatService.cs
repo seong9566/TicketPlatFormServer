@@ -458,7 +458,7 @@ public class ChatService(
         // Transaction이 이미 존재하는지 확인
         if (room.TransactionId != null)
         {
-            throw new AppException("이미 결제 요청된 거래입니다.", HttpStatusCode.BadRequest);
+            throw new AppException("이미 거래가 진행중입니다.", HttpStatusCode.BadRequest);
         }
 
         if (quantity <= 0)
@@ -710,6 +710,7 @@ public class ChatService(
 
         await transactionRepo.UpdateTransactionStatusAsync(req.TransactionId, cancelledStatus.Id);
         await transactionRepo.UpdateTransactionCancelledAtAsync(req.TransactionId, DateTime.UtcNow);
+        await chatRepo.ClearTransactionId(req.RoomId);
 
         // 시스템 메시지 전송
         var systemMessage = await chatRepo.CreateMessage(req.RoomId, req.UserId, $"거래가 취소되었습니다. 사유: {req.CancelReason}", null);
