@@ -461,15 +461,17 @@ public class ChatService(
             throw new AppException("이미 거래가 진행중입니다.", HttpStatusCode.BadRequest);
         }
 
-        if (quantity <= 0)
-        {
-            throw new AppException("유효하지 않은 수량입니다.", HttpStatusCode.BadRequest);
-        }
-
         // Ticket 정보 확인
         if (room.Ticket == null)
         {
             throw new AppException("티켓 정보를 찾을 수 없습니다.", HttpStatusCode.NotFound);
+        }
+
+        // MVP 정책: 게시글의 전체 잔여 수량을 일괄 판매 (개별 장당 판매 불가)
+        quantity = room.Ticket.RemainingQuantity;
+        if (quantity <= 0)
+        {
+            throw new AppException("판매 가능한 수량이 없습니다.", HttpStatusCode.BadRequest);
         }
 
         // 재고 예약 (원자적 감소)
