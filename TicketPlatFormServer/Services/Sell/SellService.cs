@@ -561,24 +561,24 @@ public class SellService(ISellRepository sellRepository, IStorageUploader storag
 
     private static (string StatusCode, string StatusName)? ResolveEventTicketDetailStatus(EventTicketReadModel item)
     {
-        if (item.SettlementStatusCode == "on_hold")
-        {
-            return ("settlement_on_hold", "정산 보류");
-        }
-
-        if (item.SettlementStatusCode == "completed")
-        {
-            return ("settlement_completed", "정산 완료");
-        }
-
         if (item.TransactionStatusCode is "cancelled" or "refunded")
         {
-            return ("payment_cancelled", "결제 취소");
+            return ("transaction_cancelled", "거래 취소");
         }
 
-        if (item.TransactionStatusCode is "confirmed" or "paid" or "completed")
+        if (item.TransactionStatusCode is "confirmed")
         {
-            return ("payment_completed", "결제 완료");
+            return ("transaction_confirmed", "구매 확정");
+        }
+
+        if (item.TransactionStatusCode is "completed")
+        {
+            return ("transaction_completed", "거래 완료");
+        }
+
+        if (item.TransactionStatusCode is "paid")
+        {
+            return ("transaction_pending", "거래 진행중");
         }
 
         return null;

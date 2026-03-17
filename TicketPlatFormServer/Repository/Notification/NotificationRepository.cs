@@ -7,14 +7,11 @@ public class NotificationRepository(TicketContext db) : INotificationRepository
     private static readonly (long Id, string Code, string NameKo, int SortOrder)[] RequiredTypes =
     [
         (1, "CHAT_MESSAGE", "채팅 메시지", 1),
-        (2, "PAYMENT_REQUEST", "결제 요청", 2),
-        (3, "PAYMENT_SUCCESS", "", 3),
+        (2, "TRANSACTION_REQUEST", "거래 요청", 2),
         (4, "PURCHASE_CONFIRMED", "구매 확정", 4),
         (5, "DISPUTE_OPENED", "신고 접수", 5),
         (6, "DISPUTE_RESOLVED", "신고 해결", 6),
-        (7, "REVIEW_REQUEST", "리뷰 요청", 7),
-        (8, "SETTLEMENT_COMPLETED", "정산 완료", 8),
-        (9, "SETTLEMENT_FAILED", "정산 실패", 9)
+        (7, "REVIEW_REQUEST", "리뷰 요청", 7)
     ];
 
     public async Task<DBModel.NotificationType?> GetTypeByCodeAsync(string typeCode)

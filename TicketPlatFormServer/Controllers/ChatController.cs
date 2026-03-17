@@ -251,7 +251,7 @@ public class ChatController(IChatService chatService, IHubContext<ChatHub> hubCo
                 Message = "결제가 요청되었습니다."
             });
 
-        var resp = new ApiResponse<PaymentUrlRespDto>(
+        var resp = new ApiResponse<TransactionCreatedRespDto>(
             message: "결제 요청 성공",
             data: result,
             statusCode: 200

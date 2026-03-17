@@ -398,8 +398,7 @@ public class ChatRepository(TicketContext db, ILogger<ChatRepository> logger) : 
 
                     return m.MessageType switch
                     {
-                        "PAYMENT_REQUEST" => "결제가 요청되었습니다.",
-                        "PAYMENT_SUCCESS" => "결제가 완료되었습니다.",
+                        "TRANSACTION_REQUEST" => "거래가 요청되었습니다.",
                         "PURCHASE_CONFIRMED" => "구매가 확정되었습니다.",
                         _ => (string?)null
                     };

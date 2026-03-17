@@ -3,10 +3,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using TicketPlatFormServer.Repository;
-using TicketPlatFormServer.Repository.Disputes;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.Notification;
-using TicketPlatFormServer.Services.Payment;
 
 namespace TicketPlatFormServer.Services.BackgroundServices;
 
@@ -39,8 +37,6 @@ public class TransactionAutoConfirmService(
     {
         using var scope = serviceProvider.CreateScope();
         var transactionRepository = scope.ServiceProvider.GetRequiredService<ITransactionRepository>();
-        var disputeRepository = scope.ServiceProvider.GetRequiredService<IDisputeRepository>();
-        var paymentService = scope.ServiceProvider.GetRequiredService<IPaymentService>();
         var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
         var context = scope.ServiceProvider.GetRequiredService<TicketContext>();
 
@@ -50,11 +46,10 @@ public class TransactionAutoConfirmService(
             return;
         }
 
-        var pendingStatus = await disputeRepository.GetDisputeStatusByCodeAsync("PENDING");
-        var inReviewStatus = await disputeRepository.GetDisputeStatusByCodeAsync("IN_REVIEW");
-        if (pendingStatus == null || inReviewStatus == null)
+        var confirmedStatus = await transactionRepository.GetTransactionStatusByCodeAsync("confirmed");
+        if (confirmedStatus == null)
         {
-            logger.LogWarning("[TransactionAutoConfirmService] 분쟁 상태 코드를 찾지 못해 자동확정을 건너뜁니다.");
+            logger.LogWarning("[TransactionAutoConfirmService] 'confirmed' 거래 상태 코드를 찾지 못해 자동확정을 건너뜁니다.");
             return;
         }
 
@@ -67,14 +62,7 @@ public class TransactionAutoConfirmService(
 
             try
             {
-                var hasOpenDispute = await disputeRepository.HasActiveDisputeAsync(transaction.Id, [pendingStatus.Id, inReviewStatus.Id]);
-                if (hasOpenDispute)
-                {
-                    logger.LogInformation("[TransactionAutoConfirmService] 분쟁 진행 중 거래 자동확정 건너뜀. TransactionId={TransactionId}", transaction.Id);
-                    continue;
-                }
-
-                await paymentService.ReleaseEscrowAsync(transaction.Id);
+                await transactionRepository.UpdateTransactionStatusAsync(transaction.Id, confirmedStatus.Id);
 
                 var sellerNickname = await context.UserProfiles
                     .Where(x => x.UserId == transaction.SellerId)

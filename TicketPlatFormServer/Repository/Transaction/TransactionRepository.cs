@@ -121,7 +121,7 @@ public class TransactionRepository(TicketContext context, IDbConnection dapper) 
                         && t.ConfirmedAt == null
                         && t.AutoConfirmAt != null
                         && t.AutoConfirmAt <= utcNow
-                        && t.Status.Code == "paid")
+                        && t.Status.Code == "pending_payment")
             .Include(t => t.Status)
             .AsSplitQuery()
             .ToListAsync();

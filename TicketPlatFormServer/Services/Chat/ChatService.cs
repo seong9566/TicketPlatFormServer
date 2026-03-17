@@ -4,7 +4,6 @@ using TicketPlatFormServer.Common;
 using TicketPlatFormServer.Config;
 using TicketPlatFormServer.DBModel;
 using TicketPlatFormServer.DTO.Chat;
-using TicketPlatFormServer.DTO.Payment;
 using TicketPlatFormServer.Enum;
 using TicketPlatFormServer.Hubs;
 using TicketPlatFormServer.Repository.Chat;
@@ -14,7 +13,6 @@ using TicketPlatFormServer.Repository.Sell;
 using TicketPlatFormServer.Repository.Ticket;
 using TicketPlatFormServer.Repository.Transactions;
 using TicketPlatFormServer.Services.FileUpload;
-using TicketPlatFormServer.Services.Payment;
 using TicketPlatFormServer.Services.Notification;
 
 namespace TicketPlatFormServer.Services.Chat;
@@ -28,7 +26,6 @@ public class ChatService(
     IDisputeRepository disputeRepository,
     ITransactionItemRepository transactionItemRepo,
     IFileUploadService fileUploadService,
-    IPaymentService paymentService,
     INotificationService notificationService,
     IHubContext<ChatHub> hubContext,
     SupabaseStorageSettings supabaseSettings,
@@ -443,7 +440,7 @@ public class ChatService(
     /// 결제 요청 (판매자가 구매자에게)
     /// Transaction 자동 생성 및 결제 요청
     /// </summary>
-    public async Task<PaymentUrlRespDto> RequestPayment(long roomId, int userId, int quantity)
+    public async Task<TransactionCreatedRespDto> RequestPayment(long roomId, int userId, int quantity)
     {
         // 권한 확인
         await ValidateUserInRoom(roomId, userId);
@@ -523,7 +520,7 @@ public class ChatService(
             await chatRepo.SetTransactionId(roomId, createdTransaction.Id);
 
             // 4. 시스템 메시지 전송
-            var paymentMessage = $"결제가 요청되었습니다. (수량: {quantity}장, 총 금액: {totalAmount:N0}원)";
+            var paymentMessage = $"거래가 요청되었습니다. 판매자에게 직접 송금해주세요. (수량: {quantity}장, 총 금액: {totalAmount:N0}원)";
             var systemMessage = await chatRepo.CreateMessage(roomId, userId, paymentMessage, null, Enum.MessageType.PAYMENT_REQUEST);
 
             // LastMessageAt 업데이트
@@ -549,24 +546,10 @@ public class ChatService(
             logger.LogInformation("[ChatService.RequestPayment] RoomId={RoomId}, TransactionId={TransactionId}, UserId={UserId}, Quantity={Quantity}",
                 roomId, createdTransaction.Id, userId, quantity);
 
-            // 5. 결제 요청 준비 (OrderId 생성)
-            var paymentRequest = new PaymentRequestDto
+            return new TransactionCreatedRespDto
             {
-                TransactionId = createdTransaction.Id,
-                Amount = totalAmount,
-                OrderName = $"{room.Ticket.Event?.Title} 티켓 {quantity}장",
-                CustomerName = room.Buyer?.UserProfile?.Nickname,
-                CustomerEmail = room.Buyer?.Email
-            };
-
-            var paymentData = await paymentService.InitiatePaymentAsync(paymentRequest, room.BuyerId);
-            var paymentUrl = $"/payment/checkout?orderId={paymentData.OrderId}";
-
-            return new PaymentUrlRespDto
-            {
-                PaymentUrl = paymentUrl,
-                TransactionId = createdTransaction.Id,
-                Amount = paymentData.Amount
+                TransactionId = (int)createdTransaction.Id,
+                Amount = totalAmount
             };
         }
         catch (Exception ex)
@@ -604,8 +587,13 @@ public class ChatService(
             throw new AppException("거래 정보가 일치하지 않습니다.", HttpStatusCode.BadRequest);
         }
 
-        // 에스크로 해제 (판매자에게 정산)
-        await paymentService.ReleaseEscrowAsync(req.TransactionId);
+        var confirmedStatus = await transactionRepo.GetTransactionStatusByCodeAsync("confirmed");
+        if (confirmedStatus == null)
+        {
+            throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
+        }
+
+        await transactionRepo.UpdateTransactionStatusAsync(req.TransactionId, confirmedStatus.Id);
 
         // 채팅방 잠금
         await chatRepo.LockChatRoom(req.RoomId);
@@ -711,33 +699,19 @@ public class ChatService(
             throw new AppException("거래를 찾을 수 없습니다.", HttpStatusCode.NotFound);
         }
 
-        if (string.Equals(transaction.Status?.Code, "paid", StringComparison.OrdinalIgnoreCase))
+        foreach (var item in transaction.TransactionItems)
         {
-            var cancelRequest = new PaymentCancelRequestDto
-            {
-                TransactionId = req.TransactionId,
-                CancelReason = req.CancelReason,
-                CancelAmount = null
-            };
-
-            await paymentService.CancelPaymentAsync(cancelRequest, req.UserId);
+            await ticketRepo.ReleaseTicketQuantityAsync((int)item.TicketId, item.Quantity);
         }
-        else
+
+        var cancelledStatus = await transactionRepo.GetTransactionStatusByCodeAsync("cancelled");
+        if (cancelledStatus == null)
         {
-            foreach (var item in transaction.TransactionItems)
-            {
-                await ticketRepo.ReleaseTicketQuantityAsync((int)item.TicketId, item.Quantity);
-            }
-
-            var cancelledStatus = await transactionRepo.GetTransactionStatusByCodeAsync("cancelled");
-            if (cancelledStatus == null)
-            {
-                throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
-            }
-
-            await transactionRepo.UpdateTransactionStatusAsync(req.TransactionId, cancelledStatus.Id);
-            await transactionRepo.UpdateTransactionCancelledAtAsync(req.TransactionId, DateTime.UtcNow);
+            throw new AppException("거래 상태 코드를 찾을 수 없습니다.", HttpStatusCode.InternalServerError);
         }
+
+        await transactionRepo.UpdateTransactionStatusAsync(req.TransactionId, cancelledStatus.Id);
+        await transactionRepo.UpdateTransactionCancelledAtAsync(req.TransactionId, DateTime.UtcNow);
 
         // 시스템 메시지 전송
         var systemMessage = await chatRepo.CreateMessage(req.RoomId, req.UserId, $"거래가 취소되었습니다. 사유: {req.CancelReason}", null);

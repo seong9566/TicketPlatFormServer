@@ -17,7 +17,7 @@ public interface IChatService
     Task MarkMessagesAsRead(long roomId, int userId);
 
     // Transaction Actions
-    Task<PaymentUrlRespDto> RequestPayment(long roomId, int userId, int quantity);
+    Task<TransactionCreatedRespDto> RequestPayment(long roomId, int userId, int quantity);
     Task<PurchaseConfirmRespDto> ConfirmPurchase(ConfirmPurchaseReqDto req);
     Task CancelTransaction(CancelTransactionReqDto req);
     Task LeaveChatRoom(LeaveChatRoomReqDto req);
